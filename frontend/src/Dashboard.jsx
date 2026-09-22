@@ -1,58 +1,130 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, onSnapshot, where } from "firebase/firestore";
+import { collection, query, onSnapshot, where, getDocs, setDoc, doc } from "firebase/firestore";
 import { db } from './firebase';
+import integracionesData from './integraciones.json';
+
+// Extraídas directamente de tus capturas de pantalla de Google Sheets
+const LISTA_PAISES = ['Argentina', 'Bolivia', 'Chile', 'Colombia', 'Ecuador', 'El Salvador', 'Guatemala', 'Perú', 'Uruguay', 'Venezuela'];
+const LISTA_ASSETS = ['New Business', 'Upgrade/Upsell Alta Integracion', 'Upgrade/Upsell Baja Integracion', 'Franchise Extension', 'Win Back', 'Otros', 'Owner Change', 'Upgrade/Upsell Cambio de comisión', 'Legal Form Change', 'Switch', 'Sin oportunidad'];
+const LISTA_AGENTES = ['Jean Palomino', 'Prisila Leon', 'Joel Tocas', 'Yadira Flores', 'Guillermo Gonzales', 'Jean Changanaqui', 'Comercial', 'Sin asignación'];
+const LISTA_ESTADOS = ['Nuevo', 'En progreso', 'Cerrado por KAM', 'Cerrado por oportunidad satisfactoria', 'Cerrado por API Vendor', 'Fallido', 'Sin caso de onboarding (Ticket HC en progreso)'];
+const LISTA_ETAPAS = ['Validación del Onboarding', 'En proceso de verificación de catálogo', 'En proceso de seteo', 'Sin integración confirmada', 'En proceso para pruebas', 'Pedido de prueba realizado'];
 
 export default function Dashboard({ role, email, onLogout }) {
   const [activeTab, setActiveTab] = useState(role === 'Supervisor' ? 'global' : 'inicio');
   const [casos, setCasos] = useState([]);
-  const [isMuted, setIsMuted] = useState(false);
-  const audioRef = useRef(new Audio('/ding.mp3'));
-  const alertasSonadas = useRef(new Set());
+  const [listaIntegraciones, setListaIntegraciones] = useState([]);
+  
+  // Estados de Búsqueda
+  const [busquedaId, setBusquedaId] = useState("");
+  const [historialBusqueda, setHistorialBusqueda] = useState([]);
+  const [cargandoBusqueda, setCargandoBusqueda] = useState(false);
+
+  const nombreUsuarioAutenticado = email.split('@')[0];
+
+  // Estado del Formulario (Campos a - p)
+  const [formulario, setFormulario] = useState({
+    casoOp: '', // a
+    vendorId: '', // b
+    tienda: '', // c
+    pais: '', // d
+    kam: '', // e
+    integracion: '', // f
+    oportunidad: '', // g
+    asset: '', // h
+    propietarioOportunidad: 'Jean Palomino', // i (Editable, inicializado por defecto)
+    propietarioTicket: nombreUsuarioAutenticado, // j (Fijo, automático)
+    casoSeguimiento: '', // k
+    tieneCasoInicio: 'Si', // l
+    comentarios: '', // m
+    estado: 'Nuevo', // n
+    etapa: 'Validación del Onboarding', // o
+    fechaCreacion: new Date().toISOString().split('T')[0] // p
+  });
+
+  useEffect(() => {
+    const unicas = [...new Set(integracionesData.map(item => item["Nombre de la Integración"]))]
+      .filter(Boolean).sort();
+    setListaIntegraciones(unicas);
+  }, []);
 
   useEffect(() => {
     let q;
     const casosRef = collection(db, "casos");
-    
-    // Si estamos en la pestaña global y es supervisor, trae todos. Si no, trae los del agente.
     if (activeTab === 'global' && role === 'Supervisor') {
       q = query(casosRef, where("estado", "==", "En progreso"));
-    } else {
+    } else if (activeTab === 'inicio') {
       q = query(casosRef, where("estado", "==", "En progreso"), where("agente", "==", email));
+    } else {
+      return; 
     }
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCasos(data);
-      verificarSLAs(data);
+      setCasos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-
     return () => unsubscribe();
   }, [role, email, activeTab]);
 
-  const verificarSLAs = (casosActuales) => {
-    casosActuales.forEach(caso => {
-      const horas = calcularHoras(caso.sla_inicio);
-      if (horas >= 4 && !alertasSonadas.current.has(caso.id)) {
-        alertasSonadas.current.add(caso.id);
-        if (!isMuted) audioRef.current.play().catch(() => {});
+  const manejarBusqueda = async () => {
+    if (!busquedaId.trim()) return;
+    setCargandoBusqueda(true);
+    setHistorialBusqueda([]);
+    
+    try {
+      const term = busquedaId.trim();
+      const qString = query(collection(db, "casos"), where("vendor_id", "==", term));
+      const qNumber = query(collection(db, "casos"), where("vendor_id", "==", Number(term)));
+
+      const [snapString, snapNumber] = await Promise.all([getDocs(qString), getDocs(qNumber)]);
+      const resultados = [...snapString.docs, ...snapNumber.docs].map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      setHistorialBusqueda(resultados);
+
+      // Si el ID existe, replicar datos b, c, d
+      if (resultados.length > 0) {
+        const dataTienda = resultados[0];
+        setFormulario(prev => ({
+          ...prev,
+          vendorId: dataTienda.vendor_id || term,
+          tienda: dataTienda.tienda || '',
+          pais: dataTienda.pais || ''
+        }));
+      } else {
+        // Resetear si es nuevo, conservando el ID buscado
+        setFormulario(prev => ({ ...prev, vendorId: term, tienda: '', pais: '' }));
       }
-    });
+    } catch (error) {
+      console.error("Error en búsqueda:", error);
+    }
+    setCargandoBusqueda(false);
   };
 
-  const calcularHoras = (fechaInicio) => {
-    if (!fechaInicio) return 0;
-    return Math.abs(new Date() - new Date(fechaInicio)) / 36e5;
+  const manejarCambioFormulario = (e) => {
+    const { name, value } = e.target;
+    setFormulario(prev => ({ ...prev, [name]: value }));
   };
 
-  // Métricas para los Top Cards
-  const totalCasos = casos.length;
-  const riesgoCritico = casos.filter(c => calcularHoras(c.sla_inicio) >= 96).length;
-  const atencionRequerida = casos.filter(c => calcularHoras(c.sla_inicio) >= 4 && calcularHoras(c.sla_inicio) < 96).length;
+  const guardarNuevoCaso = async () => {
+    if (!formulario.casoOp) return alert("El N° Caso OP (a) es obligatorio para guardar.");
+    
+    try {
+      const casoRef = doc(db, "casos", formulario.casoOp);
+      await setDoc(casoRef, {
+        ...formulario,
+        // Estandarizamos los campos para que tu tabla de inicio los lea correctamente
+        vendor_id: formulario.vendorId, 
+        agente: formulario.propietarioTicket,
+        sla_inicio: new Date().toISOString()
+      });
+      alert("¡Caso guardado exitosamente en Firebase!");
+      manejarBusqueda(); 
+    } catch (error) {
+      console.error("Error al guardar:", error);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-[#0f111a] text-gray-200 font-sans">
       
-      {/* SIDEBAR IZQUIERDO */}
       <div className="w-64 bg-[#161925] border-r border-gray-800 flex flex-col justify-between">
         <div>
           <div className="p-6 flex items-center gap-3 border-b border-gray-800">
@@ -60,212 +132,160 @@ export default function Dashboard({ role, email, onLogout }) {
             <h1 className="text-xl font-bold text-pink-500">HeroCare ONB</h1>
           </div>
           <nav className="p-4 flex flex-col gap-2">
-            <button 
-              onClick={() => setActiveTab('inicio')}
-              className={`text-left px-4 py-2 rounded-lg flex items-center gap-3 transition ${activeTab === 'inicio' ? 'bg-pink-600 text-white' : 'hover:bg-gray-800'}`}>
-              🚨 Mis Alertas (Inicio)
-            </button>
-            <button 
-              onClick={() => setActiveTab('nuevo')}
-              className={`text-left px-4 py-2 rounded-lg flex items-center gap-3 transition ${activeTab === 'nuevo' ? 'bg-pink-600 text-white' : 'hover:bg-gray-800'}`}>
-              🔍 Consultar / Nuevo
-            </button>
-            
-            {role === 'Supervisor' && (
-              <button 
-                onClick={() => setActiveTab('global')}
-                className={`text-left px-4 py-2 rounded-lg flex items-center gap-3 transition mt-4 ${activeTab === 'global' ? 'bg-cyan-500 text-black font-semibold' : 'text-cyan-400 hover:bg-gray-800'}`}>
-                📊 Dashboard Global
-              </button>
-            )}
+            <button onClick={() => setActiveTab('inicio')} className={`text-left px-4 py-2 rounded-lg ${activeTab === 'inicio' ? 'bg-pink-600 text-white' : 'hover:bg-gray-800'}`}>🚨 Mis Alertas</button>
+            <button onClick={() => setActiveTab('nuevo')} className={`text-left px-4 py-2 rounded-lg ${activeTab === 'nuevo' ? 'bg-pink-600 text-white' : 'hover:bg-gray-800'}`}>🔍 Consultar / Nuevo</button>
           </nav>
-        </div>
-        
-        {/* Footer del Sidebar */}
-        <div className="p-4 border-t border-gray-800 text-sm">
-          <p className="text-gray-500 mb-1">Iniciaste sesión como:</p>
-          <p className="font-semibold truncate" title={email}>{email}</p>
-          <div className="flex justify-between items-center mt-3">
-            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{role}</span>
-            <button onClick={onLogout} className="text-red-400 hover:text-red-300 text-xs underline">Cerrar Sesión</button>
-          </div>
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
-      <div className="flex-1 overflow-auto p-8 relative">
-        
-        {/* Header con botón de Mute */}
-        <div className="absolute top-8 right-8">
-          <button onClick={() => setIsMuted(!isMuted)} className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 ${isMuted ? 'bg-red-900/50 text-red-400 border border-red-800' : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700'}`}>
-            {isMuted ? '🔇 Alertas Silenciadas' : '🔊 Alertas Activadas'}
-          </button>
-        </div>
-
-        {/* VISTA: DASHBOARD GLOBAL */}
-        {activeTab === 'global' && role === 'Supervisor' && (
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-3 gap-6 mb-8 mt-12">
-              <div className="bg-[#1a1d27] p-6 rounded-xl border border-gray-800 flex flex-col items-center justify-center">
-                <p className="text-gray-400 text-sm mb-2">Total Casos Activos (Equipo)</p>
-                <p className="text-4xl font-bold">{totalCasos}</p>
-              </div>
-              <div className="bg-[#1a1d27] p-6 rounded-xl border border-red-900/50 flex flex-col items-center justify-center">
-                <p className="text-red-400 text-sm mb-2">Riesgo Crítico (≥ 96h)</p>
-                <p className="text-4xl font-bold text-red-500">{riesgoCritico}</p>
-              </div>
-              <div className="bg-[#1a1d27] p-6 rounded-xl border border-yellow-900/50 flex flex-col items-center justify-center">
-                <p className="text-yellow-400 text-sm mb-2">Atención Requerida (≥ 4h)</p>
-                <p className="text-4xl font-bold text-yellow-500">{atencionRequerida}</p>
-              </div>
-            </div>
-
-            <div className="bg-[#1a1d27] rounded-xl border border-gray-800 p-6">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-xl font-bold mb-1">Monitoreo de SLA Global</h2>
-                  <p className="text-sm text-gray-400">Visualizando casos de todo el equipo ONB. Los casos cerrados se ocultan automáticamente.</p>
-                </div>
-                <button className="bg-green-600/20 text-green-400 border border-green-600 hover:bg-green-600/40 px-4 py-2 rounded-lg text-sm font-semibold transition">
-                  ⬇ Descargar Casos Críticos (.CSV)
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="text-gray-500 border-b border-gray-700">
-                    <tr>
-                      <th className="pb-3 font-medium">N° CASO</th>
-                      <th className="pb-3 font-medium">ID LOCAL</th>
-                      <th className="pb-3 font-medium">TIENDA</th>
-                      <th className="pb-3 font-medium">ESTADO ACTUAL</th>
-                      <th className="pb-3 font-medium text-center">TIEMPO SLA</th>
-                      <th className="pb-3 font-medium">AGENTE</th>
-                      <th className="pb-3 font-medium text-right">ACCIÓN TL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {casos.map(caso => {
-                      const horas = calcularHoras(caso.sla_inicio);
-                      return (
-                        <tr key={caso.id} className="border-b border-gray-800 hover:bg-gray-800/30 transition">
-                          <td className="py-4 text-gray-300">{caso.id}</td>
-                          <td className="py-4 font-mono text-gray-400">{caso.vendor_id}</td>
-                          <td className="py-4">{caso.tienda}</td>
-                          <td className="py-4">
-                            <span className="bg-blue-900/50 text-blue-300 border border-blue-800 px-2 py-1 rounded text-xs">
-                              {caso.estado}
-                            </span>
-                          </td>
-                          <td className="py-4 text-center">
-                            {horas >= 96 ? <span className="text-red-500 font-bold bg-red-900/20 px-2 py-1 rounded">≥ 96h</span> : 
-                             horas >= 4 ? <span className="text-yellow-500 font-bold bg-yellow-900/20 px-2 py-1 rounded">≥ 4h</span> : 
-                             <span className="text-green-500">OK</span>}
-                          </td>
-                          <td className="py-4 text-gray-400">{caso.agente.split('@')[0]}</td>
-                          <td className="py-4 text-right flex flex-col gap-1 items-end">
-                            <button className="text-xs bg-gray-800 border border-gray-600 hover:bg-gray-700 text-cyan-400 px-2 py-1 rounded w-32">💬 1. Copiar Slack</button>
-                            <button className="text-xs bg-green-900/30 border border-green-800 hover:bg-green-900/60 text-green-400 px-2 py-1 rounded w-32">✅ 2. Confirmar Push</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {casos.length === 0 && <p className="text-center text-gray-500 mt-8">No hay casos activos en este momento.</p>}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* VISTA: CONSULTAR / NUEVO */}
+      <div className="flex-1 overflow-auto p-8">
         {activeTab === 'nuevo' && (
-          <div className="max-w-5xl mx-auto mt-12">
-            <div className="bg-[#1a1d27] p-4 rounded-xl border border-gray-800 flex gap-4 mb-8">
-              <input type="text" placeholder="Ingrese VendorID (ej. 596135)..." className="flex-1 bg-[#0f111a] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500" />
-              <button className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-8 rounded-lg transition">Consultar Local</button>
+          <div className="max-w-7xl mx-auto mt-4">
+            
+            <div className="bg-[#1a1d27] p-4 rounded-xl border border-gray-800 flex gap-4 mb-6">
+              <input 
+                type="text" 
+                value={busquedaId}
+                onChange={(e) => setBusquedaId(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && manejarBusqueda()}
+                placeholder="Ingrese VendorID (ej. 637917) y presione Enter..." 
+                className="flex-1 bg-[#0f111a] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500" 
+              />
+              <button onClick={manejarBusqueda} disabled={cargandoBusqueda} className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-8 rounded-lg transition disabled:opacity-50">
+                {cargandoBusqueda ? 'Buscando...' : 'Consultar Local'}
+              </button>
             </div>
             
-            <div className="grid grid-cols-2 gap-8">
-              <div className="bg-[#1a1d27] p-6 rounded-xl border border-gray-800">
-                <h3 className="text-lg font-bold mb-4 border-b border-gray-700 pb-2">Historial del VendorID</h3>
-                <div className="bg-[#0f111a] p-4 rounded-lg border-l-4 border-green-500 flex justify-between items-center opacity-50">
-                  <div>
-                    <p className="font-bold text-sm">Caso OP: 345933785</p>
-                    <p className="text-xs text-gray-500">KAM: diego.kam@pedidosya.com</p>
-                  </div>
-                  <span className="text-green-500 text-xs font-bold">Cerrado Exitoso</span>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              
+              {/* HISTORIAL */}
+              <div className="xl:col-span-1 bg-[#1a1d27] p-6 rounded-xl border border-gray-800 max-h-[850px] overflow-y-auto">
+                <h3 className="text-lg font-bold mb-4 border-b border-gray-700 pb-2">Historial Previo</h3>
+                <div className="flex flex-col gap-3">
+                  {historialBusqueda.length === 0 ? (
+                    <p className="text-sm text-gray-500">Sin registros previos. Se habilitará la creación limpia.</p>
+                  ) : (
+                    historialBusqueda.map((caso) => (
+                      <div key={caso.id} className="bg-[#0f111a] p-4 rounded-lg border-l-4 border-cyan-500">
+                        <p className="font-bold text-sm text-white">OP: {caso.casoOp || caso.id}</p>
+                        <p className="text-xs text-gray-400 mt-1">Estado: <span className="text-cyan-400 font-semibold">{caso.estado}</span></p>
+                        <p className="text-xs text-gray-400">Etapa: {caso.etapa}</p>
+                        <p className="text-xs text-gray-500 mt-2">KAM: {caso.kam || 'N/A'}</p>
+                        <p className="text-xs text-gray-500">Fecha OP: {caso.fechaCreacion || 'N/A'}</p>
+                        {caso.comentarios && (
+                          <div className="mt-2 p-2 bg-gray-800/50 rounded border border-gray-700/50 text-xs text-gray-400 italic">
+                            "{caso.comentarios}"
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              <div className="bg-[#1a1d27] p-6 rounded-xl border border-pink-900/50">
-                <h3 className="text-lg font-bold mb-6">Registrar Nueva Oportunidad</h3>
-                <div className="flex flex-col gap-4">
+              {/* FORMULARIO NUEVO CASO */}
+              <div className="xl:col-span-2 bg-[#1a1d27] p-6 rounded-xl border border-pink-900/50">
+                <h3 className="text-lg font-bold mb-4 border-b border-gray-700 pb-2">Crear / Registrar Oportunidad</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Tienda (Autocompletado)</label>
-                    <input type="text" value="La Plateada - Temuco" disabled className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-gray-400" />
+                    <label className="text-xs text-gray-400 mb-1 block">a. N° Caso OP *</label>
+                    <input name="casoOp" value={formulario.casoOp} onChange={manejarCambioFormulario} type="text" className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white focus:border-pink-500" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Integración</label>
-                    <select className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white">
-                      <option>Fudo</option>
-                      <option>Toteat</option>
+                    <label className="text-xs text-gray-400 mb-1 block">b. ID (Vendor ID)</label>
+                    <input name="vendorId" value={formulario.vendorId} onChange={manejarCambioFormulario} type="text" className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-400 mb-1 block">c. Tienda</label>
+                    <input name="tienda" value={formulario.tienda} onChange={manejarCambioFormulario} type="text" className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white focus:border-pink-500" />
+                  </div>
+                  
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">d. País</label>
+                    <select name="pais" value={formulario.pais} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white">
+                      <option value="">Seleccione país...</option>
+                      {LISTA_PAISES.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">N° Ticket de HeroCare</label>
-                    <input type="text" placeholder="Ingrese el ticket..." className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white focus:outline-none focus:border-pink-500" />
+                    <label className="text-xs text-gray-400 mb-1 block">e. KAM</label>
+                    <input name="kam" value={formulario.kam} onChange={manejarCambioFormulario} type="text" className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white focus:border-pink-500" />
                   </div>
-                  <p className="text-xs text-green-400 mt-2">✓ Propietario asignado automáticamente: {email.split('@')[0]}</p>
-                  <button className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg mt-2 transition">Guardar Caso y Generar N° OP</button>
+                  
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">f. Integración</label>
+                    <select name="integracion" value={formulario.integracion} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white">
+                      <option value="">Seleccione integración...</option>
+                      {listaIntegraciones.map(i => <option key={i} value={i}>{i}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">g. Oportunidad</label>
+                    <input name="oportunidad" value={formulario.oportunidad} onChange={manejarCambioFormulario} type="text" className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white focus:border-pink-500" />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">h. Asset</label>
+                    <select name="asset" value={formulario.asset} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white">
+                      <option value="">Seleccione Asset...</option>
+                      {LISTA_ASSETS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">i. Propietario Oportunidad</label>
+                    <select name="propietarioOportunidad" value={formulario.propietarioOportunidad} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white">
+                      {LISTA_AGENTES.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">j. Propietario Ticket HeroCare</label>
+                    <input value={formulario.propietarioTicket} disabled type="text" className="w-full bg-[#0f111a] border border-gray-700 text-gray-500 rounded p-2 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">k. N° Caso Seguimiento</label>
+                    <input name="casoSeguimiento" value={formulario.casoSeguimiento} onChange={manejarCambioFormulario} type="text" className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white focus:border-pink-500" />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">l. ¿Tiene caso de onboarding inicial?</label>
+                    <select name="tieneCasoInicio" value={formulario.tieneCasoInicio} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white">
+                      <option value="Si">Si</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">p. Fecha de creación de la OP</label>
+                    <input name="fechaCreacion" type="date" value={formulario.fechaCreacion} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white" />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">n. Estado del caso</label>
+                    <select name="estado" value={formulario.estado} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-cyan-700 rounded p-2 text-cyan-400 font-semibold">
+                      {LISTA_ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">o. Etapa del onboarding</label>
+                    <select name="etapa" value={formulario.etapa} onChange={manejarCambioFormulario} className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white">
+                      {LISTA_ETAPAS.map(et => <option key={et} value={et}>{et}</option>)}
+                    </select>
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-400 mb-1 block">m. Comentarios del Onboarding</label>
+                    <textarea name="comentarios" value={formulario.comentarios} onChange={manejarCambioFormulario} rows="2" className="w-full bg-[#0f111a] border border-gray-700 rounded p-2 text-white focus:border-pink-500"></textarea>
+                  </div>
                 </div>
+
+                <button onClick={guardarNuevoCaso} className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg mt-6 transition shadow-lg shadow-pink-900/20">
+                  Guardar Caso en Base de Datos
+                </button>
               </div>
             </div>
           </div>
         )}
-
-        {/* VISTA: MIS ALERTAS (INICIO) */}
-        {activeTab === 'inicio' && (
-          <div className="max-w-4xl mx-auto mt-12">
-            <h2 className="text-2xl font-bold mb-6">Mis Casos en Progreso (SLA Crítico)</h2>
-            <div className="bg-[#1a1d27] rounded-xl border border-gray-800 p-6">
-              {casos.length === 0 ? (
-                <p className="text-gray-500">No tienes casos asignados actualmente.</p>
-              ) : (
-                <table className="w-full text-left text-sm">
-                  <thead className="text-gray-500 border-b border-gray-700">
-                    <tr>
-                      <th className="pb-3 font-medium">N° CASO OP</th>
-                      <th className="pb-3 font-medium">TIENDA</th>
-                      <th className="pb-3 font-medium text-center">TIEMPO SLA</th>
-                      <th className="pb-3 font-medium text-right">ACCIÓN</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {casos.map(caso => {
-                       const horas = calcularHoras(caso.sla_inicio);
-                       return (
-                        <tr key={caso.id} className="border-b border-gray-800">
-                          <td className="py-4 text-gray-300">{caso.id}</td>
-                          <td className="py-4">{caso.tienda}</td>
-                          <td className="py-4 text-center">
-                            {horas >= 96 ? <span className="text-red-500 font-bold bg-red-900/20 px-2 py-1 rounded">≥ 96h</span> : 
-                             horas >= 4 ? <span className="text-yellow-500 font-bold bg-yellow-900/20 px-2 py-1 rounded">≥ 4h</span> : 
-                             <span className="text-green-500">OK</span>}
-                          </td>
-                          <td className="py-4 text-right">
-                            <button className="bg-gray-800 border border-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs">✏️ Actualizar / Push</button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
       </div>
     </div>
   );
