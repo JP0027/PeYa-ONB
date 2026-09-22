@@ -1,5 +1,0 @@
-fastapi
-uvicorn
-gspread
-firebase-admin
-pydantic

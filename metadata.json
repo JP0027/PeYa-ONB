@@ -1,0 +1,7 @@
+{
+  "name": "HeroCare ONB",
+  "description": "Sistema de gestión y seguimiento de onboarding para PedidosYa (HeroCare ONB).",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
