@@ -92,12 +92,39 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
   const [guardando, setGuardando] = useState(false);
   const [tabActiva, setTabActiva] = useState('general'); // 'general' | 'seguimiento'
   const [cambioDetectado, setCambioDetectado] = useState(false);
+  const [copiadoFila, setCopiadoFila] = useState(false);
 
   // Análisis de alertas de Push y SLA
   const alertas = analizarAlertasCaso(form);
   const detallesIntegracion = obtenerDetallesIntegracion(form.integracion);
 
   if (!caso) return null;
+
+  const copiarFilaParaSheets = () => {
+    // Generar formato tabulado para pegar directamente en las celdas de Google Sheets
+    const columnas = [
+      form.casoOp,
+      form.vendorId,
+      form.tienda,
+      form.pais,
+      form.kam,
+      form.integracion,
+      form.oportunidad,
+      form.asset,
+      form.casoSeguimiento,
+      form.propietarioOportunidad,
+      form.propietarioTicket,
+      form.tieneCasoInicio,
+      form.comentarios,
+      form.fechaCreacion,
+      form.estado,
+      form.etapa,
+      form.sla_inicio
+    ];
+    navigator.clipboard.writeText(columnas.join('\t'));
+    setCopiadoFila(true);
+    setTimeout(() => setCopiadoFila(false), 4000);
+  };
 
   const manejarCambio = (e) => {
     const { name, value, type, checked } = e.target;
@@ -636,10 +663,23 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
         </div>
 
         {/* FOOTER ACTIONS */}
-        <div className="p-4 border-t border-gray-800 bg-[#12141e] flex items-center justify-between gap-3">
-          <div className="text-xs text-gray-400">
+        <div className="p-4 border-t border-gray-800 bg-[#12141e] flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
+            {caso.filaNumero && (
+              <span className="bg-gray-800 text-gray-300 px-2.5 py-1 rounded-md border border-gray-700 font-mono text-[11px]">
+                Fila en Sheet: #{caso.filaNumero}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={copiarFilaParaSheets}
+              className="bg-gray-800 hover:bg-gray-700 text-pink-300 px-3 py-1 rounded-md border border-pink-900/50 text-[11px] font-semibold transition flex items-center gap-1.5 shadow"
+              title="Copia los campos tabulados para pegarlos con Ctrl+V directamente en la fila de Google Sheets"
+            >
+              <span>{copiadoFila ? '✅ ¡Copiado para Sheets!' : '📋 Copiar fila para Sheets'}</span>
+            </button>
             {cambioDetectado && (
-              <span className="text-amber-400 flex items-center gap-1">
+              <span className="text-amber-400 flex items-center gap-1 text-[11px]">
                 <span>●</span> Modificaciones pendientes por guardar
               </span>
             )}
@@ -659,7 +699,7 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
               disabled={guardando}
               className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-5 rounded-lg text-xs transition flex items-center gap-2 shadow-lg shadow-pink-900/20 disabled:opacity-50"
             >
-              <span>{guardando ? '💾 Guardando...' : '💾 Actualizar Caso en Google Sheets'}</span>
+              <span>{guardando ? '💾 Guardando...' : '💾 Guardar Cambios'}</span>
             </button>
           </div>
         </div>

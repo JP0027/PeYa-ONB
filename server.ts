@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'fs';
 import { sheetsBackendService } from './src/services/sheetsBackendService.js';
 
 async function startServer() {
@@ -293,6 +294,15 @@ async function startServer() {
     }
   });
 
+  // Estado de sincronización en tiempo real para clientes simultáneos
+  app.get('/api/sheets/sync-status', (_req, res) => {
+    res.json({
+      success: true,
+      ultimoCambioTimestamp: sheetsBackendService.obtenerUltimoCambio(),
+      totalCasos: sheetsBackendService.obtenerTotal()
+    });
+  });
+
   // Actualización o creación de caso sin duplicar registro
   app.post('/api/sheets/actualizar-caso', async (req, res) => {
     try {
@@ -304,26 +314,41 @@ async function startServer() {
 
       // Si existe una URL de Google Apps Script configurada, reenviar la mutación directamente al Google Sheet
       const gasUrl = (casoData._gasUrl || req.headers['x-gas-url'] || '').toString().trim();
+      let sheetsSincronizado = false;
+      let gasMensaje = '';
+
       if (gasUrl && gasUrl.startsWith('http')) {
         let targetUrl = gasUrl;
         if (gasUrl.includes('/a/macros/')) {
           targetUrl = gasUrl.replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/');
         }
-        fetch(targetUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(casoData)
-        })
-          .then(async r => {
-            const respTxt = await r.text();
-            console.log(`[actualizar-caso] Respuesta de Google Apps Script: ${respTxt.slice(0, 150)}`);
-          })
-          .catch(e => {
-            console.warn('[actualizar-caso] Error reenviando a GAS:', e.message);
+        try {
+          const r = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(casoData)
           });
+          const respTxt = await r.text();
+          if (r.ok && !respTxt.includes('ServiceLogin') && !respTxt.includes('accounts.google.com')) {
+            sheetsSincronizado = true;
+            gasMensaje = 'Sincronizado con Google Sheets';
+          } else {
+            gasMensaje = 'Google Apps Script rechazó la conexión (requiere inicio de sesión de PedidosYa o permisos corporativos).';
+            console.warn(`[actualizar-caso] GAS bloqueado por login: ${respTxt.slice(0, 120)}`);
+          }
+        } catch (e: any) {
+          gasMensaje = `Error al conectar con Google Apps Script: ${e.message}`;
+          console.warn('[actualizar-caso] Error reenviando a GAS:', e.message);
+        }
+      } else {
+        gasMensaje = 'No hay Web App o Service Account conectada a Google Sheets.';
       }
 
-      res.json(resultado);
+      res.json({
+        ...resultado,
+        sheetsSincronizado,
+        gasMensaje
+      });
     } catch (err: any) {
       console.error('[API /api/sheets/actualizar-caso] Error:', err);
       res.status(500).json({ success: false, error: err.message });
@@ -331,13 +356,20 @@ async function startServer() {
   });
 
   // Montar Vite middleware para desarrollo o archivos estáticos en producción
-  if (process.env.NODE_ENV === 'production') {
-    const distPath = path.resolve(process.cwd(), 'dist');
+  const distPath = path.resolve(process.cwd(), 'dist');
+  const indexHtmlPath = path.resolve(distPath, 'index.html');
+  const distExiste = fs.existsSync(indexHtmlPath);
+
+  if (process.env.NODE_ENV === 'production' && distExiste) {
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
+    app.use((req, res, next) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(indexHtmlPath);
     });
   } else {
+    // Si estamos en desarrollo o aún no se compila dist, Vite maneja el bundling
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'

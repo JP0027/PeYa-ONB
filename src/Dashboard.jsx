@@ -22,6 +22,8 @@ import {
   analizarAlertasCaso 
 } from './utils/onboardingRules';
 import ModalDetalleCaso from './components/ModalDetalleCaso';
+import HeroCareTLView from './components/HeroCareTLView';
+import { puedeRegistrarCasos, esSupervisor } from './utils/userPermissions';
 
 const LISTA_PAISES = [
   'Argentina', 'Chile', 'Uruguay', 'Ecuador', 'Perú', 
@@ -65,8 +67,11 @@ const LISTA_OPORTUNIDADES = [
   'Upgrade/Upsell Baja Integracion'
 ];
 
-export default function Dashboard({ role, email, onLogout }) {
-  const [activeTab, setActiveTab] = useState(role === 'Supervisor' ? 'global' : 'inicio');
+export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
+  const tieneAccesoSupervisor = useMemo(() => esSupervisor(role), [role]);
+  const puedeRegistrar = useMemo(() => puedeRegistrarCasos(role), [role]);
+
+  const [activeTab, setActiveTab] = useState(tieneAccesoSupervisor ? 'tl' : 'inicio');
   const [casosFirestore, setCasosFirestore] = useState([]);
   const [casosSheets, setCasosSheets] = useState([]);
   const [cargandoSheets, setCargandoSheets] = useState(false);
@@ -94,7 +99,7 @@ export default function Dashboard({ role, email, onLogout }) {
 
   const audioRef = useRef(null);
   const miembroActual = useMemo(() => identificarMiembro(email), [email]);
-  const nombreUsuarioAutenticado = miembroActual?.nombre || (email || '').split('@')[0] || 'Jean Palomino';
+  const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Jean Palomino';
 
   // Estado del Formulario (Campos a - p exactos)
   const [formulario, setFormulario] = useState({
@@ -178,6 +183,34 @@ export default function Dashboard({ role, email, onLogout }) {
     }
     return () => unsubscribe();
   }, [casosFirestore.length]);
+
+  // Sincronización continua en segundo plano para múltiples agentes y supervisores en simultáneo
+  useEffect(() => {
+    let ultimoTimestamp = 0;
+    const chequearCambiosSimultaneos = async () => {
+      try {
+        const res = await fetch('/api/sheets/sync-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ultimoCambioTimestamp && data.ultimoCambioTimestamp > ultimoTimestamp) {
+            if (ultimoTimestamp > 0) {
+              // Silenciosamente refrescar lista de casos sin interrumpir inputs
+              const nuevosCasos = await consultarCasosGoogleSheets();
+              if (Array.isArray(nuevosCasos) && nuevosCasos.length > 0) {
+                setCasosSheets(nuevosCasos);
+              }
+            }
+            ultimoTimestamp = data.ultimoCambioTimestamp;
+          }
+        }
+      } catch {
+        // Ignorar errores transitorios de polling
+      }
+    };
+
+    const interval = setInterval(chequearCambiosSimultaneos, 6000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Helper para saber si un caso es activo
   const esCasoActivo = (c) => {
@@ -370,11 +403,17 @@ export default function Dashboard({ role, email, onLogout }) {
 
         // Actualizar en caso seleccionado del modal
         setCasoSeleccionadoModal(casoActualizado);
-        mostrarNotificacion(`✅ Caso OP ${casoActualizado.casoOp || casoActualizado.id} actualizado en Google Sheets (Propietario: ${casoActualizado.propietarioOportunidad}).`, "success");
+
+        if (res.sheetsSincronizado) {
+          mostrarNotificacion(`✅ Caso OP ${casoActualizado.casoOp || casoActualizado.id} actualizado y sincronizado en Google Sheets en vivo.`, "success");
+        } else {
+          mostrarNotificacion(`💾 Caso OP ${casoActualizado.casoOp || casoActualizado.id} guardado en la app. NOTA: No impactó en el archivo de Google Sheets porque la Web App no está conectada o requiere permisos corporativos.`, "warning");
+        }
+        return res;
       }
     } catch (err) {
       console.error("Error al actualizar caso:", err);
-      mostrarNotificacion("Error al actualizar el registro en Google Sheets.", "error");
+      mostrarNotificacion("Error al actualizar el registro.", "error");
     }
   };
 
@@ -415,9 +454,10 @@ export default function Dashboard({ role, email, onLogout }) {
         console.warn("Aviso: Firestore offline:", err);
       });
 
-      // 3. Web App Google Apps Script si está configurada
-      if (GAS_WEBAPP_URL) {
-        fetch(GAS_WEBAPP_URL, {
+      // 3. Web App Google Apps Script si está configurada (vía backend o cliente)
+      const urlGas = obtenerGasUrl() || GAS_WEBAPP_URL;
+      if (urlGas) {
+        fetch(urlGas, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
@@ -878,13 +918,28 @@ export default function Dashboard({ role, email, onLogout }) {
       <div className="w-64 bg-[#161925] border-r border-gray-800 flex flex-col justify-between shrink-0">
         <div>
           <div className="p-6 flex items-center gap-3 border-b border-gray-800">
-            <div className="w-9 h-9 bg-pink-600 rounded-lg flex items-center justify-center font-bold text-white shadow-md">HC</div>
+            <div className="w-9 h-9 bg-pink-600 rounded-lg flex items-center justify-center font-black text-white shadow-md">PY</div>
             <div>
-              <h1 className="text-lg font-bold text-pink-500 leading-tight">HeroCare ONB</h1>
+              <h1 className="text-lg font-bold text-pink-500 leading-tight">PeYa ONB</h1>
               <p className="text-[11px] text-gray-400">PedidosYa Onboarding</p>
             </div>
           </div>
           <nav className="p-4 flex flex-col gap-2">
+            {tieneAccesoSupervisor && (
+              <button 
+                onClick={() => setActiveTab('tl')} 
+                className={`text-left px-4 py-2.5 rounded-lg flex items-center justify-between transition text-sm font-semibold ${activeTab === 'tl' ? 'bg-[#00e5ff] text-black shadow-lg shadow-cyan-500/20' : 'hover:bg-gray-800 text-cyan-300'}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span>📦</span>
+                  <span>HeroCare TL</span>
+                </div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${activeTab === 'tl' ? 'bg-black text-cyan-300' : 'bg-cyan-950 text-cyan-400 border border-cyan-800'}`}>
+                  TL
+                </span>
+              </button>
+            )}
+
             <button 
               onClick={() => setActiveTab('inicio')} 
               className={`text-left px-4 py-2.5 rounded-lg flex items-center gap-2.5 transition text-sm font-medium ${activeTab === 'inicio' ? 'bg-pink-600 text-white font-semibold' : 'hover:bg-gray-800 text-gray-300'}`}
@@ -904,7 +959,7 @@ export default function Dashboard({ role, email, onLogout }) {
               className={`text-left px-4 py-2.5 rounded-lg flex items-center gap-2.5 transition text-sm font-medium ${activeTab === 'nuevo' ? 'bg-pink-600 text-white font-semibold' : 'hover:bg-gray-800 text-gray-300'}`}
             >
               <span>🔍</span>
-              <span>Consultar / Nuevo</span>
+              <span>{puedeRegistrar ? 'Consultar / Registrar' : 'Consultar / Historial'}</span>
             </button>
           </nav>
         </div>
@@ -957,8 +1012,22 @@ export default function Dashboard({ role, email, onLogout }) {
           </div>
         )}
 
+        {/* TAB: HEROCARE TL (SUPERVISIÓN & ESCALAMIENTO) */}
+        {activeTab === 'tl' && (
+          <div className="max-w-7xl mx-auto">
+            <HeroCareTLView 
+              casos={casosSheets}
+              onSeleccionarCaso={(caso) => setCasoSeleccionadoModal(caso)}
+              onActualizarCaso={manejarActualizarCasoDesdeModal}
+              nombreUsuario={nombreUsuarioAutenticado}
+              rolUsuario={role}
+              mostrarNotificacion={mostrarNotificacion}
+            />
+          </div>
+        )}
+
         {/* TAB: MIS CASOS / GLOBAL */}
-        {activeTab !== 'nuevo' && (
+        {(activeTab === 'inicio' || activeTab === 'global') && (
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
@@ -1671,12 +1740,24 @@ export default function Dashboard({ role, email, onLogout }) {
                   </div>
                 </div>
 
+                {!puedeRegistrar && (
+                  <div className="bg-amber-950/40 border border-amber-500/50 text-amber-300 p-3.5 rounded-xl text-xs mt-6 flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>Modo Supervisión: El registro de nuevos casos está reservado para usuarios con rol <strong>Agente</strong> o <strong>Agente / Supervisor</strong>. Como Supervisor puedes consultar el historial y monitorear escalamientos desde HeroCare TL.</span>
+                  </div>
+                )}
+
                 <button 
                   onClick={guardarNuevoCaso} 
-                  className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 rounded-lg mt-6 transition shadow-lg shadow-pink-900/20 text-sm flex items-center justify-center gap-2"
+                  disabled={!puedeRegistrar}
+                  className={`w-full font-bold py-3.5 rounded-lg mt-4 transition shadow-lg text-sm flex items-center justify-center gap-2 ${
+                    puedeRegistrar 
+                      ? 'bg-pink-600 hover:bg-pink-700 text-white shadow-pink-900/20' 
+                      : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
+                  }`}
                 >
                   <span>💾</span>
-                  <span>Guardar Caso en Google Sheets y Base de Datos</span>
+                  <span>{puedeRegistrar ? 'Guardar Caso en Google Sheets y Base de Datos' : 'Registro de Casos reservado para Agentes'}</span>
                 </button>
               </div>
             </div>

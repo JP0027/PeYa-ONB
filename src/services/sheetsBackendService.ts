@@ -46,10 +46,19 @@ export class SheetsService {
   private tokenExpiry: number = 0;
   private serviceAccountPath: string | null = null;
   private cachedCasosMemoria: CasoSheets[] = [];
+  private ultimoCambioTimestamp: number = Date.now();
 
   constructor() {
     this.detectarCredenciales();
     this.cargarCasosCache();
+  }
+
+  public obtenerUltimoCambio(): number {
+    return this.ultimoCambioTimestamp;
+  }
+
+  public obtenerTotal(): number {
+    return this.cachedCasosMemoria.length;
   }
 
   private cargarCasosCache(): void {
@@ -70,6 +79,7 @@ export class SheetsService {
   public guardarCasosCache(casos: CasoSheets[]): void {
     try {
       this.cachedCasosMemoria = casos;
+      this.ultimoCambioTimestamp = Date.now();
       fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(casos, null, 2), 'utf-8');
       console.log(`[SheetsService] Guardados ${casos.length} casos en cache local (${CACHE_FILE_PATH})`);
     } catch (e) {

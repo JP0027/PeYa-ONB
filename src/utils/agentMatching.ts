@@ -5,7 +5,7 @@
 
 export interface MiembroEquipo {
   nombre: string;
-  rol: 'Supervisor' | 'Agente';
+  rol: 'Supervisor' | 'Agente' | 'Agente / Supervisor';
   slugs: string[];
   correos: string[];
 }
@@ -14,7 +14,7 @@ export interface MiembroEquipo {
 export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   {
     nombre: 'Jean Palomino',
-    rol: 'Supervisor',
+    rol: 'Agente / Supervisor',
     slugs: ['palomino', 'jppd', 'jean palomino', 'jean.palomino'],
     correos: [
       'jean.palomino_dyn.ext@pedidosya.com',
@@ -24,7 +24,7 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   },
   {
     nombre: 'Yadira Flores',
-    rol: 'Agente',
+    rol: 'Agente / Supervisor',
     slugs: ['flores', 'yadirayajaida', 'yadira flores', 'yadira.flores'],
     correos: [
       'yadira.flores_dyn.ext@pedidosya.com',
@@ -51,6 +51,22 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
     ]
   },
   {
+    nombre: 'Henry Serrato',
+    rol: 'Supervisor',
+    slugs: ['serrato', 'henry serrato', 'henry.serrato'],
+    correos: [
+      'henry.serrato_dyn.ext@pedidosya.com'
+    ]
+  },
+  {
+    nombre: 'Joseline Yactayo',
+    rol: 'Supervisor',
+    slugs: ['yactayo', 'joseline yactayo', 'joseline.yactayo'],
+    correos: [
+      'joseline.yactayo_dyn.ext@pedidosya.com'
+    ]
+  },
+  {
     nombre: 'Guillermo Gonzales',
     rol: 'Agente',
     slugs: ['gonzales', 'guillermo gonzales', 'guillermo.gonzales'],
@@ -69,25 +85,26 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
     ]
   },
   {
-    nombre: 'Henry Serrato',
+    nombre: 'Agente Demo',
     rol: 'Agente',
-    slugs: ['serrato', 'henry serrato', 'henry.serrato'],
+    slugs: ['agente demo', 'demo', 'agente.demo'],
     correos: [
-      'henry.serrato_dyn.ext@pedidosya.com'
+      'agente.demo@pedidosya.com',
+      'demo@pedidosya.com'
     ]
   },
   {
-    nombre: 'Joseline Yactayo',
-    rol: 'Agente',
-    slugs: ['yactayo', 'joseline yactayo', 'joseline.yactayo'],
+    nombre: 'Supervisor Demo',
+    rol: 'Supervisor',
+    slugs: ['supervisor demo', 'supervisor.demo'],
     correos: [
-      'joseline.yactayo_dyn.ext@pedidosya.com'
+      'supervisor.demo@pedidosya.com'
     ]
   }
 ];
 
-export const SUPERVISORES = AGENTES_CONOCIDOS.filter(m => m.rol === 'Supervisor');
-export const AGENTES_OPERATIVOS = AGENTES_CONOCIDOS.filter(m => m.rol === 'Agente');
+export const SUPERVISORES = AGENTES_CONOCIDOS.filter(m => m.rol.includes('Supervisor'));
+export const AGENTES_OPERATIVOS = AGENTES_CONOCIDOS.filter(m => m.rol.includes('Agente'));
 
 export function normalizarTexto(texto: string): string {
   if (!texto) return '';
