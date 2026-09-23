@@ -79,6 +79,8 @@ export async function obtenerCasosFirestore() {
 /**
  * Genera el script que se puede pegar en Google Sheets (Extensiones > Apps Script)
  * para enviar datos automáticamente a Firebase Firestore mediante su REST API oficial sin enlaces.
+ * Detecta dinámicamente las cabeceras reales (Estado, Etapa, Tienda, etc.) para que sólo
+ * los casos verdaderamente activos se marquen en progreso.
  */
 export function generarScriptAppsScriptParaFirebase() {
   return `/**
@@ -86,16 +88,13 @@ export function generarScriptAppsScriptParaFirebase() {
  * SCRIPT DE SINCRONIZACIÓN AUTOMÁTICA CON FIREBASE FIRESTORE (PEDIDOSYA ONB)
  * ==============================================================================
  * Este script se ejecuta DIRECTAMENTE DENTRO DE GOOGLE SHEETS con tus permisos corporativos.
- * Lee la hoja "Onboarding_New" y envía los casos directamente a Firebase Firestore.
+ * Detecta automáticamente las columnas por nombre (Estado, Etapa, Tienda, KAM, etc.)
+ * y sincroniza los casos en Firebase Firestore respetando los 33 casos reales en progreso.
  * 
- * INSTRUCCIONES DE USO:
+ * INSTRUCCIONES:
  * 1. En Google Sheets ve a: Extensiones > Apps Script.
- * 2. Borra el código existente, pega este script completo y guarda (Ctrl+S).
- * 3. Cierra y recarga la hoja de Google Sheets.
- * 4. Aparecerá un menú arriba a la derecha: "🚀 Firebase ONB" > "☁️ Sincronizar Casos a Firebase".
- * 5. (Opcional): Para sincronización 100% automática cada 5 minutos:
- *    En Apps Script haz clic en el reloj de la izquierda (Activadores) > 
- *    Añadir activador > sincronizarCasosAFirebase > Basado en tiempo > Cada 5 minutos.
+ * 2. Reemplaza el código anterior por este nuevo script y guarda (💾).
+ * 3. En la hoja de cálculo ve al menú: "🚀 Firebase ONB" > "☁️ Sincronizar Casos a Firebase".
  */
 
 function onOpen() {
@@ -111,37 +110,125 @@ function sincronizarCasosAFirebase() {
   const sheet = ss.getSheetByName("Onboarding_New") || ss.getSheetByName("Onboarding") || ss.getActiveSheet();
   
   const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
   if (lastRow < 3) {
-    SpreadsheetApp.getActiveSpreadsheet().toast("No hay filas con datos en la hoja", "Aviso");
+    SpreadsheetApp.getActiveSpreadsheet().toast("No hay filas de datos", "Aviso");
     return;
   }
   
-  // Rango desde la fila 3 hasta la última fila, columnas A a Z
-  const values = sheet.getRange(3, 1, lastRow - 2, 26).getValues();
-  let enviados = 0;
+  // 1. Localizar la fila de encabezados examinando las primeras 5 filas
+  const topRows = sheet.getRange(1, 1, Math.min(5, lastRow), lastCol).getValues();
+  let headerRowIndex = 2; // Por defecto fila 2 en Onboarding_New
+  let headers = [];
+  
+  for (let r = 0; r < topRows.length; r++) {
+    const rowStr = topRows[r].map(function(c) { return String(c || '').toLowerCase().trim(); });
+    if (rowStr.some(function(c) { return c.includes('caso') || c.includes('tienda') || c === 'id'; })) {
+      headerRowIndex = r + 1;
+      headers = rowStr;
+      break;
+    }
+  }
+  
+  if (headers.length === 0 && topRows.length >= 2) {
+    headers = topRows[1].map(function(c) { return String(c || '').toLowerCase().trim(); });
+  }
+
+  function findCol(predicate) {
+    for (let i = 0; i < headers.length; i++) {
+      if (predicate(headers[i])) return i;
+    }
+    return -1;
+  }
+  
+  // Mapeo dinámico e inteligente de columnas
+  const colCasoOp = findCol(function(h) { return (h.includes('caso') && h.includes('op')) || h === 'n° caso op'; });
+  const colVendorId = findCol(function(h) { return h === 'id' || h.includes('vendor'); });
+  const colTienda = findCol(function(h) { return h.includes('tienda'); });
+  const colPais = findCol(function(h) { return h.includes('país') || h.includes('pais'); });
+  const colKam = findCol(function(h) { return h.includes('kam'); });
+  const colIntegracion = findCol(function(h) { return h.includes('integrac'); });
+  const colOportunidad = findCol(function(h) { return h.includes('oportunidad') && !h.includes('propietario'); });
+  const colAsset = findCol(function(h) { return h.includes('asset'); });
+  const colPropOp = findCol(function(h) { return h.includes('propietario') && h.includes('oportunidad'); });
+  const colPropTicket = findCol(function(h) { return h.includes('herocare') || (h.includes('propietario') && h.includes('ticket')); });
+  
+  // Buscar específicamente la columna real de Estado (no columnas de fechas)
+  let colEstado = findCol(function(h) { return h === 'estado' || h === 'estado del caso' || h === 'estado caso'; });
+  if (colEstado === -1) {
+    colEstado = findCol(function(h) { return h.includes('estado') && !h.includes('onboarding'); });
+  }
+  
+  // Columna de Etapa (Estado del Onboarding)
+  let colEtapa = findCol(function(h) { return h.includes('etapa') || h.includes('onboarding') || h === 'status'; });
+  
+  // Si no se encontraron por nombre, fallback a columnas típicas de Onboarding_New
+  const cCasoOp = colCasoOp >= 0 ? colCasoOp : 0;      // Col A
+  const cVendor = colVendorId >= 0 ? colVendorId : 1;   // Col B
+  const cTienda = colTienda >= 0 ? colTienda : 2;       // Col C
+  const cPais = colPais >= 0 ? colPais : 3;             // Col D
+  const cKam = colKam >= 0 ? colKam : 4;               // Col E
+  const cInteg = colIntegracion >= 0 ? colIntegracion : 5; // Col F
+  const cOp = colOportunidad >= 0 ? colOportunidad : 6;
+  const cAsset = colAsset >= 0 ? colAsset : 7;
+  const cPropOp = colPropOp >= 0 ? colPropOp : 9;
+  const cPropHc = colPropTicket >= 0 ? colPropTicket : 10;
+  
+  // Leer todas las filas de datos
+  const dataStartRow = headerRowIndex + 1;
+  const numRows = lastRow - dataStartRow + 1;
+  if (numRows <= 0) return;
+  
+  const values = sheet.getRange(dataStartRow, 1, numRows, lastCol).getValues();
+  let sincronizados = 0;
+  let activosEnProgreso = 0;
   
   for (let i = 0; i < values.length; i++) {
     const row = values[i];
-    const casoOp = String(row[0] || '').trim(); // Col A: N° Caso OP
-    const vendorId = String(row[1] || '').trim(); // Col B: ID / Vendor ID
-    const tienda = String(row[2] || '').trim(); // Col C: Tienda
+    const casoOp = String(row[cCasoOp] || '').trim();
+    const vendorId = String(row[cVendor] || '').trim();
+    const tienda = String(row[cTienda] || '').trim();
     
-    // Si la fila está vacía, continuar
     if (!casoOp && !vendorId && !tienda) continue;
     
-    const docId = casoOp || vendorId || ('CASO_' + (i + 3));
-    const pais = String(row[3] || 'Argentina').trim();
-    const kam = String(row[4] || '').trim();
-    const integracion = String(row[5] || '').trim();
-    const oportunidad = String(row[6] || '').trim();
-    const asset = String(row[7] || '').trim();
-    const propOportunidad = String(row[9] || '').trim();
-    const propTicket = String(row[10] || '').trim();
-    const agente = propTicket || propOportunidad || 'Sin asignación';
-    const estado = String(row[17] || 'En progreso').trim();
-    const etapa = String(row[18] || 'Validación del Onboarding').trim();
+    const docId = casoOp || vendorId || ('CASO_' + (i + dataStartRow));
     
-    // Estructura oficial de documento para Firestore REST API
+    // Obtener y sanear Estado
+    let estado = colEstado >= 0 ? String(row[colEstado] || '').trim() : '';
+    let etapa = colEtapa >= 0 ? String(row[colEtapa] || '').trim() : '';
+    
+    // Si la columna detectada es una fecha (ej: contiene "GMT" o es un Date), buscar en las celdas adyacentes la que tenga el texto de estado real
+    if (estado instanceof Date || estado.includes('GMT') || estado.includes('00:00:00') || !estado) {
+      for (let c = 12; c < Math.min(row.length, 25); c++) {
+        const val = String(row[c] || '').trim();
+        const valLower = val.toLowerCase();
+        if (valLower === 'en progreso' || valLower === 'cerrado' || valLower === 'fallido' || valLower === 'nuevo' || valLower === 'ticket hc') {
+          estado = val;
+          break;
+        }
+      }
+    }
+    
+    // Si aún no hay estado definido, usar etapa o valor por defecto
+    if (!estado || estado.includes('GMT')) {
+      estado = etapa || 'En progreso';
+    }
+    
+    const estadoLower = estado.toLowerCase();
+    const etapaLower = etapa.toLowerCase();
+    
+    // DETERMINACIÓN ESTRICTA DE CASO ACTIVO / EN PROGRESO:
+    const esCerrado = estadoLower.includes('cerrado') || estadoLower.includes('fallido') || estadoLower.includes('cancelado') || etapaLower.includes('fallido') || etapaLower.includes('pedido de prueba realizado');
+    const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc') || estadoLower === 'abierto');
+    
+    if (esActivo) {
+      activosEnProgreso++;
+    }
+    
+    const propOportunidad = String(row[cPropOp] || '').trim();
+    const propTicket = String(row[cPropHc] || '').trim();
+    const agente = propTicket || propOportunidad || 'Sin asignación';
+    
     const firestoreDocument = {
       fields: {
         id: { stringValue: docId },
@@ -149,23 +236,22 @@ function sincronizarCasosAFirebase() {
         vendorId: { stringValue: vendorId },
         vendor_id: { stringValue: vendorId },
         tienda: { stringValue: tienda },
-        pais: { stringValue: pais },
-        kam: { stringValue: kam },
-        integracion: { stringValue: integracion },
-        oportunidad: { stringValue: oportunidad },
-        asset: { stringValue: asset },
+        pais: { stringValue: String(row[cPais] || 'Argentina').trim() },
+        kam: { stringValue: String(row[cKam] || '').trim() },
+        integracion: { stringValue: String(row[cInteg] || '').trim() },
+        oportunidad: { stringValue: String(row[cOp] || '').trim() },
+        asset: { stringValue: String(row[cAsset] || '').trim() },
         propietarioOportunidad: { stringValue: propOportunidad },
         propietarioTicket: { stringValue: propTicket },
         agente: { stringValue: agente },
         estado: { stringValue: estado },
         etapa: { stringValue: etapa },
-        esActivo: { booleanValue: !estado.toLowerCase().includes('cerrado') && !estado.toLowerCase().includes('fallido') },
+        esActivo: { booleanValue: esActivo },
         origen: { stringValue: 'Google Sheets (ONB 2026)' },
         actualizadoEn: { stringValue: new Date().toISOString() }
       }
     };
     
-    // Enviar a Firestore REST API
     const firestoreUrl = 'https://firestore.googleapis.com/v1/projects/' + PROJECT_ID + '/databases/(default)/documents/casos/' + encodeURIComponent(docId);
     
     try {
@@ -175,13 +261,17 @@ function sincronizarCasosAFirebase() {
         payload: JSON.stringify(firestoreDocument),
         muteHttpExceptions: true
       });
-      enviados++;
+      sincronizados++;
     } catch (e) {
-      Logger.log("Error enviando caso " + docId + ": " + e);
+      Logger.log("Error en caso " + docId + ": " + e);
     }
   }
   
-  SpreadsheetApp.getActiveSpreadsheet().toast("Se sincronizaron " + enviados + " casos con Firebase exitosamente.", "🚀 Firebase Actualizado");
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    "Sincronizados: " + sincronizados + " casos (" + activosEnProgreso + " casos activos en progreso)", 
+    "🚀 Firebase OK", 
+    8
+  );
 }
 `;
 }

@@ -234,12 +234,36 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Helper para saber si un caso es activo
+  // Helper para saber si un caso es activo y está realmente en progreso
   const esCasoActivo = (c) => {
-    if (typeof c.esActivo === 'boolean') return c.esActivo;
-    const est = String(c.estado || '').toLowerCase();
-    const esCerrado = est.includes('cerrado') || est.includes('fallido');
-    return !esCerrado && (est.includes('en progreso') || est.includes('nuevo') || est.includes('ticket hc'));
+    const est = String(c.estado || '').toLowerCase().trim();
+    const etap = String(c.etapa || '').toLowerCase().trim();
+    
+    // Descartar cerrados, fallidos o finalizados
+    if (est.includes('cerrado') || est.includes('fallido') || est.includes('cancelado') || est.includes('resuelto')) return false;
+    if (etap.includes('cerrado') || etap.includes('fallido') || etap.includes('pedido de prueba realizado')) return false;
+
+    // Si viene booleano esActivo explícito y no es una fecha corrupta
+    if (typeof c.esActivo === 'boolean') {
+      // Si el estado es una fecha corrupta (GMT...), revisar si esActivo fue puesto en true
+      if (est.includes('gmt') || est.includes('hora estándar')) {
+        // En los casos con fecha corrupta, sólo considerar activos si no son cerrados
+        return c.esActivo && !est.includes('cerrado') && !etap.includes('cerrado');
+      }
+      return c.esActivo;
+    }
+
+    // Si no tiene booleano, evaluar estados válidos en progreso
+    return est.includes('en progreso') || est.includes('nuevo') || est.includes('ticket hc') || est.includes('abierto');
+  };
+
+  // Helper para formatear visualmente el estado y limpiar si vino como fecha
+  const limpiarTextoEstado = (estado, etapa) => {
+    const estStr = String(estado || '').trim();
+    if (!estStr || estStr.includes('GMT') || estStr.includes('hora estándar') || estStr.includes('00:00:00')) {
+      return etapa && !etapa.includes('GMT') ? etapa : 'En progreso';
+    }
+    return estStr;
   };
 
   // Casos unificados y filtrados para la vista actual
@@ -250,7 +274,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     casosFirestore.forEach(c => {
       const key = String(c.casoOp || c.id);
       if (!mapaCasos.has(key)) {
-        mapaCasos.set(key, { ...c, esActivo: true });
+        mapaCasos.set(key, c);
       }
     });
 
@@ -1401,8 +1425,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
                                   {/* n & o. Estado y Etapa */}
                                   <td className="py-3.5 px-4 text-xs">
-                                    <span className="text-cyan-400 font-medium block">{c.estado || 'En progreso'}</span>
-                                    <span className="text-gray-400 text-[11px] mt-0.5 block truncate max-w-[130px]">{c.etapa || 'Validación'}</span>
+                                    <span className="text-cyan-400 font-medium block">{limpiarTextoEstado(c.estado, c.etapa)}</span>
+                                    <span className="text-gray-400 text-[11px] mt-0.5 block truncate max-w-[130px]">{c.etapa && !c.etapa.includes('GMT') ? c.etapa : 'Validación del Onboarding'}</span>
                                   </td>
 
                                   {/* Push POS API */}
