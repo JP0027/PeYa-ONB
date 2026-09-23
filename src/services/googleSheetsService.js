@@ -342,67 +342,330 @@ function doPost(e) {
 `;
 
 /**
- * Prueba la URL de Google Apps Script a través del proxy del backend
+ * Parsea un texto CSV / TSV directamente en el navegador del cliente (compatible con Netlify y servidores estáticos)
+ */
+export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
+  if (!csvText || typeof csvText !== 'string') return [];
+
+  const lines = [];
+  let currentLine = [];
+  let currentField = '';
+  let inQuotes = false;
+
+  const firstLine = csvText.split('\n')[0] || '';
+  const delimiter = firstLine.includes('\t') ? '\t' : (firstLine.includes(';') && !firstLine.includes(',') ? ';' : ',');
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentField += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      currentLine.push(currentField);
+      currentField = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      currentLine.push(currentField);
+      currentField = '';
+      if (currentLine.some(c => String(c).trim().length > 0)) {
+        lines.push(currentLine);
+      }
+      currentLine = [];
+    } else {
+      currentField += char;
+    }
+  }
+
+  if (currentField.length > 0 || currentLine.length > 0) {
+    currentLine.push(currentField);
+    if (currentLine.some(c => String(c).trim().length > 0)) {
+      lines.push(currentLine);
+    }
+  }
+
+  if (lines.length < 2) return [];
+
+  // Buscar fila de encabezados
+  let headerRowIdx = 0;
+  for (let i = 0; i < Math.min(6, lines.length); i++) {
+    const rowText = (lines[i] || []).map(v => String(v || '').toLowerCase()).join(' ');
+    if (rowText.includes('caso op') || (rowText.includes('tienda') && rowText.includes('integrac'))) {
+      headerRowIdx = i;
+      break;
+    }
+  }
+
+  const headers = (lines[headerRowIdx] || []).map(h => String(h || '').trim());
+  const findCol = (predicate) => headers.findIndex(h => predicate(h.toLowerCase()));
+
+  const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op');
+  const colVendorId = findCol(h => h === 'id' || h.includes('vendor'));
+  const colTienda = findCol(h => h.includes('tienda'));
+  const colPais = findCol(h => h.includes('país') || h.includes('pais'));
+  const colKam = findCol(h => h.includes('kam'));
+  const colIntegracion = findCol(h => h.includes('integrac'));
+  const colOportunidad = findCol(h => h.includes('oportunidad') && !h.includes('propietario'));
+  const colAsset = findCol(h => h.includes('asset'));
+  const colSeguimiento = findCol(h => h.includes('seguimiento'));
+  const colPropOp = findCol(h => h.includes('propietario') && h.includes('oportunidad'));
+  const colPropTicket = findCol(h => h.includes('herocare') || (h.includes('propietario') && h.includes('ticket')));
+  const colTieneInicio = findCol(h => h.includes('onboarding inicial') || h.includes('inicio?'));
+  const colComentarios = findCol(h => h.includes('comentario'));
+  const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
+  const colEstado = findCol(h => h.includes('estado'));
+  const colEtapa = findCol(h => h.includes('etapa'));
+  const colSlaInicio = findCol(h => h.includes('inicio de seguimiento') || h.includes('sla'));
+
+  const rows = lines.slice(headerRowIdx + 1);
+  const casos = [];
+
+  rows.forEach((row, idx) => {
+    const getVal = (colIdx, fallback = '') => {
+      if (colIdx >= 0 && row[colIdx] !== undefined && row[colIdx] !== null) {
+        return String(row[colIdx]).trim();
+      }
+      return fallback;
+    };
+
+    const casoOp = getVal(colCasoOp, '');
+    const vendorId = getVal(colVendorId, '');
+    const tienda = getVal(colTienda, '');
+
+    if (!casoOp && !vendorId && !tienda) return;
+
+    const estado = getVal(colEstado, 'En progreso') || 'En progreso';
+    const estadoLower = estado.toLowerCase();
+    const esCerrado = estadoLower.includes('cerrado') || estadoLower.includes('fallido');
+    const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc'));
+
+    const propOp = getVal(colPropOp, '');
+    const propTick = getVal(colPropTicket, '');
+    const agente = propTick || propOp || 'Sin asignación';
+
+    casos.push({
+      id: casoOp || vendorId || `CASO-${idx + 1}`,
+      casoOp,
+      vendorId,
+      vendor_id: vendorId,
+      tienda,
+      pais: getVal(colPais, 'Argentina'),
+      kam: getVal(colKam, ''),
+      integracion: getVal(colIntegracion, 'Datalive'),
+      oportunidad: getVal(colOportunidad, ''),
+      asset: getVal(colAsset, ''),
+      casoSeguimiento: getVal(colSeguimiento, ''),
+      propietarioOportunidad: propOp,
+      propietarioTicket: propTick,
+      agente,
+      tieneCasoInicio: getVal(colTieneInicio, 'Si'),
+      comentarios: getVal(colComentarios, ''),
+      fechaCreacion: getVal(colFechaCreacion, new Date().toISOString().split('T')[0]),
+      estado,
+      etapa: getVal(colEtapa, 'Validación del Onboarding'),
+      sla_inicio: getVal(colSlaInicio, new Date().toISOString()),
+      esActivo,
+      origen,
+      filaNumero: idx + 6
+    });
+  });
+
+  return casos;
+}
+
+/**
+ * Prueba la URL de Google Apps Script o enlace de Google Sheets
+ * Funciona tanto con backend (/api/sheets/gas-proxy) como con fallback directo de cliente (Netlify)
  */
 export async function probarConexionGas(gasUrl) {
   if (!gasUrl || !gasUrl.startsWith('http')) {
-    throw new Error('Ingresa una URL válida de Google Apps Script (inicia con https://script.google.com/macros/s/...)');
+    throw new Error('Ingresa una URL válida de Google Apps Script o enlace publicado de Google Sheets.');
   }
 
-  const res = await fetch(`/api/sheets/gas-proxy?url=${encodeURIComponent(gasUrl.trim())}`);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || `Error al conectar con la Web App (${res.status})`);
+  const urlLimpia = gasUrl.trim();
+
+  // 1. Si es un enlace de Google Sheets o CSV publicado
+  if (urlLimpia.includes('docs.google.com/spreadsheets') || urlLimpia.includes('output=csv')) {
+    let csvUrl = urlLimpia;
+    if (urlLimpia.includes('/edit')) {
+      const idMatch = urlLimpia.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      const gidMatch = urlLimpia.match(/gid=([0-9]+)/);
+      if (idMatch) {
+        const sheetId = idMatch[1];
+        const gid = gidMatch ? gidMatch[1] : '0';
+        csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+      }
+    }
+
+    try {
+      const resp = await fetch(csvUrl);
+      if (resp.ok) {
+        const text = await resp.text();
+        if (!text.includes('accounts.google.com') && !text.includes('ServiceLogin')) {
+          const casos = parsearCSVCliente(text, 'Google Sheets Enlace');
+          if (casos.length > 0) {
+            localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(casos));
+            return { success: true, total: casos.length, casos };
+          }
+        }
+      }
+    } catch {
+      // Continuar al intento por backend
+    }
   }
-  return data;
+
+  // 2. Intento por proxy de backend si existe
+  try {
+    const res = await fetch(`/api/sheets/gas-proxy?url=${encodeURIComponent(urlLimpia)}`);
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.success && Array.isArray(data.casos)) {
+        localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(data.casos));
+        return data;
+      }
+      if (data.error) {
+        throw new Error(data.error);
+      }
+    } else if (res.status === 401) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Google solicita inicio de sesión corporativo. Asegúrate de configurar "Quién tiene acceso: Cualquier usuario" en Apps Script.');
+    }
+  } catch (err) {
+    if (err.message && (err.message.includes('corporativo') || err.message.includes('sesión') || err.message.includes('Cualquier usuario'))) {
+      throw err;
+    }
+    console.warn('[probarConexionGas] Backend no disponible (ej. Netlify), intentando llamada cliente:', err);
+  }
+
+  // 3. Fallback directo de cliente para Web App de Apps Script
+  try {
+    const separator = urlLimpia.includes('?') ? '&' : '?';
+    const targetUrl = `${urlLimpia}${separator}action=getCasos&sheet=Onboarding&t=${Date.now()}`;
+    const directRes = await fetch(targetUrl, { mode: 'cors', redirect: 'follow' });
+    if (directRes.ok) {
+      const directText = await directRes.text();
+      let directJson;
+      try {
+        directJson = JSON.parse(directText);
+      } catch {
+        if (directText.includes('ServiceLogin') || directText.includes('accounts.google.com')) {
+          throw new Error('Google Workspace solicita inicio de sesión corporativo. Para acceso automático: en Google Apps Script > Implementar > Gestionar implementaciones > Editar > cambia "Quién tiene acceso" a "Cualquier usuario" (Anyone). O usa "Publicar en la web" como CSV.');
+        }
+      }
+
+      if (directJson && directJson.casos && Array.isArray(directJson.casos)) {
+        localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(directJson.casos));
+        return { success: true, total: directJson.casos.length, casos: directJson.casos };
+      }
+    }
+  } catch (directErr) {
+    if (directErr.message && (directErr.message.includes('Google Workspace') || directErr.message.includes('Cualquier usuario'))) {
+      throw directErr;
+    }
+  }
+
+  // 4. Si hay casos en localStorage previamente guardados, devolverlos
+  const local = localStorage.getItem('PEDA_CASOS_LOCAL');
+  if (local) {
+    try {
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return { success: true, total: parsed.length, casos: parsed, desdeCacheLocal: true };
+      }
+    } catch {
+      // Continuar
+    }
+  }
+
+  throw new Error('En Google Apps Script ve a: Implementar > Gestionar implementaciones > Editar > y en "Quién tiene acceso" selecciona: "Cualquier usuario" (Anyone). O alternativamente publica la hoja como CSV (Archivo > Compartir > Publicar en la web).');
 }
 
 /**
- * Envía un archivo o texto CSV para procesar e incorporar en el backend
+ * Envía un archivo o texto CSV para procesar e incorporar en el backend o en el almacenamiento local
  */
 export async function importarCasosCSV(csvText, origen = 'Archivo CSV') {
-  const res = await fetch('/api/sheets/import-csv', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ csvText, origen })
-  });
-  const data = await res.json();
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Error importando archivo CSV');
+  const casosParseados = parsearCSVCliente(csvText, origen);
+  if (casosParseados.length > 0) {
+    localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(casosParseados));
   }
-  return data;
+
+  try {
+    const res = await fetch('/api/sheets/import-csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csvText, origen })
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Si el backend no existe (Netlify), responder con los datos locales
+  }
+
+  if (casosParseados.length > 0) {
+    return {
+      success: true,
+      message: `Se importaron ${casosParseados.length} casos correctamente en el navegador.`,
+      total: casosParseados.length,
+      activos: casosParseados.filter(c => c.esActivo).length,
+      casos: casosParseados
+    };
+  }
+
+  throw new Error('No se detectaron filas válidas en el CSV proporcionado.');
 }
 
 /**
- * Consulta la data del Google Sheet (Onboarding_New)
- * Prioriza el backend (cuenta de servicio o caché), y como fallback usa el proxy de Apps Script
+ * Consulta la data del Google Sheet (Onboarding)
+ * Soporta Netlify y localmente usando caché de navegador
  */
 export async function consultarCasosGoogleSheets() {
-  // 1. Intento primario: Backend (/api/sheets/casos)
+  const gasUrl = obtenerGasUrl();
+
+  // 1. Intento por proxy de Apps Script / Google Sheets
+  if (gasUrl) {
+    try {
+      const data = await probarConexionGas(gasUrl);
+      if (data.success && Array.isArray(data.casos) && data.casos.length > 0) {
+        localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(data.casos));
+        return data.casos;
+      }
+    } catch (errGas) {
+      console.warn('[GoogleSheets] Consulta GAS no completada:', errGas.message);
+    }
+  }
+
+  // 2. Intento por API backend /api/sheets/casos si existe
   try {
     const res = await fetch('/api/sheets/casos');
     if (res.ok) {
       const data = await res.json();
       if (data.success && Array.isArray(data.casos) && data.casos.length > 0) {
-        console.log(`[GoogleSheets] Se obtuvieron ${data.casos.length} casos reales desde la API backend (${data.activos} activos).`);
+        localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(data.casos));
         return data.casos;
       }
     }
-  } catch (err) {
-    console.warn('[GoogleSheets] Backend no disponible o error de red:', err);
+  } catch {
+    // Continuar a caché local
   }
 
-  // 2. Intento secundario: Google Apps Script Web App a través del proxy seguro del backend
-  const gasUrl = obtenerGasUrl();
-  if (gasUrl) {
+  // 3. Fallback de resiliencia: leer de localStorage
+  const local = localStorage.getItem('PEDA_CASOS_LOCAL');
+  if (local) {
     try {
-      const data = await probarConexionGas(gasUrl);
-      if (data.success && Array.isArray(data.casos) && data.casos.length > 0) {
-        console.log(`[GoogleSheets] Se obtuvieron ${data.casos.length} casos desde Google Apps Script.`);
-        return data.casos;
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
       }
-    } catch (errGas) {
-      console.warn('[GoogleSheets] Error consultando GAS vía proxy:', errGas);
+    } catch {
+      // Ignorar
     }
   }
 
@@ -414,7 +677,24 @@ export async function consultarCasosGoogleSheets() {
  */
 export async function actualizarCasoEnSheets(casoActualizado) {
   try {
-    const gasUrl = obtenerGasUrl();
+    const local = localStorage.getItem('PEDA_CASOS_LOCAL');
+    if (local) {
+      const lista = JSON.parse(local);
+      const idx = lista.findIndex(c => String(c.casoOp || c.id) === String(casoActualizado.casoOp || casoActualizado.id));
+      if (idx !== -1) {
+        lista[idx] = { ...lista[idx], ...casoActualizado };
+      } else {
+        lista.push({ ...casoActualizado, filaNumero: lista.length + 6 });
+      }
+      localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(lista));
+    }
+  } catch {
+    // Continuar
+  }
+
+  const gasUrl = obtenerGasUrl();
+
+  try {
     const res = await fetch('/api/sheets/actualizar-caso', {
       method: 'POST',
       headers: { 
@@ -424,12 +704,23 @@ export async function actualizarCasoEnSheets(casoActualizado) {
       body: JSON.stringify({ ...casoActualizado, _gasUrl: gasUrl })
     });
     if (res.ok) {
-      const data = await res.json();
-      return data;
+      return await res.json();
     }
-  } catch (err) {
-    console.warn('[GoogleSheets] Error enviando actualización a backend:', err);
+  } catch {
+    if (gasUrl && gasUrl.startsWith('http')) {
+      try {
+        await fetch(gasUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(casoActualizado)
+        });
+      } catch {
+        // Ignorar
+      }
+    }
   }
+
   return { success: true, caso: casoActualizado };
 }
 

@@ -24,7 +24,6 @@ import {
 import ModalDetalleCaso from './components/ModalDetalleCaso';
 import HeroCareTLView from './components/HeroCareTLView';
 import { puedeRegistrarCasos, esSupervisor } from './utils/userPermissions';
-import CASOS_OFFLINE_INICIALES from '../data_cached_casos.json';
 
 const LISTA_PAISES = [
   'Argentina', 'Chile', 'Uruguay', 'Ecuador', 'Perú', 
@@ -74,9 +73,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
   const [activeTab, setActiveTab] = useState(tieneAccesoSupervisor ? 'tl' : 'inicio');
   const [casosFirestore, setCasosFirestore] = useState([]);
-  const [casosSheets, setCasosSheets] = useState(Array.isArray(CASOS_OFFLINE_INICIALES) ? CASOS_OFFLINE_INICIALES : []);
+  const [casosSheets, setCasosSheets] = useState([]);
   const [cargandoSheets, setCargandoSheets] = useState(false);
-  const [ultimaSync, setUltimaSync] = useState(new Date());
+  const [ultimaSync, setUltimaSync] = useState(null);
   const [sincronizandoAuto, setSincronizandoAuto] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
 
@@ -137,7 +136,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     } catch (e) {
       console.warn("No se pudo verificar estado de credenciales:", e);
     }
-    await cargarCasosGoogleSheets(true);
+    await cargarCasosGoogleSheets();
   };
 
   const cargarCasosGoogleSheets = async (silencioso = false) => {
@@ -698,12 +697,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
               {tipoConexionModal === 'gas' && (
                 <div>
                   <p className="text-xs text-gray-300 mb-3 leading-relaxed">
-                    Si ya agregaste el script a tu Google Sheet, solo necesitas la URL de la Web App desplegada (terminada en <code className="text-pink-400 font-mono">/exec</code>).
+                    Pega aquí la <strong>URL de tu Web App de Apps Script</strong> o el <strong>enlace de Publicar en la web (.csv)</strong> de tu Google Sheet. La app se conectará automáticamente cada 30 segundos.
                   </p>
 
                   <div className="mb-4">
                     <label className="block text-xs font-semibold text-gray-300 mb-1">
-                      URL de la Web App (Google Apps Script):
+                      URL de sincronización (Apps Script o Google Sheets CSV):
                     </label>
                     <input
                       type="text"
@@ -712,11 +711,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                         setGasUrlInput(e.target.value);
                         setResultadoTestGas(null);
                       }}
-                      placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                      placeholder="https://script.google.com/macros/s/.../exec o https://docs.google.com/spreadsheets/..."
                       className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-pink-500 font-mono"
                     />
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      ¿Aún no tienes la URL? Consulta la pestaña <strong>"3. Ver Código Script"</strong> para ver los 3 sencillos pasos.
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Soporta Web Apps de Google Apps Script y enlaces de Google Sheets publicados en la web.
                     </p>
                   </div>
 
@@ -728,44 +727,42 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                           <span className="text-base">✅</span>
                           <div>
                             <p className="font-semibold">¡Conexión establecida con éxito!</p>
-                            <p className="text-[11px] text-emerald-400/90">Se encontraron {resultadoTestGas.count} filas en Onboarding_New. Todos los casos están sincronizados.</p>
+                            <p className="text-[11px] text-emerald-400/90">Se encontraron {resultadoTestGas.count} casos en Onboarding. La app se actualizará automáticamente cada 30 segundos.</p>
                           </div>
                         </div>
                       ) : (
                         <div>
-                          <p className="font-semibold flex items-center gap-1.5"><span className="text-base">⚠️</span> Error al conectar con la Web App:</p>
+                          <p className="font-semibold flex items-center gap-1.5"><span className="text-base">⚠️</span> Estado de la conexión:</p>
                           <p className="text-[11px] font-mono mt-1 text-rose-200">{resultadoTestGas.error}</p>
                           
-                          {gasUrlInput.includes('pedidosya.com') || gasUrlInput.includes('/a/macros/') ? (
-                            <div className="mt-3 text-[11px] text-gray-200 bg-amber-950/60 p-3.5 rounded-lg border border-amber-500/50 space-y-2">
-                              <p className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
-                                🏢 Origen corporativo (@pedidosya.com) detectado:
+                          <div className="mt-3 text-[11px] bg-gray-900/90 p-3.5 rounded-lg border border-gray-700 space-y-3">
+                            <p className="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
+                              💡 Cómo habilitar la sincronización 100% automática:
+                            </p>
+
+                            <div className="bg-emerald-950/40 border border-emerald-600/40 p-2.5 rounded-lg">
+                              <p className="font-semibold text-emerald-300 mb-1">
+                                Opción 1: Publicar en la web como CSV (Recomendado - 2 pasos, sin restricciones de TI):
                               </p>
-                              <p className="text-gray-300 leading-relaxed">
-                                Dar acceso en Google Drive a tu cuenta personal comparte el archivo, pero <strong>la Web App sigue perteneciendo al dominio @pedidosya.com</strong>. Por políticas de seguridad corporativas de Google Workspace, se exige inicio de sesión con correo de PedidosYa, bloqueando la lectura externa sin sesión activa.
+                              <ol className="list-decimal pl-4 space-y-1 text-gray-300">
+                                <li>En tu Google Sheet ve a: <strong>Archivo &gt; Compartir &gt; Publicar en la web</strong>.</li>
+                                <li>Elige la hoja <strong>Onboarding</strong> y en formato selecciona <strong>Valores separados por comas (.csv)</strong>.</li>
+                                <li>Haz clic en <strong>Publicar</strong>, copia ese enlace y pégalo arriba. ¡Se actualizará solo cada 30s!</li>
+                              </ol>
+                            </div>
+
+                            <div className="bg-blue-950/40 border border-blue-600/40 p-2.5 rounded-lg">
+                              <p className="font-semibold text-blue-300 mb-1">
+                                Opción 2: Si usas la Web App de Apps Script:
                               </p>
-                              <div className="pt-1 flex flex-col sm:flex-row gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setTipoConexionModal('csv')}
-                                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3.5 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow"
-                                >
-                                  <span>📥</span> Cargar CSV descargado (Recomendado - 10 seg)
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setTipoConexionModal('codigo')}
-                                  className="bg-gray-800 hover:bg-gray-700 text-gray-200 py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1 border border-gray-700"
-                                >
-                                  <span>📜</span> Ver cómo desplegar con Gmail personal
-                                </button>
-                              </div>
+                              <ol className="list-decimal pl-4 space-y-1 text-gray-300">
+                                <li>En el editor de Apps Script ve al botón azul <strong>Implementar &gt; Gestionar implementaciones</strong>.</li>
+                                <li>Haz clic en el <strong>Lápiz (Editar)</strong> de la implementación activa.</li>
+                                <li>En <strong>"Quién tiene acceso"</strong> cambia de "PedidosYa" a <strong>"Cualquier usuario" (Anyone)</strong>.</li>
+                                <li>Guarda e implementa.</li>
+                              </ol>
                             </div>
-                          ) : (
-                            <div className="mt-2 text-[11px] text-gray-300 bg-black/40 p-2 rounded border border-rose-900/50">
-                              <strong>Sugerencia común:</strong> En Google Sheets, asegúrate de que al hacer clic en <em>Implementar &gt; Gestionar implementaciones</em>, el campo <strong>"Quién tiene acceso"</strong> esté configurado en <strong>"Cualquier usuario" (Anyone)</strong> para permitir la lectura sin login interactivo.
-                            </div>
-                          )}
+                          </div>
                         </div>
                       )}
                     </div>
