@@ -2,6 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { collection, query, onSnapshot, where, getDocs, setDoc, doc } from "firebase/firestore";
 import { db } from './firebase';
 import { 
+  guardarCasosEnFirestore, 
+  generarScriptAppsScriptParaFirebase 
+} from './services/firebaseCasosService';
+import { 
   LISTA_INTEGRACIONES, 
   obtenerDetallesIntegracion 
 } from './data/integracionesCuadro';
@@ -178,16 +182,15 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Suscripción reactiva a Firestore para nuevos casos creados localmente
+  // Suscripción reactiva a Firestore en tiempo real para todos los casos
   useEffect(() => {
     let unsubscribe = () => {};
     try {
       const casosRef = collection(db, "casos");
-      let q = query(casosRef, where("estado", "==", "En progreso"));
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      unsubscribe = onSnapshot(casosRef, (snapshot) => {
         const nuevosCasos = snapshot.docs.map(docSnap => ({ 
           id: docSnap.id, 
-          origen: "Firebase",
+          origen: "Firebase (Tiempo Real)",
           ...docSnap.data() 
         }));
         if (nuevosCasos.length > casosFirestore.length && casosFirestore.length > 0 && audioRef.current) {
@@ -522,13 +525,35 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
   };
 
   // Estados para el modal de conexión
-  const [tipoConexionModal, setTipoConexionModal] = useState('gas'); // 'gas' | 'csv' | 'codigo' | 'sa'
+  const [tipoConexionModal, setTipoConexionModal] = useState('firebase'); // 'firebase' | 'gas' | 'csv' | 'codigo' | 'sa'
   const [gasUrlInput, setGasUrlInput] = useState(obtenerGasUrl());
   const [probandoGas, setProbandoGas] = useState(false);
   const [resultadoTestGas, setResultadoTestGas] = useState(null);
   const [csvTextInput, setCsvTextInput] = useState('');
   const [procesandoCsv, setProcesandoCsv] = useState(false);
   const [codigoCopiado, setCodigoCopiado] = useState(false);
+  const [codigoFirebaseCopiado, setCodigoFirebaseCopiado] = useState(false);
+  const [subiendoAFirebase, setSubiendoAFirebase] = useState(false);
+
+  // Subir casos a Firebase Firestore
+  const manejarSubirCasosAFirebase = async (casosAEnviar = null) => {
+    const casos = casosAEnviar || (casosSheets.length > 0 ? casosSheets : casosMostrados);
+    if (!casos || casos.length === 0) {
+      mostrarNotificacion("No hay casos cargados para sincronizar con Firebase.", "error");
+      return;
+    }
+
+    setSubiendoAFirebase(true);
+    try {
+      const res = await guardarCasosEnFirestore(casos);
+      mostrarNotificacion(`🔥 ¡Éxito! Se sincronizaron ${res.total} casos directamente en Firebase Firestore.`, "success");
+      setMostrarModalCreds(false);
+    } catch (err) {
+      mostrarNotificacion(`Error al sincronizar con Firebase: ${err.message}`, "error");
+    } finally {
+      setSubiendoAFirebase(false);
+    }
+  };
 
   // Probar y conectar Google Apps Script en tiempo real
   const manejarTestGas = async () => {
@@ -570,7 +595,15 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     setProcesandoCsv(true);
     try {
       const res = await importarCasosCSV(textoCSV, 'Archivo CSV');
-      mostrarNotificacion(`¡Éxito! Se importaron ${res.total} casos de Onboarding_New.`, "success");
+      
+      // Guardar también en Firebase Firestore en la nube
+      if (Array.isArray(res.casos) && res.casos.length > 0) {
+        guardarCasosEnFirestore(res.casos).catch(err => {
+          console.warn("[Firebase] Error guardando batch en Firestore:", err);
+        });
+      }
+
+      mostrarNotificacion(`¡Éxito! Se importaron ${res.total} casos y se sincronizaron con Firebase Firestore.`, "success");
       setMostrarModalCreds(false);
       setCsvTextInput('');
       setEstadoCredenciales(prev => ({ ...prev, configured: true }));
@@ -668,22 +701,22 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
             {/* PESTAÑAS DE MÉTODO DE CONEXIÓN */}
             <div className="flex flex-wrap gap-2 border-b border-gray-800 mb-4 pb-2 shrink-0">
               <button
-                onClick={() => setTipoConexionModal('gas')}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${tipoConexionModal === 'gas' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                onClick={() => setTipoConexionModal('firebase')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${tipoConexionModal === 'firebase' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/30' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
               >
-                🔗 1. Enlace Web App (Apps Script)
+                🔥 1. Sheets ➔ Firebase (Sin Enlaces)
               </button>
               <button
                 onClick={() => setTipoConexionModal('csv')}
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${tipoConexionModal === 'csv' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
               >
-                📥 2. Cargar CSV / Planilla
+                📥 2. Cargar CSV a Firebase
               </button>
               <button
-                onClick={() => setTipoConexionModal('codigo')}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${tipoConexionModal === 'codigo' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                onClick={() => setTipoConexionModal('gas')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 ${tipoConexionModal === 'gas' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
               >
-                📜 3. Ver Código Script
+                🔗 3. Enlace Web App / CSV
               </button>
               <button
                 onClick={() => setTipoConexionModal('sa')}
@@ -694,6 +727,66 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
             </div>
 
             <div className="overflow-y-auto pr-1 flex-1">
+              {tipoConexionModal === 'firebase' && (
+                <div>
+                  <div className="bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-gray-900 border border-pink-700/50 p-3.5 rounded-xl mb-3.5 text-xs">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-lg">🔥</span>
+                      <p className="font-bold text-white text-sm">Sincronización Directa Google Sheets ➔ Firebase Firestore</p>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed text-[11px]">
+                      Al conectar Google Sheets directamente con Firebase, <strong>no necesitas poner enlaces web ni depender de dominios públicos</strong>. Tu hoja de cálculo de PedidosYa enviará los casos de forma desatendida a Firestore, y la app los recibirá al instante en tiempo real.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#0f111a] p-3 rounded-lg border border-gray-800 mb-3 space-y-2">
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span className="text-pink-400 font-bold">Paso a paso (1 sola vez en tu Google Sheet):</span>
+                    </h4>
+                    <ol className="text-[11px] text-gray-300 list-decimal list-inside space-y-1 leading-relaxed">
+                      <li>En tu Google Sheet (<strong>ONB 2026</strong>), ve al menú: <strong className="text-white">Extensiones &gt; Apps Script</strong>.</li>
+                      <li>Borra todo el código que haya, pega el script de abajo y pulsa el botón de <strong>Guardar (💾)</strong>.</li>
+                      <li>Recarga la pestaña de tu Google Sheet: verás arriba el nuevo menú: <strong className="text-pink-400">🚀 Firebase ONB &gt; ☁️ Sincronizar Casos a Firebase</strong>.</li>
+                      <li>
+                        <strong className="text-emerald-400">Para automatizarlo 100%:</strong> En el editor de Apps Script, haz clic en el icono del <strong>reloj (Activadores)</strong> en la barra izquierda &gt; <em>Añadir activador</em> &gt; Función: <code className="text-pink-400">sincronizarCasosAFirebase</code> &gt; Tipo: <em>Basado en tiempo</em> &gt; <em>Cada 5 minutos</em>.
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-gray-400">Script para Apps Script (REST API Oficial Firestore):</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(generarScriptAppsScriptParaFirebase());
+                        setCodigoFirebaseCopiado(true);
+                        mostrarNotificacion("¡Script copiado! Pégalo en Extensiones > Apps Script.", "success");
+                        setTimeout(() => setCodigoFirebaseCopiado(false), 3000);
+                      }}
+                      className="bg-pink-600 hover:bg-pink-700 text-white text-xs px-3.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 shadow"
+                    >
+                      {codigoFirebaseCopiado ? '✅ ¡Script Copiado!' : '📋 Copiar Script de Sincronización'}
+                    </button>
+                  </div>
+
+                  <pre className="bg-[#0f111a] border border-gray-800 rounded-lg p-3 text-[11px] font-mono text-gray-300 max-h-48 overflow-y-auto select-all leading-normal mb-3">
+                    {generarScriptAppsScriptParaFirebase()}
+                  </pre>
+
+                  <div className="bg-gray-900/80 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-white">¿Quieres poblar Firebase ahora mismo desde esta app?</p>
+                      <p className="text-[11px] text-gray-400">Sube los {casosSheets.length || casosMostrados.length} casos actuales a Firebase Firestore.</p>
+                    </div>
+                    <button
+                      onClick={() => manejarSubirCasosAFirebase()}
+                      disabled={subiendoAFirebase}
+                      className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-lg text-xs transition flex items-center gap-1.5 shadow"
+                    >
+                      {subiendoAFirebase ? 'Subiendo a Firebase...' : '🔥 Sincronizar Casos a Firestore'}
+                    </button>
+                  </div>
+                </div>
+              )}
               {tipoConexionModal === 'gas' && (
                 <div>
                   <p className="text-xs text-gray-300 mb-3 leading-relaxed">

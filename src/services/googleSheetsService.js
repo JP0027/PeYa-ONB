@@ -32,11 +32,11 @@ export async function guardarCuentaServicio(contenidoJson) {
   return data;
 }
 
-export const DEFAULT_GAS_URL = 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwsLeUUnWvjWE4Qmt0z0eUHVxOSKzaSzj0hvHMDAjFy-TpQwTmM6pQir946DLDtWtdKRg/exec';
+export const DEFAULT_GAS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTVWtPU_-CvljcleGC019N_2oppauMInZhDGr5qap7peyZGR_8N6wHrf9T8SswI5bJGm7DJNsSfoX02/pub?gid=104076048&single=true&output=csv';
 
 export function obtenerGasUrl() {
   const guardada = localStorage.getItem('PEDA_GAS_URL');
-  if (!guardada || !guardada.includes('AKfycbwsLeUUnWvjWE4Qmt0z0eUHVxOSKzaSzj0hvHMDAjFy-TpQwTmM6pQir946DLDtWtdKRg')) {
+  if (!guardada || guardada.includes('AKfycbwSon9BeerNaPPqbd1wvCRxorbiWJzo-aHiyNkINbj2BKu8K7iFTh7LltfsaRiKb5P78g')) {
     localStorage.setItem('PEDA_GAS_URL', DEFAULT_GAS_URL);
     return DEFAULT_GAS_URL;
   }
@@ -504,20 +504,37 @@ export async function probarConexionGas(gasUrl) {
       }
     }
 
-    try {
-      const resp = await fetch(csvUrl);
-      if (resp.ok) {
-        const text = await resp.text();
-        if (!text.includes('accounts.google.com') && !text.includes('ServiceLogin')) {
+    // Intentar leer el CSV directamente y con proxies CORS de respaldo
+    const urlsAProbar = [
+      csvUrl,
+      `https://corsproxy.io/?${encodeURIComponent(csvUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`
+    ];
+
+    let detectoBloqueoCorporativo = false;
+
+    for (const testUrl of urlsAProbar) {
+      try {
+        const resp = await fetch(testUrl);
+        if (resp.ok) {
+          const text = await resp.text();
+          if (text.includes('accounts.google.com') || text.includes('ServiceLogin') || text.includes('Allow Google Sheets access') || text.includes('Sign in to your Google Account')) {
+            detectoBloqueoCorporativo = true;
+            continue;
+          }
           const casos = parsearCSVCliente(text, 'Google Sheets Enlace');
           if (casos.length > 0) {
             localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(casos));
             return { success: true, total: casos.length, casos };
           }
         }
+      } catch {
+        // Probar siguiente alternativa de conexión
       }
-    } catch {
-      // Continuar al intento por backend
+    }
+
+    if (detectoBloqueoCorporativo) {
+      throw new Error('Google Workspace bloquea el enlace público. En tu Google Sheet ve a: Archivo > Compartir > Publicar en la web > abre la sección "Contenido publicado y configuración" > DESMARCA la casilla: "Requerir que los lectores inicien sesión con su cuenta de pedidosya.com" y haz clic en Publicar. Con ese paso quedará 100% automático.');
     }
   }
 
