@@ -52,7 +52,7 @@ async function startServer() {
     }
   });
 
-  const PERMANENT_GAS_URL = process.env.VITE_GAS_WEBAPP_URL || 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwgIb-giqPHQ27N6vziQUPtt7OWEllQ3e9FSLccb67D-U-cHyIDCAY66FouF2lXKr6ILQ/exec';
+  const PERMANENT_GAS_URL = process.env.VITE_GAS_WEBAPP_URL || 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwsLeUUnWvjWE4Qmt0z0eUHVxOSKzaSzj0hvHMDAjFy-TpQwTmM6pQir946DLDtWtdKRg/exec';
 
   // Proxy seguro para consultar Google Apps Script Web App o enlaces de Google Sheets
   app.get('/api/sheets/gas-proxy', async (req, res) => {

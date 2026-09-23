@@ -24,6 +24,7 @@ import {
 import ModalDetalleCaso from './components/ModalDetalleCaso';
 import HeroCareTLView from './components/HeroCareTLView';
 import { puedeRegistrarCasos, esSupervisor } from './utils/userPermissions';
+import CASOS_OFFLINE_INICIALES from '../data_cached_casos.json';
 
 const LISTA_PAISES = [
   'Argentina', 'Chile', 'Uruguay', 'Ecuador', 'Perú', 
@@ -73,9 +74,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
   const [activeTab, setActiveTab] = useState(tieneAccesoSupervisor ? 'tl' : 'inicio');
   const [casosFirestore, setCasosFirestore] = useState([]);
-  const [casosSheets, setCasosSheets] = useState([]);
+  const [casosSheets, setCasosSheets] = useState(Array.isArray(CASOS_OFFLINE_INICIALES) ? CASOS_OFFLINE_INICIALES : []);
   const [cargandoSheets, setCargandoSheets] = useState(false);
-  const [ultimaSync, setUltimaSync] = useState(null);
+  const [ultimaSync, setUltimaSync] = useState(new Date());
   const [sincronizandoAuto, setSincronizandoAuto] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
 
@@ -136,7 +137,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     } catch (e) {
       console.warn("No se pudo verificar estado de credenciales:", e);
     }
-    await cargarCasosGoogleSheets();
+    await cargarCasosGoogleSheets(true);
   };
 
   const cargarCasosGoogleSheets = async (silencioso = false) => {

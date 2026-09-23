@@ -32,11 +32,11 @@ export async function guardarCuentaServicio(contenidoJson) {
   return data;
 }
 
-export const DEFAULT_GAS_URL = 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwgIb-giqPHQ27N6vziQUPtt7OWEllQ3e9FSLccb67D-U-cHyIDCAY66FouF2lXKr6ILQ/exec';
+export const DEFAULT_GAS_URL = 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwsLeUUnWvjWE4Qmt0z0eUHVxOSKzaSzj0hvHMDAjFy-TpQwTmM6pQir946DLDtWtdKRg/exec';
 
 export function obtenerGasUrl() {
   const guardada = localStorage.getItem('PEDA_GAS_URL');
-  if (!guardada || guardada.includes('AKfycbwSon9BeerNaPPqbd1wvCRxorbiWJzo-aHiyNkINbj2BKu8K7iFTh7LltfsaRiKb5P78g')) {
+  if (!guardada || !guardada.includes('AKfycbwsLeUUnWvjWE4Qmt0z0eUHVxOSKzaSzj0hvHMDAjFy-TpQwTmM6pQir946DLDtWtdKRg')) {
     localStorage.setItem('PEDA_GAS_URL', DEFAULT_GAS_URL);
     return DEFAULT_GAS_URL;
   }
