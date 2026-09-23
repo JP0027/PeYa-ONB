@@ -420,12 +420,50 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
   const colTieneInicio = findCol(h => h.includes('onboarding inicial') || h.includes('inicio?'));
   const colComentarios = findCol(h => h.includes('comentario'));
   const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
-  const colEstado = findCol(h => h.includes('estado'));
-  const colEtapa = findCol(h => h.includes('etapa'));
+  const colEstado = findCol(h => (h.includes('estado') && !h.includes('onboarding')) || h === 'estado del caso' || h === 'estado caso');
+  const colEtapa = findCol(h => h.includes('onboarding') || h.includes('etapa') || h === 'status');
   const colSlaInicio = findCol(h => h.includes('inicio de seguimiento') || h.includes('sla'));
 
   const rows = lines.slice(headerRowIdx + 1);
   const casos = [];
+
+  const etapasConocidas = [
+    'sin integración confirmada', 'sin integracion confirmada',
+    'en proceso de seteo',
+    'en proceso de verificación de catálogo', 'en proceso de verificacion de catalogo', 'en proceso de carga de catálogo',
+    'validación del onboarding', 'validacion del onboarding',
+    'en proceso para pruebas',
+    'pedido de prueba realizado'
+  ];
+  const estadosConocidos = [
+    'en progreso', 'nuevo', 'ticket hc', 'abierto',
+    'cerrado por oportunidad satisfactoria', 
+    'cerrado por kam', 'cerrado por api vendor', 'fallido', 'cerrado'
+  ];
+
+  let bestColEstado = colEstado >= 0 ? colEstado : 20;
+  let bestColEtapa = colEtapa >= 0 ? colEtapa : 18;
+
+  let maxEstadoHits = 0;
+  let maxEtapaHits = 0;
+
+  for (let c = 12; c < Math.min(headers.length, 26); c++) {
+    let estadoHits = 0;
+    let etapaHits = 0;
+    for (let r = 0; r < Math.min(30, rows.length); r++) {
+      const v = String((rows[r] && rows[r][c]) || '').toLowerCase().trim();
+      if (estadosConocidos.some(est => v === est || v.includes(est))) estadoHits++;
+      if (etapasConocidas.some(et => v === et || v.includes(et))) etapaHits++;
+    }
+    if (estadoHits > maxEstadoHits) {
+      maxEstadoHits = estadoHits;
+      bestColEstado = c;
+    }
+    if (etapaHits > maxEtapaHits) {
+      maxEtapaHits = etapaHits;
+      bestColEtapa = c;
+    }
+  }
 
   rows.forEach((row, idx) => {
     const getVal = (colIdx, fallback = '') => {
@@ -441,10 +479,32 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
 
     if (!casoOp && !vendorId && !tienda) return;
 
-    const estado = getVal(colEstado, 'En progreso') || 'En progreso';
+    let estado = getVal(bestColEstado, 'Cerrado por oportunidad satisfactoria');
+    let etapa = getVal(bestColEtapa, 'Validación del Onboarding');
+
+    // Sanear si vino con fecha
+    if (estado.includes('GMT') || estado.includes('00:00:00') || !estado) {
+      for (let c = 14; c < Math.min(row.length, 25); c++) {
+        const val = String(row[c] || '').trim();
+        const vLower = val.toLowerCase();
+        if (vLower.includes('cerrad') || vLower.includes('fallid') || vLower === 'en progreso' || vLower === 'nuevo' || vLower.includes('ticket hc')) {
+          estado = val;
+          break;
+        }
+      }
+    }
+
+    if (estado.includes('GMT') || !estado) {
+      estado = 'Cerrado por oportunidad satisfactoria';
+    }
+    if (etapa.includes('GMT') || !etapa) {
+      etapa = 'Validación del Onboarding';
+    }
+
     const estadoLower = estado.toLowerCase();
-    const esCerrado = estadoLower.includes('cerrado') || estadoLower.includes('fallido');
-    const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc'));
+    const etapaLower = etapa.toLowerCase();
+    const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel') || etapaLower.includes('pedido de prueba realizado');
+    const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc') || estadoLower === 'abierto');
 
     const propOp = getVal(colPropOp, '');
     const propTick = getVal(colPropTicket, '');

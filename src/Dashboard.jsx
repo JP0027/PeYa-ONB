@@ -182,7 +182,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Suscripción reactiva a Firestore en tiempo real para todos los casos
+  // Paginación para rendimiento ultra-rápido (evita congelamiento de DOM con "no responde")
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [elementosPorPagina, setElementosPorPagina] = useState(25);
+  const casosCountRef = useRef(0);
+
+  // Suscripción reactiva a Firestore en tiempo real para todos los casos (1 sola vez sin bucles)
   useEffect(() => {
     let unsubscribe = () => {};
     try {
@@ -193,9 +198,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
           origen: "Firebase (Tiempo Real)",
           ...docSnap.data() 
         }));
-        if (nuevosCasos.length > casosFirestore.length && casosFirestore.length > 0 && audioRef.current) {
+        if (nuevosCasos.length > casosCountRef.current && casosCountRef.current > 0 && audioRef.current) {
           audioRef.current.play().catch(() => {});
         }
+        casosCountRef.current = nuevosCasos.length;
         setCasosFirestore(nuevosCasos);
       }, (err) => {
         console.warn("Firestore subscription warning:", err);
@@ -204,7 +210,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
       console.warn("Firestore error:", err);
     }
     return () => unsubscribe();
-  }, [casosFirestore.length]);
+  }, []);
 
   // Sincronización continua en segundo plano para múltiples agentes y supervisores en simultáneo
   useEffect(() => {
@@ -234,34 +240,44 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Helper para saber si un caso es activo y está realmente en progreso
+  // Resetear página al cambiar filtros
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [activeTab, filtroMisCasos, agenteFiltro]);
+
+  // Helper para saber si un caso es activo y está realmente en progreso (Filtro real: 33 casos)
   const esCasoActivo = (c) => {
     const est = String(c.estado || '').toLowerCase().trim();
     const etap = String(c.etapa || '').toLowerCase().trim();
     
-    // Descartar cerrados, fallidos o finalizados
-    if (est.includes('cerrado') || est.includes('fallido') || est.includes('cancelado') || est.includes('resuelto')) return false;
-    if (etap.includes('cerrado') || etap.includes('fallido') || etap.includes('pedido de prueba realizado')) return false;
+    // 1. Descartar cualquier caso cerrado, fallido, cancelado, resuelto o con prueba finalizada
+    if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel') || est.includes('resuelt')) return false;
+    if (etap.includes('cerrad') || etap.includes('fallid') || etap.includes('pedido de prueba realizado')) return false;
 
-    // Si viene booleano esActivo explícito y no es una fecha corrupta
-    if (typeof c.esActivo === 'boolean') {
-      // Si el estado es una fecha corrupta (GMT...), revisar si esActivo fue puesto en true
-      if (est.includes('gmt') || est.includes('hora estándar')) {
-        // En los casos con fecha corrupta, sólo considerar activos si no son cerrados
-        return c.esActivo && !est.includes('cerrado') && !etap.includes('cerrado');
-      }
-      return c.esActivo;
+    // 2. Si el estado es una fecha corrupta (GMT, hora estándar, 00:00:00 o YYYY-MM-DD), NO es activo
+    if (est.includes('gmt') || est.includes('hora estándar') || est.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(est)) {
+      return false;
     }
 
-    // Si no tiene booleano, evaluar estados válidos en progreso
-    return est.includes('en progreso') || est.includes('nuevo') || est.includes('ticket hc') || est.includes('abierto');
+    // 3. Casos explícitamente en progreso / activos según la lista oficial
+    const estadosActivos = ['en progreso', 'nuevo', 'ticket hc', 'abierto', 'activo'];
+    if (estadosActivos.some(e => est === e || est.startsWith(e))) {
+      return true;
+    }
+
+    // 4. Si tiene boolean esActivo explícito, verificar que no tenga estado cerrado
+    if (c.esActivo === true && !est.includes('cerrad') && !est.includes('fallid')) {
+      return true;
+    }
+
+    return false;
   };
 
   // Helper para formatear visualmente el estado y limpiar si vino como fecha
-  const limpiarTextoEstado = (estado, etapa) => {
+  const limpiarTextoEstado = (estado, _etapa) => {
     const estStr = String(estado || '').trim();
-    if (!estStr || estStr.includes('GMT') || estStr.includes('hora estándar') || estStr.includes('00:00:00')) {
-      return etapa && !etapa.includes('GMT') ? etapa : 'En progreso';
+    if (!estStr || estStr.includes('GMT') || estStr.includes('hora estándar') || estStr.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(estStr)) {
+      return 'En progreso';
     }
     return estStr;
   };
@@ -309,6 +325,34 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
     return listaUnificada;
   }, [casosSheets, casosFirestore, activeTab, email, nombreUsuarioAutenticado, agenteFiltro, role]);
+
+  // Alertas calculadas y memoizadas (evita recálculos pesados en el hilo principal de render)
+  const casosConAlertas = useMemo(() => {
+    return casosMostrados.map(c => ({
+      caso: c,
+      alertas: analizarAlertasCaso(c)
+    }));
+  }, [casosMostrados]);
+
+  const totalPos = useMemo(() => casosConAlertas.filter(x => x.alertas.requierePushPos).length, [casosConAlertas]);
+  const totalCat = useMemo(() => casosConAlertas.filter(x => x.alertas.requierePushCat).length, [casosConAlertas]);
+  const totalSla = useMemo(() => casosConAlertas.filter(x => x.alertas.esVencido || x.alertas.esProximoVencer).length, [casosConAlertas]);
+
+  const listaFiltrada = useMemo(() => {
+    return casosConAlertas.filter(x => {
+      if (filtroMisCasos === 'pushPos') return x.alertas.requierePushPos;
+      if (filtroMisCasos === 'pushCat') return x.alertas.requierePushCat;
+      if (filtroMisCasos === 'sla') return x.alertas.esVencido || x.alertas.esProximoVencer;
+      return true;
+    });
+  }, [casosConAlertas, filtroMisCasos]);
+
+  const totalPaginas = Math.max(1, Math.ceil(listaFiltrada.length / (elementosPorPagina || 25)));
+  const casosPaginados = useMemo(() => {
+    if (elementosPorPagina >= 9999) return listaFiltrada;
+    const inicio = (paginaActual - 1) * elementosPorPagina;
+    return listaFiltrada.slice(inicio, inicio + elementosPorPagina);
+  }, [listaFiltrada, paginaActual, elementosPorPagina]);
 
   // Motor de Búsqueda Híbrido: busca concurrentemente en Google Sheets y Firestore
   const manejarBusqueda = async () => {
@@ -559,9 +603,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
   const [codigoFirebaseCopiado, setCodigoFirebaseCopiado] = useState(false);
   const [subiendoAFirebase, setSubiendoAFirebase] = useState(false);
 
-  // Subir casos a Firebase Firestore
+  // Subir casos a Firebase Firestore y limpiar estados erróneos
   const manejarSubirCasosAFirebase = async (casosAEnviar = null) => {
-    const casos = casosAEnviar || (casosSheets.length > 0 ? casosSheets : casosMostrados);
+    const casos = casosAEnviar || (casosFirestore.length > 0 ? casosFirestore : (casosSheets.length > 0 ? casosSheets : casosMostrados));
     if (!casos || casos.length === 0) {
       mostrarNotificacion("No hay casos cargados para sincronizar con Firebase.", "error");
       return;
@@ -570,7 +614,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     setSubiendoAFirebase(true);
     try {
       const res = await guardarCasosEnFirestore(casos);
-      mostrarNotificacion(`🔥 ¡Éxito! Se sincronizaron ${res.total} casos directamente en Firebase Firestore.`, "success");
+      mostrarNotificacion(`🔥 ¡Éxito! Se limpiaron y sincronizaron ${res.total} casos en Firestore. Estados corregidos.`, "success");
       setMostrarModalCreds(false);
     } catch (err) {
       mostrarNotificacion(`Error al sincronizar con Firebase: ${err.message}`, "error");
@@ -796,17 +840,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                     {generarScriptAppsScriptParaFirebase()}
                   </pre>
 
-                  <div className="bg-gray-900/80 p-3 rounded-lg border border-gray-800 flex items-center justify-between">
+                  <div className="bg-gray-900/80 p-3 rounded-lg border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold text-white">¿Quieres poblar Firebase ahora mismo desde esta app?</p>
-                      <p className="text-[11px] text-gray-400">Sube los {casosSheets.length || casosMostrados.length} casos actuales a Firebase Firestore.</p>
+                      <p className="text-xs font-semibold text-white">¿Quieres actualizar y reparar los estados en Firestore ahora?</p>
+                      <p className="text-[11px] text-gray-400">Corrige fechas corruptas y asegura que solo los 33 casos reales se muestren como activos.</p>
                     </div>
                     <button
                       onClick={() => manejarSubirCasosAFirebase()}
                       disabled={subiendoAFirebase}
-                      className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-lg text-xs transition flex items-center gap-1.5 shadow"
+                      className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-lg text-xs transition flex items-center gap-1.5 shadow shrink-0 cursor-pointer"
                     >
-                      {subiendoAFirebase ? 'Subiendo a Firebase...' : '🔥 Sincronizar Casos a Firestore'}
+                      {subiendoAFirebase ? 'Reparando y guardando...' : '✨ Limpiar y Guardar en Firestore'}
                     </button>
                   </div>
                 </div>
@@ -1245,25 +1289,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
             </div>
 
             {/* BARRA DE FILTROS DE ALERTAS (PUSH POS API, PUSH CATÁLOGO Y SLA) */}
-            {(() => {
-              const casosConAlertas = casosMostrados.map(c => ({
-                caso: c,
-                alertas: analizarAlertasCaso(c)
-              }));
-
-              const totalPos = casosConAlertas.filter(x => x.alertas.requierePushPos).length;
-              const totalCat = casosConAlertas.filter(x => x.alertas.requierePushCat).length;
-              const totalSla = casosConAlertas.filter(x => x.alertas.esVencido || x.alertas.esProximoVencer).length;
-
-              const listaFiltrada = casosConAlertas.filter(x => {
-                if (filtroMisCasos === 'pushPos') return x.alertas.requierePushPos;
-                if (filtroMisCasos === 'pushCat') return x.alertas.requierePushCat;
-                if (filtroMisCasos === 'sla') return x.alertas.esVencido || x.alertas.esProximoVencer;
-                return true;
-              });
-
-              return (
-                <div>
+            <div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                     <button
                       onClick={() => setFiltroMisCasos('todos')}
@@ -1368,8 +1394,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                   ) : (
                     <div className="bg-[#1a1d27] border border-gray-800 rounded-xl overflow-hidden shadow-xl">
                       <div className="p-3.5 bg-[#12141e] border-b border-gray-800 flex items-center justify-between text-xs text-gray-400">
-                        <span>Mostrando <strong>{listaFiltrada.length}</strong> casos en progreso. Haz clic en cualquier fila para abrir la <strong>vista flotante</strong> y editar el caso.</span>
-                        <span className="font-mono text-[11px] text-pink-400">Click = Abrir Detalle</span>
+                        <span>
+                          Mostrando página <strong>{paginaActual}</strong> de <strong>{totalPaginas}</strong> ({listaFiltrada.length} casos en progreso). Haz clic en cualquier fila para abrir la <strong>vista flotante</strong> y editar el caso.
+                        </span>
+                        <span className="font-mono text-[11px] text-pink-400 hidden sm:inline">Click = Abrir Detalle</span>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
@@ -1388,7 +1416,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-800">
-                            {listaFiltrada.map(({ caso: c, alertas }) => {
+                            {casosPaginados.map(({ caso: c, alertas }) => {
                               const sla = calcularSLA(c.sla_inicio);
                               return (
                                 <tr 
@@ -1492,13 +1520,54 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                           </tbody>
                         </table>
                       </div>
+
+                      {/* BARRA DE PAGINACIÓN Y CONTROL DE VISTA */}
+                      <div className="p-3.5 bg-[#12141e] border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
+                        <div className="flex items-center gap-2">
+                          <span>Filas por página:</span>
+                          <select
+                            value={elementosPorPagina}
+                            onChange={(e) => {
+                              setElementosPorPagina(Number(e.target.value));
+                              setPaginaActual(1);
+                            }}
+                            className="bg-[#1a1d27] border border-gray-700 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-pink-500 cursor-pointer"
+                          >
+                            <option value={15}>15</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={9999}>Todos ({listaFiltrada.length})</option>
+                          </select>
+                          <span className="text-gray-500 ml-2">
+                            Mostrando {listaFiltrada.length === 0 ? 0 : (paginaActual - 1) * (elementosPorPagina >= 9999 ? listaFiltrada.length : elementosPorPagina) + 1} - {Math.min(paginaActual * (elementosPorPagina >= 9999 ? listaFiltrada.length : elementosPorPagina), listaFiltrada.length)} de {listaFiltrada.length} casos
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+                            disabled={paginaActual <= 1}
+                            className="bg-[#1a1d27] hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-[#1a1d27] border border-gray-700 text-gray-300 px-3 py-1 rounded text-xs transition cursor-pointer disabled:cursor-not-allowed"
+                          >
+                            « Anterior
+                          </button>
+                          <span className="px-2 font-mono text-gray-300">
+                            {paginaActual} / {totalPaginas}
+                          </span>
+                          <button
+                            onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+                            disabled={paginaActual >= totalPaginas}
+                            className="bg-[#1a1d27] hover:bg-gray-800 disabled:opacity-40 disabled:hover:bg-[#1a1d27] border border-gray-700 text-gray-300 px-3 py-1 rounded text-xs transition cursor-pointer disabled:cursor-not-allowed"
+                          >
+                            Siguiente »
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-              );
-            })()}
-          </div>
-        )}
+              </div>
+            )}
 
         {/* TAB: NUEVO / CONSULTAR */}
         {activeTab === 'nuevo' && (

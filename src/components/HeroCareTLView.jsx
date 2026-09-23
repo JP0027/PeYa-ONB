@@ -11,13 +11,17 @@ export default function HeroCareTLView({
   const [subTab, setSubTab] = useState('global'); // 'global' | 'rendimiento'
   const [filtroAgente, setFiltroAgente] = useState('todos');
 
-  // Filtrar casos activos (ocultar cerrados o fallidos)
+  // Filtrar casos activos (solo casos en progreso reales, descartando cerrados y fechas)
   const casosActivos = useMemo(() => {
     return casos.filter(c => {
-      const estadoNorm = (c.estado || '').toLowerCase().trim();
-      return !estadoNorm.includes('cerrado') && 
-             !estadoNorm.includes('fallido') && 
-             !estadoNorm.includes('resuelto');
+      const est = String(c.estado || '').toLowerCase().trim();
+      const etap = String(c.etapa || '').toLowerCase().trim();
+      if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel') || est.includes('resuelt')) return false;
+      if (etap.includes('cerrad') || etap.includes('fallid') || etap.includes('pedido de prueba realizado')) return false;
+      if (est.includes('gmt') || est.includes('hora estándar') || est.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(est)) return false;
+      const estadosActivos = ['en progreso', 'nuevo', 'ticket hc', 'abierto', 'activo'];
+      if (estadosActivos.some(e => est === e || est.startsWith(e))) return true;
+      return Boolean(c.esActivo) && !est.includes('cerrad');
     });
   }, [casos]);
 

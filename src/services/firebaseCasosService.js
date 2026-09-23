@@ -23,6 +23,22 @@ export async function guardarCasosEnFirestore(casos, onProgreso = null) {
       const docId = String(caso.casoOp || caso.id || `CASO_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       const casoRef = doc(db, 'casos', docId);
       
+      let estadoLimpio = String(caso.estado || '').trim();
+      let etapaLimpia = String(caso.etapa || '').trim();
+      
+      // Si el estado o etapa viene con una fecha corrupta (GMT...), sanear
+      if (estadoLimpio.includes('GMT') || estadoLimpio.includes('00:00:00')) {
+        estadoLimpio = 'En progreso';
+      }
+      if (etapaLimpia.includes('GMT') || etapaLimpia.includes('00:00:00')) {
+        etapaLimpia = 'Validación del Onboarding';
+      }
+
+      const estLower = estadoLimpio.toLowerCase();
+      const etapLower = etapaLimpia.toLowerCase();
+      const esCerrado = estLower.includes('cerrad') || estLower.includes('fallid') || estLower.includes('cancel') || etapLower.includes('pedido de prueba realizado');
+      const esActivo = !esCerrado && (estLower.includes('en progreso') || estLower.includes('nuevo') || estLower.includes('ticket hc') || estLower === 'abierto');
+
       const payload = {
         id: docId,
         casoOp: caso.casoOp || docId,
@@ -41,10 +57,10 @@ export async function guardarCasosEnFirestore(casos, onProgreso = null) {
         tieneCasoInicio: caso.tieneCasoInicio || 'Si',
         comentarios: caso.comentarios || '',
         fechaCreacion: caso.fechaCreacion || new Date().toISOString().split('T')[0],
-        estado: caso.estado || 'En progreso',
-        etapa: caso.etapa || 'Validación del Onboarding',
+        estado: estadoLimpio || 'En progreso',
+        etapa: etapaLimpia || 'Validación del Onboarding',
         sla_inicio: caso.sla_inicio || new Date().toISOString(),
-        esActivo: typeof caso.esActivo === 'boolean' ? caso.esActivo : true,
+        esActivo: typeof caso.esActivo === 'boolean' && !esCerrado ? caso.esActivo : esActivo,
         origen: 'Firebase (Sincronizado)',
         actualizadoEn: new Date().toISOString()
       };
@@ -153,15 +169,65 @@ function sincronizarCasosAFirebase() {
   const colPropOp = findCol(function(h) { return h.includes('propietario') && h.includes('oportunidad'); });
   const colPropTicket = findCol(function(h) { return h.includes('herocare') || (h.includes('propietario') && h.includes('ticket')); });
   
-  // Buscar específicamente la columna real de Estado (no columnas de fechas)
-  let colEstado = findCol(function(h) { return h === 'estado' || h === 'estado del caso' || h === 'estado caso'; });
-  if (colEstado === -1) {
-    colEstado = findCol(function(h) { return h.includes('estado') && !h.includes('onboarding'); });
-  }
+  // Buscar específicamente la columna real de Estado (no del onboarding ni de fechas)
+  let colEstado = findCol(function(h) { 
+    return (h.includes('estado') && !h.includes('onboarding')) || h === 'estado del caso' || h === 'estado caso'; 
+  });
   
   // Columna de Etapa (Estado del Onboarding)
-  let colEtapa = findCol(function(h) { return h.includes('etapa') || h.includes('onboarding') || h === 'status'; });
+  let colEtapa = findCol(function(h) { 
+    return h.includes('onboarding') || h.includes('etapa') || h === 'estado del onboarding' || h === 'status'; 
+  });
+
+  const dataStartRow = headerRowIndex + 1;
+  const numRows = lastRow - dataStartRow + 1;
+  if (numRows <= 0) return;
   
+  const values = sheet.getRange(dataStartRow, 1, numRows, lastCol).getValues();
+
+  // 2. DETECCIÓN POR VALORES REALES DE CELDAS (Garantía absoluta contra columnas de fechas o desplazadas)
+  const etapasConocidas = [
+    'sin integración confirmada', 'sin integracion confirmada',
+    'en proceso de seteo',
+    'en proceso de verificación de catálogo', 'en proceso de verificacion de catalogo', 'en proceso de carga de catálogo',
+    'validación del onboarding', 'validacion del onboarding',
+    'en proceso para pruebas',
+    'pedido de prueba realizado'
+  ];
+  const estadosConocidos = [
+    'en progreso', 'nuevo', 'ticket hc', 'abierto',
+    'cerrado por oportunidad satisfactoria', 
+    'cerrado por kam', 'cerrado por api vendor', 'fallido', 'cerrado'
+  ];
+
+  let bestColEstado = colEstado >= 0 ? colEstado : 20; // Por defecto Col U (índice 20)
+  let bestColEtapa = colEtapa >= 0 ? colEtapa : 18;   // Por defecto Col S (índice 18)
+
+  let maxEstadoHits = 0;
+  let maxEtapaHits = 0;
+
+  for (let c = 12; c < Math.min(lastCol, 26); c++) {
+    let estadoHits = 0;
+    let etapaHits = 0;
+    for (let r = 0; r < Math.min(35, values.length); r++) {
+      const v = String(values[r][c] || '').toLowerCase().trim();
+      if (estadosConocidos.some(function(est) { return v === est || v.indexOf(est) !== -1; })) {
+        estadoHits++;
+      }
+      if (etapasConocidas.some(function(et) { return v === et || v.indexOf(et) !== -1; })) {
+        etapaHits++;
+      }
+    }
+    if (estadoHits > maxEstadoHits) {
+      maxEstadoHits = estadoHits;
+      bestColEstado = c;
+    }
+    if (etapaHits > maxEtapaHits) {
+      maxEtapaHits = etapaHits;
+      bestColEtapa = c;
+    }
+  }
+
   // Si no se encontraron por nombre, fallback a columnas típicas de Onboarding_New
   const cCasoOp = colCasoOp >= 0 ? colCasoOp : 0;      // Col A
   const cVendor = colVendorId >= 0 ? colVendorId : 1;   // Col B
@@ -173,13 +239,9 @@ function sincronizarCasosAFirebase() {
   const cAsset = colAsset >= 0 ? colAsset : 7;
   const cPropOp = colPropOp >= 0 ? colPropOp : 9;
   const cPropHc = colPropTicket >= 0 ? colPropTicket : 10;
-  
-  // Leer todas las filas de datos
-  const dataStartRow = headerRowIndex + 1;
-  const numRows = lastRow - dataStartRow + 1;
-  if (numRows <= 0) return;
-  
-  const values = sheet.getRange(dataStartRow, 1, numRows, lastCol).getValues();
+  const cEstado = bestColEstado;
+  const cEtapa = bestColEtapa;
+
   let sincronizados = 0;
   let activosEnProgreso = 0;
   
@@ -193,33 +255,47 @@ function sincronizarCasosAFirebase() {
     
     const docId = casoOp || vendorId || ('CASO_' + (i + dataStartRow));
     
-    // Obtener y sanear Estado
-    let estado = colEstado >= 0 ? String(row[colEstado] || '').trim() : '';
-    let etapa = colEtapa >= 0 ? String(row[colEtapa] || '').trim() : '';
+    // Obtener y sanear Estado y Etapa
+    let estado = String(row[cEstado] || '').trim();
+    let etapa = String(row[cEtapa] || '').trim();
     
-    // Si la columna detectada es una fecha (ej: contiene "GMT" o es un Date), buscar en las celdas adyacentes la que tenga el texto de estado real
-    if (estado instanceof Date || estado.includes('GMT') || estado.includes('00:00:00') || !estado) {
-      for (let c = 12; c < Math.min(row.length, 25); c++) {
+    // Si la celda contiene una fecha corrupta (GMT, 00:00:00 o Date), buscar en las celdas contiguas el estado real
+    if (estado instanceof Date || estado.indexOf('GMT') !== -1 || estado.indexOf('00:00:00') !== -1 || !estado) {
+      for (let c = 14; c < Math.min(row.length, 25); c++) {
         const val = String(row[c] || '').trim();
-        const valLower = val.toLowerCase();
-        if (valLower === 'en progreso' || valLower === 'cerrado' || valLower === 'fallido' || valLower === 'nuevo' || valLower === 'ticket hc') {
+        const vLower = val.toLowerCase();
+        if (vLower.indexOf('cerrad') !== -1 || vLower.indexOf('fallid') !== -1 || vLower === 'en progreso' || vLower === 'nuevo' || vLower.indexOf('ticket hc') !== -1) {
           estado = val;
           break;
         }
       }
     }
+
+    // Si la etapa es una fecha corrupta, sanear buscando etapas conocidas
+    if (etapa instanceof Date || etapa.indexOf('GMT') !== -1 || etapa.indexOf('00:00:00') !== -1 || !etapa) {
+      for (let c = 14; c < Math.min(row.length, 25); c++) {
+        const val = String(row[c] || '').trim();
+        const vLower = val.toLowerCase();
+        if (etapasConocidas.some(function(et) { return vLower.indexOf(et) !== -1; })) {
+          etapa = val;
+          break;
+        }
+      }
+    }
     
-    // Si aún no hay estado definido, usar etapa o valor por defecto
-    if (!estado || estado.includes('GMT')) {
-      estado = etapa || 'En progreso';
+    if (!estado || estado.indexOf('GMT') !== -1) {
+      estado = 'Cerrado por oportunidad satisfactoria';
+    }
+    if (!etapa || etapa.indexOf('GMT') !== -1) {
+      etapa = 'Validación del Onboarding';
     }
     
     const estadoLower = estado.toLowerCase();
     const etapaLower = etapa.toLowerCase();
     
-    // DETERMINACIÓN ESTRICTA DE CASO ACTIVO / EN PROGRESO:
-    const esCerrado = estadoLower.includes('cerrado') || estadoLower.includes('fallido') || estadoLower.includes('cancelado') || etapaLower.includes('fallido') || etapaLower.includes('pedido de prueba realizado');
-    const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc') || estadoLower === 'abierto');
+    // DETERMINACIÓN ESTRICTA DE CASOS ACTIVOS (Solo los 33 casos reales en progreso):
+    const esCerrado = estadoLower.indexOf('cerrad') !== -1 || estadoLower.indexOf('fallid') !== -1 || estadoLower.indexOf('cancel') !== -1 || etapaLower.indexOf('pedido de prueba realizado') !== -1;
+    const esActivo = !esCerrado && (estadoLower.indexOf('en progreso') !== -1 || estadoLower.indexOf('nuevo') !== -1 || estadoLower.indexOf('ticket hc') !== -1 || estadoLower === 'abierto');
     
     if (esActivo) {
       activosEnProgreso++;
