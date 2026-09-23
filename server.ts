@@ -52,12 +52,14 @@ async function startServer() {
     }
   });
 
+  const PERMANENT_GAS_URL = process.env.VITE_GAS_WEBAPP_URL || 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwgIb-giqPHQ27N6vziQUPtt7OWEllQ3e9FSLccb67D-U-cHyIDCAY66FouF2lXKr6ILQ/exec';
+
   // Proxy seguro para consultar Google Apps Script Web App o enlaces de Google Sheets
   app.get('/api/sheets/gas-proxy', async (req, res) => {
     try {
-      let gasUrl = String(req.query.url || '').trim();
+      let gasUrl = String(req.query.url || PERMANENT_GAS_URL).trim();
       if (!gasUrl || !gasUrl.startsWith('http')) {
-        return res.status(400).json({ success: false, error: 'URL inválida o vacía.' });
+        gasUrl = PERMANENT_GAS_URL;
       }
 
       // Si es un enlace directo a Google Sheets (docs.google.com)
@@ -116,7 +118,7 @@ async function startServer() {
 
       console.log(`[API /api/sheets/gas-proxy] Consultando Web App: ${targetUrl}`);
       const separator = targetUrl.includes('?') ? '&' : '?';
-      const endpoint = `${targetUrl}${separator}action=getCasos&sheet=Onboarding_New&t=${Date.now()}`;
+      const endpoint = `${targetUrl}${separator}action=getCasos&sheet=Onboarding&t=${Date.now()}`;
 
       let response = await fetch(endpoint, {
         headers: { 'Accept': 'application/json, text/plain, */*' },
@@ -126,7 +128,7 @@ async function startServer() {
       // Si falló con la normalizada, reintentar con la original
       if (!response.ok && targetUrl !== gasUrl) {
         const sepOrig = gasUrl.includes('?') ? '&' : '?';
-        response = await fetch(`${gasUrl}${sepOrig}action=getCasos&sheet=Onboarding_New&t=${Date.now()}`, {
+        response = await fetch(`${gasUrl}${sepOrig}action=getCasos&sheet=Onboarding&t=${Date.now()}`, {
           headers: { 'Accept': 'application/json, text/plain, */*' },
           redirect: 'follow'
         });
@@ -313,7 +315,7 @@ async function startServer() {
       const resultado = sheetsBackendService.actualizarCaso(casoData);
 
       // Si existe una URL de Google Apps Script configurada, reenviar la mutación directamente al Google Sheet
-      const gasUrl = (casoData._gasUrl || req.headers['x-gas-url'] || '').toString().trim();
+      const gasUrl = (casoData._gasUrl || req.headers['x-gas-url'] || PERMANENT_GAS_URL).toString().trim();
       let sheetsSincronizado = false;
       let gasMensaje = '';
 

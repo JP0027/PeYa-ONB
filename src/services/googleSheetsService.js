@@ -32,10 +32,15 @@ export async function guardarCuentaServicio(contenidoJson) {
   return data;
 }
 
+export const DEFAULT_GAS_URL = 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwgIb-giqPHQ27N6vziQUPtt7OWEllQ3e9FSLccb67D-U-cHyIDCAY66FouF2lXKr6ILQ/exec';
+
 export function obtenerGasUrl() {
-  return localStorage.getItem('PEDA_GAS_URL') || 
-         import.meta.env.VITE_GAS_WEBAPP_URL || 
-         'https://script.google.com/macros/s/AKfycbwSon9BeerNaPPqbd1wvCRxorbiWJzo-aHiyNkINbj2BKu8K7iFTh7LltfsaRiKb5P78g/exec';
+  const guardada = localStorage.getItem('PEDA_GAS_URL');
+  if (!guardada || guardada.includes('AKfycbwSon9BeerNaPPqbd1wvCRxorbiWJzo-aHiyNkINbj2BKu8K7iFTh7LltfsaRiKb5P78g')) {
+    localStorage.setItem('PEDA_GAS_URL', DEFAULT_GAS_URL);
+    return DEFAULT_GAS_URL;
+  }
+  return guardada;
 }
 
 export function guardarGasUrl(url) {
@@ -48,141 +53,287 @@ export function guardarGasUrl(url) {
 
 /**
  * Código estándar y probado para colocar en Extensiones > Apps Script del archivo Google Sheets
- * Incluye las 4 reglas automáticas en tiempo real y endpoints GET y POST
+ * Conserva la lógica de onEdit (regla de 96h, fecha de cierre y comentarios automáticos)
+ * y añade doGet y doPost para sincronización bidireccional en tiempo real con PeYa ONB.
  */
 export const APPS_SCRIPT_TEMPLATE = `/**
- * Google Apps Script para HeroCare ONB (PedidosYa) - Hoja: Onboarding_New
- * 1. Pega este código en: Extensiones > Apps Script
- * 2. Clic en: Implementar > Nueva implementación
- * 3. Selecciona: Aplicación web
- * 4. Configura:
- *    - Ejecutar como: "Yo" (tu cuenta)
- *    - Quién tiene acceso: "Cualquier usuario" (Anyone)
- * 5. Clic en "Implementar" y copia la URL generada (/exec).
+ * Google Apps Script para PeYa ONB (PedidosYa) - Hoja: Onboarding
+ * Integra:
+ * 1. onEdit(e): Automatización de comentarios y fecha de cierre por edición manual en Sheets.
+ * 2. doGet(e): Lectura en tiempo real de todos los casos desde PeYa ONB.
+ * 3. doPost(e): Actualización y creación de casos en tiempo real desde PeYa ONB.
  */
 
+// --- CONFIGURACIÓN DE COLUMNAS (Coincide con la hoja Onboarding) ---
+const START_ROW = 6;       // Fila donde inician los datos (fila 5 son los títulos)
+const COL_ENVIO = 6;       // Columna F (6): Fecha de Envío
+const COL_CIERRE = 7;      // Columna G (7): Fecha de Cierre
+const COL_STATUS = 19;     // Columna S (19): Estado del onboarding
+const COL_COMENTARIO = 20; // Columna T (20): Detalle / Comentario del onboarding
+const COL_ESTADO = 21;     // Columna U (21): Estado del caso ("En progreso", "Nuevo", "Fallido", etc.)
+
+// --- MAPA DE COMENTARIOS AUTOMÁTICOS ---
+const comentariosMap = { 
+  "Sin integración confirmada": "Se envió el correo al ejecutivo comercial y Partner para que nos indiquen con cuál integración trabajarían.",
+  "En proceso de seteo": "Se envió el correo a la integración con copia al ejecutivo comercial y Partner, con los datos para configurar (Chain ID y Remote ID); esperamos la confirmación por parte de la integración para proceder con el seteo.",
+  "En proceso de carga de catálogo": "Estamos a la espera de que el equipo de integración confirme la carga del menú (si gestiona catálogo de manera individual), nos indique el menú a unificar (si gestiona catálogo de manera unificada) o realice el envío de archivos codificados (si no gestiona catálogo) para poder programar el pedido de prueba.",
+  "En proceso para pruebas": "Se verifica que el perfil cuenta con catálogo integrado. Se propone realizar las pruebas dos horas después de la hora actual del caso, asegurando que se encuentre dentro del horario operativo del partner.",
+  "Pedido de prueba realizado": "Se realizó el envío de la prueba correctamente y se finalizó el proceso de onboarding.",
+  "Fallido": "Se cierra como Fallido debido a la falta de respuesta del equipo de integración para continuar con el proceso. Por proceso, la OP se cierra después de 96 horas de inactividad."
+};
+
+/**
+ * 1. EVENTO ONEDIT (Para ediciones directas en la hoja de cálculo de Google Sheets)
+ */
+function onEdit(e) {
+  if (!e || !e.range) return;
+  const range = e.range;
+  const sheet = range.getSheet();
+  const sheetName = sheet.getName();
+  if (sheetName !== "Onboarding" && sheetName !== "Onboarding_New") return;
+
+  const row = range.getRow();
+  const col = range.getColumn();
+
+  if (row < START_ROW) return;
+
+  // Actualizar comentario automático
+  if (col === COL_STATUS || col === COL_ESTADO) {
+    const estadoCasoVal = sheet.getRange(row, COL_ESTADO).getValue().toString().trim().toLowerCase();
+    let comentario = "";
+
+    if (estadoCasoVal === "fallido") {
+      comentario = comentariosMap["Fallido"] || "";
+    } else {
+      const estadoOnboarding = sheet.getRange(row, COL_STATUS).getValue().toString().trim();
+      comentario = comentariosMap[estadoOnboarding] || "";
+    }
+
+    if (comentario) {
+      sheet.getRange(row, COL_COMENTARIO).setValue(comentario);
+    }
+  }
+
+  // Actualizar fecha de cierre al cambiar de estado
+  if (col === COL_ESTADO) {
+    const filaInicio = Math.max(row, START_ROW);
+    const numFilas = range.getLastRow() - filaInicio + 1;
+    if (numFilas <= 0) return;
+
+    const datos = sheet.getRange(filaInicio, COL_ENVIO, numFilas, 16).getValues();
+    const hoy = new Date();
+    const estadosAbiertos = new Set(["En progreso", "Nuevo", "en progreso", "nuevo", ""]);
+    
+    const nuevosValores = datos.map(function(fila) {
+      const fechaEnvio = fila[0];
+      const fechaCierre = fila[1];
+      const estado = String(fila[15] || "").trim();
+
+      if (!(fechaEnvio instanceof Date)) return [fechaCierre];
+      if (estadosAbiertos.has(estado)) return ["-"];
+
+      return [(fechaCierre instanceof Date) ? fechaCierre : hoy];
+    });
+
+    sheet.getRange(filaInicio, COL_CIERRE, numFilas, 1).setValues(nuevosValores);
+  }
+}
+
+/**
+ * 2. ENDPOINT DOGET (Para lectura en tiempo real desde la plataforma PeYa ONB)
+ */
 function doGet(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName("Onboarding_New") || ss.getActiveSheet();
-    const data = sheet.getDataRange().getValues();
+    const sheet = ss.getSheetByName("Onboarding") || ss.getSheetByName("Onboarding_New") || ss.getActiveSheet();
+    const lastRow = sheet.getLastRow();
+    const lastCol = Math.max(sheet.getLastColumn(), 25);
     
-    if (data.length < 2) {
-      return ContentService.createTextOutput(JSON.stringify({ success: true, casos: [] }))
+    if (lastRow < START_ROW) {
+      return ContentService.createTextOutput(JSON.stringify({ success: true, total: 0, casos: [] }))
         .setMimeType(ContentService.MimeType.JSON);
     }
-    
-    // Buscar la fila de encabezados
-    let headerRowIdx = 0;
-    for (let i = 0; i < Math.min(5, data.length); i++) {
-      const rowStr = data[i].join(" ").toLowerCase();
-      if (rowStr.includes("caso op") || (rowStr.includes("tienda") && rowStr.includes("integrac"))) {
-        headerRowIdx = i;
-        break;
-      }
-    }
-    
-    const headers = data[headerRowIdx].map(function(h) { return String(h || "").trim(); });
-    const rows = data.slice(headerRowIdx + 1);
-    
-    const casos = rows.map(function(row, idx) {
-      const obj = { filaNumero: headerRowIdx + 2 + idx };
-      headers.forEach(function(h, colIdx) {
-        if (h) {
-          obj[h] = row[colIdx] !== undefined ? String(row[colIdx]) : "";
+
+    // Leer encabezados de la fila 5 (o anterior)
+    const headerRowIdx = START_ROW - 1; // Fila 5
+    const headers = sheet.getRange(headerRowIdx, 1, 1, lastCol).getValues()[0].map(function(h) {
+      return String(h || "").trim();
+    });
+
+    // Leer todas las filas de datos desde START_ROW
+    const numDatos = lastRow - START_ROW + 1;
+    const data = sheet.getRange(START_ROW, 1, numDatos, lastCol).getValues();
+
+    const casos = [];
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      var filaNum = START_ROW + i;
+      
+      var casoOp = String(row[0] || "").trim(); // Col A
+      var vendorId = String(row[1] || "").trim(); // Col B
+      var tienda = String(row[2] || "").trim(); // Col C
+      
+      // Si la fila está vacía, continuar
+      if (!casoOp && !vendorId && !tienda) continue;
+
+      var fechaEnvio = row[COL_ENVIO - 1];
+      var fechaCierre = row[COL_CIERRE - 1];
+      var statusOnb = String(row[COL_STATUS - 1] || "").trim();
+      var comentarios = String(row[COL_COMENTARIO - 1] || "").trim();
+      var estado = String(row[COL_ESTADO - 1] || "En progreso").trim();
+
+      // Formatear fechas legibles
+      var fechaEnvioStr = (fechaEnvio instanceof Date) ? Utilities.formatDate(fechaEnvio, "GMT-3", "yyyy-MM-dd HH:mm") : String(fechaEnvio || "");
+      var fechaCierreStr = (fechaCierre instanceof Date) ? Utilities.formatDate(fechaCierre, "GMT-3", "yyyy-MM-dd HH:mm") : String(fechaCierre || "-");
+
+      var item = {
+        filaNumero: filaNum,
+        id: casoOp || vendorId || ("CASO-" + filaNum),
+        casoOp: casoOp,
+        vendorId: vendorId,
+        vendor_id: vendorId,
+        tienda: tienda,
+        pais: String(row[3] || "").trim(),
+        kam: String(row[4] || "").trim(),
+        fechaEnvio: fechaEnvioStr,
+        fechaCierre: fechaCierreStr,
+        integracion: String(row[7] || "").trim(),
+        propietarioOportunidad: String(row[8] || "").trim(),
+        propietarioTicket: String(row[9] || "").trim(),
+        agente: String(row[9] || row[8] || "Sin asignar").trim(),
+        etapa: statusOnb || "Validación del Onboarding",
+        statusOnboarding: statusOnb,
+        comentarios: comentarios,
+        estado: estado,
+        esActivo: !estado.toLowerCase().includes("cerrado") && !estado.toLowerCase().includes("fallido")
+      };
+
+      // Incluir todos los encabezados adicionales mapeados dinámicamente
+      headers.forEach(function(h, cIdx) {
+        if (h && item[h] === undefined) {
+          var val = row[cIdx];
+          item[h] = (val instanceof Date) ? Utilities.formatDate(val, "GMT-3", "yyyy-MM-dd HH:mm") : String(val || "");
         }
       });
-      return obj;
-    }).filter(function(c) {
-      return c["N° Caso OP"] || c["ID"] || c["Tienda"];
-    });
-    
-    return ContentService.createTextOutput(JSON.stringify({ success: true, total: casos.length, casos: casos }))
-      .setMimeType(ContentService.MimeType.JSON);
-      
+
+      casos.push(item);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: true, 
+      total: casos.length, 
+      hoja: sheet.getName(),
+      casos: casos 
+    })).setMimeType(ContentService.MimeType.JSON);
+
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
+/**
+ * 3. ENDPOINT DOPOST (Para guardar modificaciones y nuevos casos desde PeYa ONB)
+ */
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName("Onboarding_New") || ss.getActiveSheet();
-    const data = sheet.getDataRange().getValues();
+    const sheet = ss.getSheetByName("Onboarding") || ss.getSheetByName("Onboarding_New") || ss.getActiveSheet();
+    const lastRow = sheet.getLastRow();
+    const lastCol = Math.max(sheet.getLastColumn(), 25);
     
-    let headerRowIdx = 0;
-    for (let i = 0; i < Math.min(5, data.length); i++) {
-      const rowStr = data[i].join(" ").toLowerCase();
-      if (rowStr.includes("caso op") || (rowStr.includes("tienda") && rowStr.includes("integrac"))) {
-        headerRowIdx = i;
-        break;
-      }
-    }
-    
-    const headers = data[headerRowIdx].map(function(h) { return String(h || "").trim(); });
-    const colCasoOp = headers.indexOf("N° Caso OP");
-    const colPropOp = headers.indexOf("Propietario Oportunidad");
-    const colEstado = headers.indexOf("Estado del caso (SF)");
-    const colEtapa = headers.indexOf("Etapa del onboarding");
-    const colComentarios = headers.indexOf("Comentarios del Onboarding");
-    
-    // Buscar si ya existe la fila para actualizarla sin duplicar
+    const casoOpBuscado = String(payload.casoOp || payload.id || "").trim();
+    const vendorBuscado = String(payload.vendorId || payload.vendor_id || "").trim();
+
     let filaEncontrada = -1;
-    if (colCasoOp !== -1 && payload.casoOp) {
-      for (let r = headerRowIdx + 1; r < data.length; r++) {
-        if (String(data[r][colCasoOp]).trim() === String(payload.casoOp).trim()) {
-          filaEncontrada = r + 1; // 1-indexed para Sheets
+
+    // Buscar si ya existe por Caso OP (Columna A) o Vendor ID (Columna B)
+    if (lastRow >= START_ROW) {
+      const idsData = sheet.getRange(START_ROW, 1, lastRow - START_ROW + 1, 2).getValues();
+      for (let i = 0; i < idsData.length; i++) {
+        const cOp = String(idsData[i][0] || "").trim();
+        const vId = String(idsData[i][1] || "").trim();
+        if ((casoOpBuscado && cOp === casoOpBuscado) || (vendorBuscado && vId === vendorBuscado)) {
+          filaEncontrada = START_ROW + i;
           break;
         }
       }
     }
-    
+
+    const hoy = new Date();
+
     if (filaEncontrada !== -1) {
-      // Actualizar columnas existentes
-      if (colPropOp !== -1 && payload.propietarioOportunidad) {
-        sheet.getRange(filaEncontrada, colPropOp + 1).setValue(payload.propietarioOportunidad);
+      // --- ACTUALIZAR CASO EXISTENTE ---
+      // 1. Estado del caso (Columna U / 21)
+      if (payload.estado) {
+        sheet.getRange(filaEncontrada, COL_ESTADO).setValue(payload.estado);
       }
-      if (colEstado !== -1 && payload.estado) {
-        sheet.getRange(filaEncontrada, colEstado + 1).setValue(payload.estado);
+
+      // 2. Estado del onboarding (Columna S / 19)
+      const nuevoStatus = payload.statusOnboarding || payload.etapa;
+      if (nuevoStatus) {
+        sheet.getRange(filaEncontrada, COL_STATUS).setValue(nuevoStatus);
       }
-      if (colEtapa !== -1 && payload.etapa) {
-        sheet.getRange(filaEncontrada, colEtapa + 1).setValue(payload.etapa);
+
+      // 3. Comentarios del onboarding (Columna T / 20)
+      if (payload.comentarios) {
+        sheet.getRange(filaEncontrada, COL_COMENTARIO).setValue(payload.comentarios);
+      } else if (nuevoStatus && comentariosMap[nuevoStatus]) {
+        // Asignar comentario automático si no se envió uno personalizado
+        sheet.getRange(filaEncontrada, COL_COMENTARIO).setValue(comentariosMap[nuevoStatus]);
       }
-      if (colComentarios !== -1 && payload.comentarios) {
-        sheet.getRange(filaEncontrada, colComentarios + 1).setValue(payload.comentarios);
+
+      // 4. Propietario Oportunidad o HeroCare (Columna 9 o 10)
+      if (payload.propietarioOportunidad) {
+        sheet.getRange(filaEncontrada, 9).setValue(payload.propietarioOportunidad);
       }
-      return ContentService.createTextOutput(JSON.stringify({ success: true, updated: true, fila: filaEncontrada }))
-        .setMimeType(ContentService.MimeType.JSON);
+      if (payload.propietarioTicket || payload.agente) {
+        sheet.getRange(filaEncontrada, 10).setValue(payload.propietarioTicket || payload.agente);
+      }
+
+      // 5. Aplicar regla de fecha de cierre automática
+      const estadoActual = String(payload.estado || sheet.getRange(filaEncontrada, COL_ESTADO).getValue()).trim().toLowerCase();
+      if (estadoActual.includes("cerrado") || estadoActual.includes("fallido")) {
+        sheet.getRange(filaEncontrada, COL_CIERRE).setValue(hoy);
+      } else if (estadoActual.includes("en progreso") || estadoActual.includes("nuevo")) {
+        sheet.getRange(filaEncontrada, COL_CIERRE).setValue("-");
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: true, 
+        updated: true, 
+        fila: filaEncontrada,
+        mensaje: "Caso actualizado correctamente en Google Sheets."
+      })).setMimeType(ContentService.MimeType.JSON);
+
     } else {
-      // Insertar nuevo caso como nueva fila al final de Onboarding_New
-      const nuevaFila = headers.map(function(h) {
-        const hLow = h.toLowerCase();
-        if (hLow.includes("caso") && hLow.includes("op")) return payload.casoOp || "";
-        if (hLow === "id" || hLow.includes("vendor")) return payload.vendorId || "";
-        if (hLow.includes("tienda")) return payload.tienda || "";
-        if (hLow.includes("país") || hLow.includes("pais")) return payload.pais || "";
-        if (hLow.includes("kam")) return payload.kam || "";
-        if (hLow.includes("integrac")) return payload.integracion || "";
-        if (hLow.includes("oportunidad") && !hLow.includes("propietario")) return payload.oportunidad || "";
-        if (hLow.includes("asset")) return payload.asset || "";
-        if (hLow.includes("seguimiento")) return payload.casoSeguimiento || "";
-        if (hLow.includes("propietario") && hLow.includes("oportunidad")) return payload.propietarioOportunidad || "";
-        if (hLow.includes("herocare") || (hLow.includes("propietario") && hLow.includes("ticket"))) return payload.propietarioTicket || payload.agente || "";
-        if (hLow.includes("inicial") || hLow.includes("inicio?")) return payload.tieneCasoInicio || "Si";
-        if (hLow.includes("comentario")) return payload.comentarios || "";
-        if (hLow.includes("creación") || hLow.includes("creacion")) return payload.fechaCreacion || Utilities.formatDate(new Date(), "GMT-3", "yyyy-MM-dd");
-        if (hLow.includes("estado")) return payload.estado || "Nuevo";
-        if (hLow.includes("etapa")) return payload.etapa || "Validación del Onboarding";
-        if (hLow.includes("sla") || hLow.includes("inicio de seguimiento")) return payload.sla_inicio || new Date().toISOString();
-        return "";
-      });
+      // --- REGISTRAR NUEVO CASO ---
+      const nuevaFila = new Array(lastCol).fill("");
+      nuevaFila[0] = payload.casoOp || "";
+      nuevaFila[1] = payload.vendorId || "";
+      nuevaFila[2] = payload.tienda || "";
+      nuevaFila[3] = payload.pais || "";
+      nuevaFila[4] = payload.kam || "";
+      nuevaFila[COL_ENVIO - 1] = hoy;
+      nuevaFila[COL_CIERRE - 1] = "-";
+      nuevaFila[7] = payload.integracion || "";
+      nuevaFila[8] = payload.propietarioOportunidad || "";
+      nuevaFila[9] = payload.propietarioTicket || payload.agente || "";
+      nuevaFila[COL_STATUS - 1] = payload.statusOnboarding || payload.etapa || "Sin integración confirmada";
+      nuevaFila[COL_COMENTARIO - 1] = payload.comentarios || comentariosMap[nuevaFila[COL_STATUS - 1]] || "";
+      nuevaFila[COL_ESTADO - 1] = payload.estado || "En progreso";
+
       sheet.appendRow(nuevaFila);
-      return ContentService.createTextOutput(JSON.stringify({ success: true, created: true, fila: sheet.getLastRow() }))
-        .setMimeType(ContentService.MimeType.JSON);
+
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: true, 
+        created: true, 
+        fila: sheet.getLastRow(),
+        mensaje: "Nuevo caso registrado correctamente en Google Sheets."
+      })).setMimeType(ContentService.MimeType.JSON);
     }
+
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);

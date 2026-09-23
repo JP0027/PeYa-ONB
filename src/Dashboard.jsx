@@ -75,6 +75,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
   const [casosFirestore, setCasosFirestore] = useState([]);
   const [casosSheets, setCasosSheets] = useState([]);
   const [cargandoSheets, setCargandoSheets] = useState(false);
+  const [ultimaSync, setUltimaSync] = useState(null);
+  const [sincronizandoAuto, setSincronizandoAuto] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
 
   // Estado para la vista flotante (Modal) de caso previo / activo
@@ -137,25 +139,42 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     await cargarCasosGoogleSheets();
   };
 
-  const cargarCasosGoogleSheets = async () => {
-    setCargandoSheets(true);
+  const cargarCasosGoogleSheets = async (silencioso = false) => {
+    if (!silencioso) setCargandoSheets(true);
+    else setSincronizandoAuto(true);
     try {
       const data = await consultarCasosGoogleSheets();
       if (Array.isArray(data) && data.length > 0) {
         setCasosSheets(data);
+        setUltimaSync(new Date());
         const activos = data.filter(c => c.esActivo).length;
-        mostrarNotificacion(`Conexión exitosa: ${data.length} casos totales (${activos} activos en equipo)`, "success");
+        if (!silencioso) {
+          mostrarNotificacion(`Sincronizado: ${data.length} casos totales (${activos} activos)`, "success");
+        }
       }
     } catch (err) {
       console.warn("No se pudo cargar data de Google Sheets:", err);
-      mostrarNotificacion("Aviso: Configurar cuenta de servicio para Google Sheets", "error");
+      if (!silencioso) {
+        mostrarNotificacion("Aviso: Sincronizando data en memoria", "info");
+      }
     } finally {
-      setCargandoSheets(false);
+      if (!silencioso) setCargandoSheets(false);
+      else setSincronizandoAuto(false);
     }
   };
 
   useEffect(() => {
     verificarYCargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sincronización automática periódica cada 30 segundos
+  useEffect(() => {
+    const INTERVALO_30_SEG = 30000;
+    const interval = setInterval(() => {
+      cargarCasosGoogleSheets(true);
+    }, INTERVALO_30_SEG);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1074,14 +1093,30 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                   </select>
                 </div>
 
-                <button
-                  onClick={cargarCasosGoogleSheets}
-                  disabled={cargandoSheets}
-                  className="bg-[#1a1d27] hover:bg-gray-800 border border-gray-700 text-gray-300 font-medium py-2 px-3.5 rounded-lg transition text-xs flex items-center gap-2 disabled:opacity-50"
-                  title="Sincronizar rango dinámico Onboarding_New!A3:AZ"
+                {/* Indicador de Auto-sync en tiempo real cada 30 segundos */}
+                <div 
+                  className="hidden md:flex items-center gap-2 bg-[#121522] border border-gray-800 px-3 py-1.5 rounded-lg text-xs"
+                  title="Sincronización automática en segundo plano cada 30 segundos"
                 >
-                  <span className={cargandoSheets ? 'animate-spin' : ''}>🔄</span>
-                  <span>{cargandoSheets ? 'Sincronizando...' : 'Sincronizar Sheets'}</span>
+                  <span className={`w-2 h-2 rounded-full ${sincronizandoAuto || cargandoSheets ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`}></span>
+                  <span className="text-gray-400">
+                    Auto-sync <strong className="text-emerald-400 font-semibold">30s</strong>
+                  </span>
+                  {ultimaSync && (
+                    <span className="text-[10px] text-gray-400 border-l border-gray-700/80 pl-2 font-mono">
+                      {ultimaSync.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => cargarCasosGoogleSheets(false)}
+                  disabled={cargandoSheets}
+                  className="bg-[#1a1d27] hover:bg-gray-800 border border-gray-700 text-gray-300 font-medium py-2 px-3 rounded-lg transition text-xs flex items-center gap-2 disabled:opacity-50"
+                  title="Forzar sincronización inmediata ahora"
+                >
+                  <span className={cargandoSheets || sincronizandoAuto ? 'animate-spin' : ''}>🔄</span>
+                  <span className="hidden sm:inline">{cargandoSheets ? 'Sincronizando...' : 'Sincronizar'}</span>
                 </button>
 
                 <button 
