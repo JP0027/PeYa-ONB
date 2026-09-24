@@ -29,47 +29,16 @@ import ModalDetalleCaso from './components/ModalDetalleCaso';
 import HeroCareTLView from './components/HeroCareTLView';
 import { puedeRegistrarCasos, esSupervisor } from './utils/userPermissions';
 
-const LISTA_PAISES = [
-  'Argentina', 'Chile', 'Uruguay', 'Ecuador', 'Perú', 
-  'Bolivia', 'Colombia', 'Costa Rica', 'El Salvador', 
-  'Guatemala', 'Honduras', 'Nicaragua', 'Panamá', 
-  'Paraguay', 'República Dominicana', 'Venezuela'
-];
-
-const LISTA_ASSETS = [
-  'Integración', 'Menú', 'Ambos (Integración y Menú)', 
-  'Logística', 'Dispositivo', 'New Business', 
-  'Upgrade/Upsell Alta Integracion', 'Upgrade/Upsell Baja Integracion', 
-  'Franchise Extension', 'Win Back', 'Otros'
-];
-
-const LISTA_AGENTES = [
-  'Jean Palomino', 'Prisila Leon', 'Joel Tocas', 
-  'Yadira Flores', 'Guillermo Gonzales', 'Jean Changanaqui', 
-  'Henry Serrato', 'Joseline Yactayo', 'Comercial', 'Sin asignación'
-];
-
-const LISTA_ESTADOS = [
-  'Nuevo', 'En progreso', 'Ticket HC', 
-  'Cerrado por oportunidad satisfactoria', 
-  'Cerrado por KAM', 'Cerrado por API Vendor', 'Fallido'
-];
-
-const LISTA_ETAPAS = [
-  'Sin integración confirmada', 
-  'En proceso de seteo', 
-  'En proceso de verificación de catálogo', 
-  'Validación del Onboarding', 
-  'En proceso para pruebas', 
-  'Pedido de prueba realizado'
-];
-
-const LISTA_OPORTUNIDADES = [
-  'Franchise Extension', 'New Business', 'Sabor y Arte', 
-  'Migración de Sistema', 'Apertura de Sucursal', 'Reingreso', 
-  'Cambio de Razón Social', 'Upgrade/Upsell Alta Integracion', 
-  'Upgrade/Upsell Baja Integracion'
-];
+import { 
+  LISTA_PAISES,
+  LISTA_OPORTUNIDADES,
+  LISTA_ASSETS,
+  LISTA_ESTADOS,
+  LISTA_ETAPAS,
+  LISTA_TIENE_INICIO,
+  LISTA_AGENTES,
+  LISTA_INTEGRACIONES_OFICIALES
+} from './data/catalogoOnboarding';
 
 export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
   const tieneAccesoSupervisor = useMemo(() => esSupervisor(role), [role]);
@@ -115,15 +84,15 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     pais: 'Argentina', // d
     kam: '', // e
     integracion: 'Datalive', // f
-    oportunidad: 'Franchise Extension', // g
+    oportunidad: 'Franchise Extensión', // g
     asset: 'Integración', // h
     propietarioOportunidad: nombreUsuarioAutenticado, // i (automático con la cuenta)
     propietarioTicket: nombreUsuarioAutenticado, // j
     casoSeguimiento: '', // k
     tieneCasoInicio: 'Si', // l
     comentarios: '', // m
-    estado: 'Nuevo', // n
-    etapa: 'Validación del Onboarding', // o
+    estado: 'En progreso', // n
+    etapa: 'Sin integración confirmada', // o
     fechaCreacion: new Date().toISOString().split('T')[0] // p
   });
 
@@ -288,6 +257,15 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
       return 'En progreso';
     }
     return estStr;
+  };
+
+  // Helper para formatear visualmente la etapa y limpiar valores corruptos (como "Si" o "No")
+  const limpiarTextoEtapa = (etapa) => {
+    const etStr = String(etapa || '').trim();
+    if (!etStr || etStr === 'Si' || etStr === 'No' || etStr.includes('GMT') || etStr.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(etStr)) {
+      return 'Validación del Onboarding';
+    }
+    return etStr;
   };
 
   // Casos unificados totales: Firestore en tiempo real + Sheets
@@ -827,14 +805,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
                   <div className="bg-[#0f111a] p-3 rounded-lg border border-gray-800 mb-3 space-y-2">
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <span className="text-pink-400 font-bold">Paso a paso (1 sola vez en tu Google Sheet):</span>
+                      <span className="text-pink-400 font-bold">Paso a paso para la tabla Onboarding_New:</span>
                     </h4>
-                    <ol className="text-[11px] text-gray-300 list-decimal list-inside space-y-1 leading-relaxed">
-                      <li>En tu Google Sheet (<strong>ONB 2026</strong>), ve al menú: <strong className="text-white">Extensiones &gt; Apps Script</strong>.</li>
-                      <li>Borra todo el código que haya, pega el script de abajo y pulsa el botón de <strong>Guardar (💾)</strong>.</li>
-                      <li>Recarga la pestaña de tu Google Sheet: verás arriba el nuevo menú: <strong className="text-pink-400">🚀 Firebase ONB &gt; ☁️ Sincronizar Casos a Firebase</strong>.</li>
+                    <ol className="text-[11px] text-gray-300 list-decimal list-inside space-y-1.5 leading-relaxed">
+                      <li>En tu Google Sheet con la pestaña <strong className="text-pink-300">Onboarding_New</strong>, ve al menú superior: <strong className="text-white">Extensiones &gt; Apps Script</strong>.</li>
+                      <li>Pega el código de abajo (contiene todas las reglas de negocio de Onboarding_New + sincronización en tiempo real) y pulsa <strong>Guardar (💾)</strong>.</li>
+                      <li>Recarga la pestaña de Google Sheet: aparecerá el menú <strong className="text-pink-400">🚀 Firebase ONB &gt; ⚡ Sincronizar Casos de Hoy</strong>.</li>
                       <li>
-                        <strong className="text-emerald-400">Para automatizarlo 100%:</strong> En el editor de Apps Script, haz clic en el icono del <strong>reloj (Activadores)</strong> en la barra izquierda &gt; <em>Añadir activador</em> &gt; Función: <code className="text-pink-400">sincronizarCasosAFirebase</code> &gt; Tipo: <em>Basado en tiempo</em> &gt; <em>Cada 5 minutos</em>.
+                        <strong className="text-emerald-400">Programar botón en la hoja:</strong> Ve a <em>Insertar &gt; Dibujo</em>, dibuja un botón (<code className="text-pink-300">🔄 Sincronizar App</code>) y colócalo en la hoja. Haz clic en los tres puntos del botón &gt; <em>Asignar secuencia de comandos</em> &gt; escribe: <code className="text-cyan-300 font-mono font-bold">sincronizarCasosRecientes</code>.
+                      </li>
+                      <li>
+                        <strong className="text-cyan-400">Sincronización desatendida:</strong> El evento <code className="text-pink-400 font-mono">onEdit(e)</code> sincroniza automáticamente en menos de 1 segundo cada vez que se edita cualquier celda hoy. Además, el script activa en segundo plano la sincronización periódica.
                       </li>
                     </ol>
                   </div>
@@ -1444,7 +1425,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                                   {/* n & o. Estado y Etapa */}
                                   <td className="py-3.5 px-4 text-xs">
                                     <span className="text-cyan-400 font-medium block">{limpiarTextoEstado(c.estado, c.etapa)}</span>
-                                    <span className="text-gray-400 text-[11px] mt-0.5 block truncate max-w-[130px]">{c.etapa && !c.etapa.includes('GMT') ? c.etapa : 'Validación del Onboarding'}</span>
+                                    <span className="text-gray-400 text-[11px] mt-0.5 block truncate max-w-[130px]">{limpiarTextoEtapa(c.etapa)}</span>
                                   </td>
 
                                   {/* Push POS API */}
@@ -1770,7 +1751,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                       className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
                     >
                       <option value="">Seleccione integración...</option>
-                      {LISTA_INTEGRACIONES.map(i => <option key={i} value={i}>{i}</option>)}
+                      {(LISTA_INTEGRACIONES_OFICIALES || LISTA_INTEGRACIONES).map(i => <option key={i} value={i}>{i}</option>)}
                     </select>
                   </div>
 

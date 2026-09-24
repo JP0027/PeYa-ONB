@@ -6,7 +6,6 @@
 import { 
   calcularFechaInicioSeguimientoOP, 
   esEstadoActivoOficial, 
-  esEstadoCerradoOficial,
   obtenerSponsorship
 } from '../data/catalogoOnboarding';
 

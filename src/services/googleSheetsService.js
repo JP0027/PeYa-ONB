@@ -410,19 +410,21 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
   const colVendorId = findCol(h => h === 'id' || h.includes('vendor'));
   const colTienda = findCol(h => h.includes('tienda'));
   const colPais = findCol(h => h.includes('país') || h.includes('pais'));
-  const colKam = findCol(h => h.includes('kam'));
+  const colKam = findCol(h => h === 'kam' || (h.includes('kam') && !h.includes('push')));
   const colIntegracion = findCol(h => h.includes('integrac'));
+  const colSponsorship = findCol(h => h.includes('sponsorship') || h.includes('descuentos'));
   const colOportunidad = findCol(h => h.includes('oportunidad') && !h.includes('propietario'));
   const colAsset = findCol(h => h.includes('asset'));
-  const colSeguimiento = findCol(h => h.includes('seguimiento'));
   const colPropOp = findCol(h => h.includes('propietario') && h.includes('oportunidad'));
   const colPropTicket = findCol(h => h.includes('herocare') || (h.includes('propietario') && h.includes('ticket')));
-  const colTieneInicio = findCol(h => h.includes('onboarding inicial') || h.includes('inicio?'));
+  const colSeguimiento = findCol(h => (h.includes('seguimiento') && h.includes('caso')) || h === 'n° caso seguimiento');
+  const colTieneInicio = findCol(h => (h.includes('inicio') && h.includes('seguimiento')) || h.includes('¿tiene') || h.includes('tiene caso'));
   const colComentarios = findCol(h => h.includes('comentario'));
+  const colEstado = findCol(h => (h.includes('estado') && h.includes('caso')) || (h.includes('estado') && !h.includes('onboarding')));
+  const colEtapa = findCol(h => (h.includes('etapa') && h.includes('onboarding')) || h.includes('etapa del onboarding') || (h.includes('etapa') && !h.includes('inicio')));
   const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
-  const colEstado = findCol(h => (h.includes('estado') && !h.includes('onboarding')) || h === 'estado del caso' || h === 'estado caso');
-  const colEtapa = findCol(h => h.includes('onboarding') || h.includes('etapa') || h === 'status');
-  const colSlaInicio = findCol(h => h.includes('inicio de seguimiento') || h.includes('sla'));
+  const colSlaInicio = findCol(h => (h.includes('inicio de seguimiento') && h.includes('op')) || h.includes('sla'));
+  const colFechaCierre = findCol(h => h.includes('cierre') && h.includes('op'));
 
   const rows = lines.slice(headerRowIdx + 1);
   const casos = [];
@@ -430,19 +432,20 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
   const etapasConocidas = [
     'sin integración confirmada', 'sin integracion confirmada',
     'en proceso de seteo',
-    'en proceso de verificación de catálogo', 'en proceso de verificacion de catalogo', 'en proceso de carga de catálogo',
+    'en proceso de verificación de catálogo', 'en proceso de verificacion de catalogo',
     'validación del onboarding', 'validacion del onboarding',
     'en proceso para pruebas',
     'pedido de prueba realizado'
   ];
   const estadosConocidos = [
-    'en progreso', 'nuevo', 'ticket hc', 'abierto',
-    'cerrado por oportunidad satisfactoria', 
-    'cerrado por kam', 'cerrado por api vendor', 'fallido', 'cerrado'
+    'en progreso', 'en progreso (sin oportunidad)', 'abierto',
+    'cerrado por onb (satisfactorio)', 'cerrado por onb (fallido)',
+    'cerrado por kam (satisfactorio)', 'cerrado por kam (fallido)',
+    'cerrado por api vendor', 'fallido', 'cerrado'
   ];
 
-  let bestColEstado = colEstado >= 0 ? colEstado : 20;
-  let bestColEtapa = colEtapa >= 0 ? colEtapa : 18;
+  let bestColEstado = colEstado >= 0 ? colEstado : 14;
+  let bestColEtapa = colEtapa >= 0 ? colEtapa : 15;
 
   let maxEstadoHits = 0;
   let maxEtapaHits = 0;
@@ -479,15 +482,15 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
 
     if (!casoOp && !vendorId && !tienda) return;
 
-    let estado = getVal(bestColEstado, 'Cerrado por oportunidad satisfactoria');
+    let estado = getVal(bestColEstado, 'En progreso');
     let etapa = getVal(bestColEtapa, 'Validación del Onboarding');
 
     // Sanear si vino con fecha
     if (estado.includes('GMT') || estado.includes('00:00:00') || !estado) {
-      for (let c = 14; c < Math.min(row.length, 25); c++) {
+      for (let c = 12; c < Math.min(row.length, 25); c++) {
         const val = String(row[c] || '').trim();
         const vLower = val.toLowerCase();
-        if (vLower.includes('cerrad') || vLower.includes('fallid') || vLower === 'en progreso' || vLower === 'nuevo' || vLower.includes('ticket hc')) {
+        if (vLower.includes('cerrad') || vLower.includes('fallid') || vLower.includes('progreso')) {
           estado = val;
           break;
         }
@@ -495,20 +498,22 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
     }
 
     if (estado.includes('GMT') || !estado) {
-      estado = 'Cerrado por oportunidad satisfactoria';
+      estado = 'En progreso';
     }
-    if (etapa.includes('GMT') || !etapa) {
+    if (etapa.includes('GMT') || etapa === 'Si' || etapa === 'No' || !etapa) {
       etapa = 'Validación del Onboarding';
     }
 
     const estadoLower = estado.toLowerCase();
     const etapaLower = etapa.toLowerCase();
     const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel') || etapaLower.includes('pedido de prueba realizado');
-    const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc') || estadoLower === 'abierto');
+    const esActivo = !esCerrado && (estadoLower.includes('progreso') || estadoLower === 'abierto' || estadoLower === 'nuevo');
 
     const propOp = getVal(colPropOp, '');
     const propTick = getVal(colPropTicket, '');
     const agente = propTick || propOp || 'Sin asignación';
+    const integracion = getVal(colIntegracion, 'Datalive');
+    const sponsorship = getVal(colSponsorship, '') || 'NO';
 
     casos.push({
       id: casoOp || vendorId || `CASO-${idx + 1}`,
@@ -518,7 +523,9 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
       tienda,
       pais: getVal(colPais, 'Argentina'),
       kam: getVal(colKam, ''),
-      integracion: getVal(colIntegracion, 'Datalive'),
+      integracion,
+      sponsorship,
+      descuentosBajoEstructuraSponsorship: sponsorship,
       oportunidad: getVal(colOportunidad, ''),
       asset: getVal(colAsset, ''),
       casoSeguimiento: getVal(colSeguimiento, ''),
@@ -528,12 +535,13 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
       tieneCasoInicio: getVal(colTieneInicio, 'Si'),
       comentarios: getVal(colComentarios, ''),
       fechaCreacion: getVal(colFechaCreacion, new Date().toISOString().split('T')[0]),
+      fechaCierre: getVal(colFechaCierre, ''),
       estado,
-      etapa: getVal(colEtapa, 'Validación del Onboarding'),
+      etapa,
       sla_inicio: getVal(colSlaInicio, new Date().toISOString()),
       esActivo,
       origen,
-      filaNumero: idx + 6
+      filaNumero: idx + 3
     });
   });
 

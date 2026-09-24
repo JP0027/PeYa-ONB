@@ -17,7 +17,7 @@ export default function HeroCareTLView({
 
   // Filtrar casos activos (solo casos en progreso oficiales)
   const casosActivos = useMemo(() => {
-    return casos.filter(c => esEstadoActivoOficial(c.estado));
+    return casos.filter(c => esEstadoActivoOficial(c.estado) || (c.esActivo === true && !String(c.estado || '').toLowerCase().includes('cerrad') && !String(c.estado || '').toLowerCase().includes('fallid')));
   }, [casos]);
 
   // Cálculo de SLA para cada caso según Fecha de inicio de seguimiento de OP
@@ -313,7 +313,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                       {/* ESTADO ACTUAL */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span className="inline-block px-3 py-1 rounded-md text-[11px] font-bold border border-cyan-500/40 bg-cyan-950/40 text-cyan-300">
-                          {caso.etapa || caso.estado || 'En seguimiento'}
+                          {(!caso.etapa || caso.etapa === 'Si' || caso.etapa === 'No' || caso.etapa.includes('GMT')) ? (caso.estado || 'Validación del Onboarding') : caso.etapa}
                         </span>
                       </td>
 
