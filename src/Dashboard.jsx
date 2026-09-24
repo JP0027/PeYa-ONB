@@ -22,7 +22,9 @@ import {
 import { isAgentMatch, AGENTES_CONOCIDOS, SUPERVISORES, AGENTES_OPERATIVOS, identificarMiembro } from './utils/agentMatching';
 import { 
   procesarActualizacionCaso, 
-  analizarAlertasCaso 
+  analizarAlertasCaso,
+  limpiarTextoEtapa,
+  limpiarTextoEstado
 } from './utils/onboardingRules';
 import ModalDetalleCaso from './components/ModalDetalleCaso';
 import HeroCareTLView from './components/HeroCareTLView';
@@ -229,24 +231,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     return false;
   };
 
-  // Helper para formatear visualmente el estado y limpiar si vino como fecha
-  const limpiarTextoEstado = (estado, _etapa) => {
-    const estStr = String(estado || '').trim();
-    if (!estStr || estStr.includes('GMT') || estStr.includes('hora estándar') || estStr.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(estStr)) {
-      return 'En progreso';
-    }
-    return estStr;
-  };
-
-  // Helper para formatear visualmente la etapa y limpiar valores corruptos (como "Si" o "No")
-  const limpiarTextoEtapa = (etapa) => {
-    const etStr = String(etapa || '').trim();
-    if (!etStr || etStr === 'Si' || etStr === 'No' || etStr.includes('GMT') || etStr.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(etStr)) {
-      return 'Validación del Onboarding';
-    }
-    return etStr;
-  };
-
   // Helper para formatear fechas de Push en formato compacto DD/MM
   const formatearFechaCorta = (fStr) => {
     if (!fStr) return '';
@@ -259,16 +243,16 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     return s.split(' ')[0] || s;
   };
 
-  // Casos unificados totales: Firestore en tiempo real + Sheets
+  // Casos unificados totales: Firestore en tiempo real + Sheets (Firestore tiene prioridad absoluta)
   const casosTotales = useMemo(() => {
     const mapaCasos = new Map();
-    // 1. Cargar Firestore (base de datos en tiempo real persistente para todos los usuarios)
-    casosFirestore.forEach(c => {
+    // 1. Cargar Sheets primero (como base / histórico o fallback)
+    casosSheets.forEach(c => {
       const key = String(c.casoOp || c.id || c.vendorId || '').trim();
       if (key) mapaCasos.set(key, c);
     });
-    // 2. Unificar con Sheets (si hay datos locales o consultados)
-    casosSheets.forEach(c => {
+    // 2. Cargar Firestore con MÁXIMA PRIORIDAD (la base de datos sincronizada en la nube)
+    casosFirestore.forEach(c => {
       const key = String(c.casoOp || c.id || c.vendorId || '').trim();
       if (key) {
         const prev = mapaCasos.get(key) || {};
@@ -403,7 +387,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
           tieneCasoInicio: 'Si',
           comentarios: '',
           estado: 'Nuevo',
-          etapa: 'Validación del Onboarding',
+          etapa: dataTienda.etapa ? limpiarTextoEtapa(dataTienda.etapa, dataTienda.comentarios, dataTienda.integracion) : 'Sin integración confirmada',
           fechaCreacion: new Date().toISOString().split('T')[0]
         }));
         mostrarNotificacion(`Se encontraron ${todosResultados.length} antecedentes para ID ${busquedaId.trim()} (${dataTienda.tienda || 'Sin nombre'}). Datos de tienda b, c y d replicados. Haz clic en cualquier registro para ver el detalle flotante.`, "success");
@@ -425,7 +409,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
           tieneCasoInicio: 'Si',
           comentarios: '',
           estado: 'Nuevo',
-          etapa: 'Validación del Onboarding',
+          etapa: 'Sin integración confirmada',
           fechaCreacion: new Date().toISOString().split('T')[0]
         }));
         mostrarNotificacion(`Sin antecedentes previos para ID ${busquedaId.trim()}. Habilitada creación limpia de nuevo caso.`, "info");
@@ -1401,7 +1385,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                                   {/* n & o. Estado y Etapa */}
                                   <td className="py-3.5 px-4 text-xs">
                                     <span className="text-cyan-400 font-medium block">{limpiarTextoEstado(c.estado, c.etapa)}</span>
-                                    <span className="text-gray-400 text-[11px] mt-0.5 block truncate max-w-[130px]">{limpiarTextoEtapa(c.etapa)}</span>
+                                    <span className="text-gray-400 text-[11px] mt-0.5 block truncate max-w-[130px]">{limpiarTextoEtapa(c.etapa, c.comentarios)}</span>
                                   </td>
 
                                   {/* Push POS API */}

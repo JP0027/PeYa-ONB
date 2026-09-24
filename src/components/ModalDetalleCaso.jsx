@@ -13,7 +13,8 @@ import {
 import { 
   procesarActualizacionCaso, 
   analizarAlertasCaso,
-  normalizarFecha 
+  normalizarFecha,
+  limpiarTextoEtapa 
 } from '../utils/onboardingRules';
 
 export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alReplicarTienda, nombreUsuarioAutenticado }) {
@@ -35,7 +36,7 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
     tieneCasoInicio: caso?.tieneCasoInicio || 'Si',
     comentarios: caso?.comentarios || '',
     estado: caso?.estado || 'En progreso',
-    etapa: caso?.etapa || 'Validación del Onboarding',
+    etapa: limpiarTextoEtapa(caso?.etapa, caso?.comentarios, caso?.integracion),
     fechaCreacion: normalizarFecha(caso?.fechaCreacion || ''),
     fechaCierre: normalizarFecha(caso?.fechaCierre || ''),
     

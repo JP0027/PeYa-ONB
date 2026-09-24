@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { esEstadoActivoOficial } from '../data/catalogoOnboarding';
-import { analizarAlertasCaso } from '../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa } from '../utils/onboardingRules';
 
 export default function HeroCareTLView({ 
   casos = [], 
@@ -74,11 +74,12 @@ export default function HeroCareTLView({
 
   // Acción TL 1: Copiar plantilla Slack de escalamiento
   const copiarSlack = (caso) => {
+    const etapaLimpia = limpiarTextoEtapa(caso.etapa, caso.comentarios, caso.integracion);
     const texto = `🚨 *ESCALAMIENTO TL - ONBOARDING*
 • *Caso OP:* \`${caso.casoOp || caso.id}\`
 • *ID Local:* \`${caso.vendorId || caso.id}\` (${caso.tienda || 'Sin nombre'})
 • *Agente Asignado:* ${caso.agenteACargo}
-• *Estado:* ${caso.estado || 'Activo'} | ${caso.etapa || 'Validación'}
+• *Estado:* ${caso.estado || 'Activo'} | ${etapaLimpia}
 • *SLA:* *${caso.tiempoTexto}* (${caso.horasSLA}h transcurridas)
 Favor verificar push de catálogo y activación prioritaria con el KAM.`;
 
@@ -295,7 +296,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                       {/* ESTADO ACTUAL */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span className="inline-block px-3 py-1 rounded-md text-[11px] font-bold border border-cyan-500/40 bg-cyan-950/40 text-cyan-300">
-                          {(!caso.etapa || caso.etapa === 'Si' || caso.etapa === 'No' || caso.etapa.includes('GMT')) ? (caso.estado || 'Validación del Onboarding') : caso.etapa}
+                          {limpiarTextoEtapa(caso.etapa, caso.comentarios, caso.integracion)}
                         </span>
                       </td>
 

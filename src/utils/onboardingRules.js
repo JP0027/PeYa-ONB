@@ -39,6 +39,69 @@ export function normalizarFecha(fechaStr) {
 }
 
 /**
+ * Normaliza y limpia la etapa de Onboarding.
+ * Evita valores corruptos como "Si", "No", fechas GMT, o defaults erróneos.
+ * Si la etapa es desconocida o viene corrupta, detecta inteligentemente por comentarios o integración.
+ */
+export function limpiarTextoEtapa(etapa, comentarios = '', integracion = '') {
+  const etStr = String(etapa || '').trim();
+  const etLower = etStr.toLowerCase();
+
+  // Si ya es un nombre de etapa válido oficial de la tabla
+  if (
+    etStr &&
+    etLower !== 'si' &&
+    etLower !== 'no' &&
+    !etStr.includes('GMT') &&
+    !etStr.includes('00:00:00') &&
+    !/^\d{4}-\d{2}-\d{2}/.test(etStr)
+  ) {
+    return etStr;
+  }
+
+  // Deducir inteligentemente
+  const com = String(comentarios || '').toLowerCase();
+  const integ = String(integracion || '').toLowerCase();
+
+  if (
+    com.includes('configurcion api') ||
+    com.includes('configuracion api') ||
+    com.includes('datos faltantes') ||
+    com.includes('pos') ||
+    integ.includes('pend')
+  ) {
+    return 'Sin integración confirmada';
+  }
+
+  if (com.includes('catálogo') || com.includes('catalogo') || com.includes('menu') || com.includes('menú')) {
+    return 'En proceso de verificación de catálogo';
+  }
+
+  if (com.includes('prueba') || com.includes('test')) {
+    return 'En proceso para pruebas';
+  }
+
+  return 'Sin integración confirmada';
+}
+
+/**
+ * Normaliza el estado del caso (evita que fechas se muestren como estado)
+ */
+export function limpiarTextoEstado(estado, _etapa) {
+  const estStr = String(estado || '').trim();
+  if (
+    !estStr ||
+    estStr.includes('GMT') ||
+    estStr.includes('hora estándar') ||
+    estStr.includes('00:00:00') ||
+    /^\d{4}-\d{2}-\d{2}/.test(estStr)
+  ) {
+    return 'En progreso';
+  }
+  return estStr;
+}
+
+/**
  * 1. Casuísticas de Cierre de Oportunidad (OP)
  * - Si el Estado del caso es "En progreso" o "En progreso (Sin oportunidad)": 
  *   Sigue transcurriendo el tiempo de SLA y Fecha de Cierre permanece vacía o "-".

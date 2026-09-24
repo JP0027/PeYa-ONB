@@ -1,5 +1,6 @@
 import { collection, writeBatch, doc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { limpiarTextoEtapa } from '../utils/onboardingRules';
 
 /**
  * Guarda una lista de casos en Firebase Firestore en lotes (batch) de hasta 500 documentos.
@@ -24,14 +25,11 @@ export async function guardarCasosEnFirestore(casos, onProgreso = null) {
       const casoRef = doc(db, 'casos', docId);
       
       let estadoLimpio = String(caso.estado || '').trim();
-      let etapaLimpia = String(caso.etapa || '').trim();
+      let etapaLimpia = limpiarTextoEtapa(caso.etapa, caso.comentarios, caso.integracion);
       
-      // Si el estado o etapa viene con una fecha corrupta (GMT...), sanear
-      if (estadoLimpio.includes('GMT') || estadoLimpio.includes('00:00:00')) {
+      // Si el estado viene con una fecha corrupta (GMT...), sanear
+      if (estadoLimpio.includes('GMT') || estadoLimpio.includes('00:00:00') || !estadoLimpio) {
         estadoLimpio = 'En progreso';
-      }
-      if (etapaLimpia.includes('GMT') || etapaLimpia.includes('00:00:00')) {
-        etapaLimpia = 'Validación del Onboarding';
       }
 
       const estLower = estadoLimpio.toLowerCase();
@@ -80,7 +78,7 @@ export async function guardarCasosEnFirestore(casos, onProgreso = null) {
         duplicadoTicket: caso.duplicadoTicket || '',
         reingreso: caso.reingreso || '',
         estado: estadoLimpio || 'En progreso',
-        etapa: etapaLimpia || 'Validación del Onboarding',
+        etapa: etapaLimpia || 'Sin integración confirmada',
         sla_inicio: caso.sla_inicio || caso.fechaInicioSeguimientoOP || caso.fechaCreacion || new Date().toISOString(),
         esActivo: typeof caso.esActivo === 'boolean' && !esCerrado ? caso.esActivo : esActivo,
         origen: 'Firebase (Sincronizado)',
@@ -374,8 +372,22 @@ function parsearFilaCaso(row, filaNumero) {
 
   const docId = casoOp || vendorId || ('CASO_' + filaNumero);
 
-  if (!estado) estado = 'En progreso';
-  if (!etapa || etapa === 'Si' || etapa === 'No') etapa = 'Validación del Onboarding';
+  if (!estado || estado.includes('GMT') || estado.includes('00:00:00')) estado = 'En progreso';
+  
+  const etapaLower = etapa.toLowerCase();
+  if (!etapa || etapaLower === 'si' || etapaLower === 'no' || etapa.includes('GMT') || etapa.includes('00:00:00')) {
+    const com = comentarios.toLowerCase();
+    const integ = integracion.toLowerCase();
+    if (com.includes('configurcion api') || com.includes('configuracion api') || com.includes('datos faltantes') || com.includes('pos') || integ.includes('pend')) {
+      etapa = 'Sin integración confirmada';
+    } else if (com.includes('catálogo') || com.includes('catalogo') || com.includes('menu')) {
+      etapa = 'En proceso de verificación de catálogo';
+    } else if (com.includes('prueba')) {
+      etapa = 'En proceso para pruebas';
+    } else {
+      etapa = 'Sin integración confirmada';
+    }
+  }
 
   const estadoLower = estado.toLowerCase();
   const esCerrado = estadoLower.indexOf('cerrad') !== -1 || estadoLower.indexOf('fallid') !== -1 || estadoLower.indexOf('cancel') !== -1;
