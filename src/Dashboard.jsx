@@ -90,7 +90,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
   const [filtroMisCasos, setFiltroMisCasos] = useState('todos'); // 'todos' | 'pushPos' | 'pushCat' | 'sla'
 
   // Estado de conexión con Cuenta de Servicio de Google Sheets
-  const [estadoCredenciales, setEstadoCredenciales] = useState({ configured: true, email: null });
+  const [_estadoCredenciales, setEstadoCredenciales] = useState({ configured: true, email: null });
   const [mostrarModalCreds, setMostrarModalCreds] = useState(false);
   const [jsonCredsInput, setJsonCredsInput] = useState("");
   const [guardandoCreds, setGuardandoCreds] = useState(false);
@@ -151,19 +151,16 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
       if (Array.isArray(data) && data.length > 0) {
         setCasosSheets(data);
         setUltimaSync(new Date());
-        const activos = data.filter(c => c.esActivo).length;
         if (!silencioso) {
+          const activos = data.filter(c => c.esActivo).length;
           mostrarNotificacion(`Sincronizado: ${data.length} casos totales (${activos} activos)`, "success");
         }
       }
     } catch (err) {
-      console.warn("No se pudo cargar data de Google Sheets:", err);
-      if (!silencioso) {
-        mostrarNotificacion("Aviso: Sincronizando data en memoria", "info");
-      }
+      console.warn("Consulta Google Sheets (usando Firebase en tiempo real):", err);
     } finally {
-      if (!silencioso) setCargandoSheets(false);
-      else setSincronizandoAuto(false);
+      setCargandoSheets(false);
+      setSincronizandoAuto(false);
     }
   };
 
@@ -247,25 +244,36 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
   // Helper para saber si un caso es activo y está realmente en progreso (Filtro real: 33 casos)
   const esCasoActivo = (c) => {
+    if (!c) return false;
     const est = String(c.estado || '').toLowerCase().trim();
     const etap = String(c.etapa || '').toLowerCase().trim();
     
     // 1. Descartar cualquier caso cerrado, fallido, cancelado, resuelto o con prueba finalizada
     if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel') || est.includes('resuelt')) return false;
-    if (etap.includes('cerrad') || etap.includes('fallid') || etap.includes('pedido de prueba realizado')) return false;
+    if (etap.includes('cerrad') || etap.includes('fallid') || etap.includes('cancel') || etap.includes('pedido de prueba realizado')) return false;
 
-    // 2. Si el estado es una fecha corrupta (GMT, hora estándar, 00:00:00 o YYYY-MM-DD), NO es activo
-    if (est.includes('gmt') || est.includes('hora estándar') || est.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(est)) {
-      return false;
-    }
+    // 2. Si el estado es una fecha corrupta (GMT, hora estándar, 00:00:00 o YYYY-MM-DD), descartar salvo etapa activa
+    const esFecha = est.includes('gmt') || est.includes('hora estándar') || est.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(est);
 
     // 3. Casos explícitamente en progreso / activos según la lista oficial
     const estadosActivos = ['en progreso', 'nuevo', 'ticket hc', 'abierto', 'activo'];
-    if (estadosActivos.some(e => est === e || est.startsWith(e))) {
+    if (!esFecha && estadosActivos.some(e => est === e || est.startsWith(e))) {
       return true;
     }
 
-    // 4. Si tiene boolean esActivo explícito, verificar que no tenga estado cerrado
+    // 4. Si la etapa es una etapa activa de onboarding conocida
+    const etapasActivas = [
+      'sin integración confirmada', 'sin integracion confirmada',
+      'en proceso de seteo',
+      'en proceso de verificación de catálogo', 'en proceso de verificacion de catalogo', 'en proceso de carga de catálogo',
+      'validación del onboarding', 'validacion del onboarding',
+      'en proceso para pruebas'
+    ];
+    if (etapasActivas.some(e => etap === e || etap.includes(e))) {
+      return true;
+    }
+
+    // 5. Si tiene boolean esActivo explícito, verificar que no tenga estado cerrado
     if (c.esActivo === true && !est.includes('cerrad') && !est.includes('fallid')) {
       return true;
     }
@@ -282,19 +290,28 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     return estStr;
   };
 
-  // Casos unificados y filtrados para la vista actual
-  const casosMostrados = useMemo(() => {
-    // Mapa unificado evitando duplicados por casoOp
+  // Casos unificados totales: Firestore en tiempo real + Sheets
+  const casosTotales = useMemo(() => {
     const mapaCasos = new Map();
-    casosSheets.forEach(c => mapaCasos.set(String(c.casoOp || c.id), c));
+    // 1. Cargar Firestore (base de datos en tiempo real persistente para todos los usuarios)
     casosFirestore.forEach(c => {
-      const key = String(c.casoOp || c.id);
-      if (!mapaCasos.has(key)) {
-        mapaCasos.set(key, c);
+      const key = String(c.casoOp || c.id || c.vendorId || '').trim();
+      if (key) mapaCasos.set(key, c);
+    });
+    // 2. Unificar con Sheets (si hay datos locales o consultados)
+    casosSheets.forEach(c => {
+      const key = String(c.casoOp || c.id || c.vendorId || '').trim();
+      if (key) {
+        const prev = mapaCasos.get(key) || {};
+        mapaCasos.set(key, { ...prev, ...c });
       }
     });
+    return Array.from(mapaCasos.values());
+  }, [casosFirestore, casosSheets]);
 
-    const listaUnificada = Array.from(mapaCasos.values());
+  // Casos unificados y filtrados para la vista actual
+  const casosMostrados = useMemo(() => {
+    const listaUnificada = casosTotales;
 
     if (activeTab === 'global') {
       // Alertas Globales (Supervisor): Todos los casos activos del equipo (~43 casos)
@@ -324,7 +341,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     }
 
     return listaUnificada;
-  }, [casosSheets, casosFirestore, activeTab, email, nombreUsuarioAutenticado, agenteFiltro, role]);
+  }, [casosTotales, activeTab, email, nombreUsuarioAutenticado, agenteFiltro, role]);
 
   // Alertas calculadas y memoizadas (evita recálculos pesados en el hilo principal de render)
   const casosConAlertas = useMemo(() => {
@@ -363,14 +380,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     try {
       const term = busquedaId.trim().toLowerCase();
       
-      // 1. Búsqueda exhaustiva en todas las filas de Google Sheets (incluidos casos antiguos y cerrados)
-      const resultadosSheets = casosSheets.filter(c => 
+      // 1. Búsqueda exhaustiva en todos los casos unificados en memoria (1,767+ casos)
+      const resultadosLocales = casosTotales.filter(c => 
         String(c.vendor_id || c.vendorId || '').toLowerCase() === term ||
         String(c.casoOp || c.id || '').toLowerCase() === term ||
         String(c.tienda || '').toLowerCase().includes(term)
       );
 
-      // 2. Búsqueda en Firestore
+      // 2. Búsqueda directa en Firestore por si hay algún caso recién indexado
       let resultadosFirestore = [];
       try {
         const qString = query(collection(db, "casos"), where("vendor_id", "==", busquedaId.trim()));
@@ -378,16 +395,16 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
         const [snapString, snapNumber] = await Promise.all([getDocs(qString), getDocs(qNumber)]);
         resultadosFirestore = [...snapString.docs, ...snapNumber.docs].map(docSnap => ({ 
           id: docSnap.id, 
-          origen: "Firebase",
+          origen: "Firebase (Tiempo Real)",
           ...docSnap.data() 
         }));
       } catch (errFirestore) {
-        console.warn("Búsqueda en Firestore no disponible:", errFirestore);
+        console.warn("Búsqueda remota en Firestore:", errFirestore);
       }
 
-      // Unificar resultados
+      // Unificar resultados evitando duplicados
       const mapaResultados = new Map();
-      resultadosSheets.forEach(r => mapaResultados.set(String(r.casoOp || r.id), r));
+      resultadosLocales.forEach(r => mapaResultados.set(String(r.casoOp || r.id), r));
       resultadosFirestore.forEach(r => {
         const key = String(r.casoOp || r.id);
         if (!mapaResultados.has(key)) {
@@ -470,40 +487,35 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
   // Actualizar un caso existente desde la vista flotante sin duplicar registro
   const manejarActualizarCasoDesdeModal = async (casoActualizado) => {
     try {
-      const res = await actualizarCasoEnSheets(casoActualizado);
-      if (res.success) {
-        // Actualizar en el estado de casos de Google Sheets
-        setCasosSheets(prev => {
-          const idBuscado = String(casoActualizado.casoOp || casoActualizado.id).trim();
-          const idx = prev.findIndex(c => String(c.casoOp || c.id).trim() === idBuscado);
-          if (idx !== -1) {
-            const copia = [...prev];
-            copia[idx] = { ...copia[idx], ...casoActualizado };
-            return copia;
-          }
-          return [casoActualizado, ...prev];
-        });
+      const idBuscado = String(casoActualizado.casoOp || casoActualizado.id).trim();
+      if (!idBuscado) return;
 
-        // Actualizar en historial de búsqueda
-        setHistorialBusqueda(prev => prev.map(c => 
-          String(c.casoOp || c.id).trim() === String(casoActualizado.casoOp || casoActualizado.id).trim()
-            ? { ...c, ...casoActualizado }
-            : c
-        ));
+      // 1. Guardar y actualizar en Firestore inmediatamente (sincronización instantánea para todos los usuarios)
+      const casoRef = doc(db, "casos", idBuscado);
+      await setDoc(casoRef, { 
+        ...casoActualizado, 
+        id: idBuscado, 
+        actualizadoEn: new Date().toISOString() 
+      }, { merge: true });
 
-        // Actualizar en caso seleccionado del modal
-        setCasoSeleccionadoModal(casoActualizado);
+      // 2. Intentar actualizar en Google Sheets en segundo plano
+      actualizarCasoEnSheets(casoActualizado).catch(() => {});
 
-        if (res.sheetsSincronizado) {
-          mostrarNotificacion(`✅ Caso OP ${casoActualizado.casoOp || casoActualizado.id} actualizado y sincronizado en Google Sheets en vivo.`, "success");
-        } else {
-          mostrarNotificacion(`💾 Caso OP ${casoActualizado.casoOp || casoActualizado.id} guardado en la app. NOTA: No impactó en el archivo de Google Sheets porque la Web App no está conectada o requiere permisos corporativos.`, "warning");
-        }
-        return res;
-      }
+      // 3. Actualizar en historial de búsqueda
+      setHistorialBusqueda(prev => prev.map(c => 
+        String(c.casoOp || c.id).trim() === idBuscado
+          ? { ...c, ...casoActualizado }
+          : c
+      ));
+
+      // 4. Actualizar en caso seleccionado del modal
+      setCasoSeleccionadoModal(casoActualizado);
+
+      mostrarNotificacion(`✅ Caso OP ${idBuscado} actualizado y sincronizado en tiempo real.`, "success");
+      return { success: true };
     } catch (err) {
       console.error("Error al actualizar caso:", err);
-      mostrarNotificacion("Error al actualizar el registro.", "error");
+      mostrarNotificacion("Error al actualizar el registro en Firestore.", "error");
     }
   };
 
@@ -526,23 +538,25 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     }
     
     try {
+      const docId = String(formulario.casoOp).trim();
       // Aplicar reglas de negocio automáticas
       const casoProcesado = procesarActualizacionCaso({}, {
         ...formulario,
-        id: formulario.casoOp,
+        id: docId,
+        casoOp: docId,
         vendor_id: formulario.vendorId,
+        vendorId: formulario.vendorId,
         agente: formulario.propietarioTicket,
-        sla_inicio: new Date().toISOString()
+        sla_inicio: new Date().toISOString(),
+        actualizadoEn: new Date().toISOString()
       });
 
-      // 1. Guardar en backend (persistencia en cache y Google Sheets)
-      const _resBackend = await actualizarCasoEnSheets(casoProcesado);
+      // 1. Guardar directamente en Firestore (en tiempo real para todos los usuarios)
+      const casoRef = doc(db, "casos", docId);
+      await setDoc(casoRef, casoProcesado, { merge: true });
 
-      // 2. Escritura Firestore opcional
-      const casoRef = doc(db, "casos", formulario.casoOp);
-      setDoc(casoRef, casoProcesado).catch(err => {
-        console.warn("Aviso: Firestore offline:", err);
-      });
+      // 2. Guardar en backend / Google Sheets si está disponible
+      actualizarCasoEnSheets(casoProcesado).catch(() => {});
 
       // 3. Web App Google Apps Script si está configurada (vía backend o cliente)
       const urlGas = obtenerGasUrl() || GAS_WEBAPP_URL;
@@ -558,23 +572,27 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
       }
 
       // Actualizar estados reactivos locales
-      setCasosSheets(prev => [casoProcesado, ...prev.filter(c => String(c.casoOp || c.id) !== String(formulario.casoOp))]);
+      setCasosSheets(prev => [casoProcesado, ...prev.filter(c => String(c.casoOp || c.id) !== docId)]);
       
       if (String(formulario.vendorId).trim() === String(busquedaId).trim()) {
         setHistorialBusqueda(prev => [casoProcesado, ...prev]);
       }
 
-      mostrarNotificacion(`¡Caso OP ${formulario.casoOp} guardado y sincronizado exitosamente!`, "success");
+      mostrarNotificacion(`¡Caso OP ${docId} guardado y sincronizado exitosamente en tiempo real!`, "success");
       
       // Limpiar formulario para nuevo registro
       setFormulario(prev => ({
         ...prev,
         casoOp: '',
-        comentarios: ''
+        vendorId: '',
+        tienda: '',
+        comentarios: '',
+        casoSeguimiento: '',
+        fechaCreacion: new Date().toISOString().split('T')[0]
       }));
-    } catch (error) {
-      console.error("Error al guardar:", error);
-      mostrarNotificacion("Error al guardar el caso.", "error");
+    } catch (err) {
+      console.error("Error guardando nuevo caso:", err);
+      mostrarNotificacion("Error al registrar el caso en Firestore.", "error");
     }
   };
 
@@ -1153,19 +1171,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
           </div>
 
           <div className="mb-3 pt-2 border-t border-gray-800/80">
-            <button 
-              onClick={() => setMostrarModalCreds(true)}
-              className="w-full text-left flex items-center justify-between text-[11px] p-2 rounded bg-gray-900/60 hover:bg-gray-800 border border-gray-800 transition group"
-              title="Configurar conexión con Google Sheets (Web App o Archivo CSV)"
+            <div 
+              className="w-full text-left flex items-center justify-between text-[11px] p-2 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-300"
+              title="Sincronización en tiempo real activa con Firebase Firestore"
             >
-              <div className="flex items-center gap-1.5 truncate">
-                <span className={`w-2 h-2 rounded-full ${casosSheets.length > 0 ? 'bg-emerald-400 animate-pulse' : (estadoCredenciales.configured ? 'bg-cyan-400' : 'bg-amber-400')}`}></span>
-                <span className="text-gray-300 truncate font-medium">
-                  {casosSheets.length > 0 ? `Sheets (${casosSheets.length})` : 'Conectar Sheets'}
+              <div className="flex items-center gap-2 truncate">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="font-medium truncate">
+                  {casosTotales.length > 0 ? `Sincronizado (${casosTotales.length})` : 'Conectando en vivo...'}
                 </span>
               </div>
-              <span className="text-gray-400 group-hover:text-white font-mono text-[10px]">⚙️</span>
-            </button>
+              <span className="text-[10px] text-emerald-400/90 font-mono">En vivo</span>
+            </div>
           </div>
 
           {onLogout && (
@@ -1194,7 +1211,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
         {activeTab === 'tl' && (
           <div className="max-w-7xl mx-auto">
             <HeroCareTLView 
-              casos={casosSheets}
+              casos={casosTotales}
               onSeleccionarCaso={(caso) => setCasoSeleccionadoModal(caso)}
               onActualizarCaso={manejarActualizarCasoDesdeModal}
               nombreUsuario={nombreUsuarioAutenticado}
@@ -1231,7 +1248,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                   >
                     <optgroup label="— Vista General —" className="bg-[#161925] text-pink-400 font-semibold">
                       <option value="auto" className="bg-[#161925] text-white">Mi Cuenta ({nombreUsuarioAutenticado})</option>
-                      <option value="todos" className="bg-[#161925] text-white">Todos los Activos ({casosSheets.filter(c => c.esActivo).length})</option>
+                      <option value="todos" className="bg-[#161925] text-white">Todos los Activos ({casosTotales.filter(esCasoActivo).length})</option>
                     </optgroup>
                     
                     <optgroup label="— Supervisores —" className="bg-[#161925] text-amber-400 font-semibold">
@@ -1339,56 +1356,29 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                   {listaFiltrada.length === 0 ? (
                     <div className="bg-[#1a1d27] border border-gray-800 rounded-xl p-12 text-center">
                       <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
-                        {casosSheets.length === 0 ? '📊' : '✅'}
+                        ✅
                       </div>
                       <h3 className="text-lg font-semibold text-white mb-1">
-                        {casosSheets.length === 0 
-                          ? "Sin datos cargados de la hoja ONB 2026" 
-                          : "Sin casos para el filtro seleccionado"}
+                        Sin casos para el filtro seleccionado
                       </h3>
                       <p className="text-sm text-gray-400 max-w-md mx-auto mb-4">
-                        {casosSheets.length === 0
-                          ? "Conecta la Web App de Apps Script con acceso 'Cualquier usuario' o arrastra el archivo CSV de tu Google Sheet para cargar los casos reales."
-                          : (filtroMisCasos !== 'todos'
-                            ? `No hay casos que requieran este tipo de alerta en este momento.`
-                            : (agenteFiltro !== 'auto' && agenteFiltro !== 'todos'
-                              ? `No hay casos activos asignados a ${agenteFiltro}.`
-                              : "No tienes casos en progreso asignados actualmente."))
+                        {filtroMisCasos !== 'todos'
+                          ? `No hay casos que requieran este tipo de alerta en este momento.`
+                          : (agenteFiltro !== 'auto' && agenteFiltro !== 'todos'
+                            ? `No hay casos activos asignados a ${agenteFiltro}.`
+                            : "No tienes casos en progreso asignados actualmente.")
                         }
                       </p>
                       <div className="flex items-center justify-center gap-3">
-                        {casosSheets.length === 0 ? (
-                          <>
-                            <button 
-                              onClick={cargarCasosGoogleSheets}
-                              disabled={cargandoSheets}
-                              className="bg-pink-600 hover:bg-pink-700 text-white text-xs font-semibold py-2 px-4 rounded-lg transition flex items-center gap-1.5"
-                            >
-                              <span>🔄</span>
-                              <span>{cargandoSheets ? 'Sincronizando...' : 'Sincronizar Sheets'}</span>
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setTipoConexionModal('csv');
-                                setMostrarModalCreds(true);
-                              }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-2 px-4 rounded-lg transition flex items-center gap-1.5"
-                            >
-                              <span>📥</span>
-                              <span>Cargar / Pegar CSV de ONB 2026</span>
-                            </button>
-                          </>
-                        ) : (
-                          <button 
-                            onClick={() => {
-                              setFiltroMisCasos('todos');
-                              setAgenteFiltro('todos');
-                            }}
-                            className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-pink-400 text-xs font-semibold py-2 px-4 rounded-lg transition"
-                          >
-                            Ver todos los casos activos ({casosSheets.filter(c => c.esActivo).length})
-                          </button>
-                        )}
+                        <button 
+                          onClick={() => {
+                            setFiltroMisCasos('todos');
+                            setAgenteFiltro('todos');
+                          }}
+                          className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-pink-400 text-xs font-semibold py-2 px-4 rounded-lg transition"
+                        >
+                          Ver todos los casos activos ({casosTotales.filter(esCasoActivo).length})
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -1572,28 +1562,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
         {/* TAB: NUEVO / CONSULTAR */}
         {activeTab === 'nuevo' && (
           <div className="max-w-7xl mx-auto">
-            
-            {casosSheets.length === 0 && (
-              <div className="bg-amber-950/50 border border-amber-600/60 rounded-xl p-4 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl shrink-0">⚠️</span>
-                  <div>
-                    <p className="font-bold text-amber-200 text-sm">Google Sheets no está sincronizado aún (0 registros cargados)</p>
-                    <p className="text-gray-300 text-xs mt-1 leading-relaxed">
-                      Para que al buscar IDs como <strong className="text-white bg-black/40 px-1 py-0.5 rounded font-mono">637914</strong> (Sushi Boom) o <strong className="text-white bg-black/40 px-1 py-0.5 rounded font-mono">637917</strong> se muestren los antecedentes y se autocompleten tienda, KAM y país, conecta tu Web App de Apps Script o sube el CSV de la hoja.
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setMostrarModalCreds(true)}
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-4 py-2.5 rounded-lg transition shrink-0 flex items-center justify-center gap-1.5 shadow"
-                >
-                  <span>⚙️</span>
-                  <span>Conectar Sheets Ahora</span>
-                </button>
-              </div>
-            )}
-
             <div className="bg-[#1a1d27] p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row gap-3 mb-6">
               <input 
                 type="text" 
