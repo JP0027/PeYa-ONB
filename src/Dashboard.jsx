@@ -6,8 +6,7 @@ import {
   generarScriptAppsScriptParaFirebase 
 } from './services/firebaseCasosService';
 import { 
-  LISTA_INTEGRACIONES, 
-  obtenerDetallesIntegracion 
+  LISTA_INTEGRACIONES 
 } from './data/integracionesCuadro';
 import { 
   consultarCasosGoogleSheets, 
@@ -95,11 +94,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     etapa: 'Sin integración confirmada', // o
     fechaCreacion: new Date().toISOString().split('T')[0] // p
   });
-
-  // Detalles de la integración seleccionada desde el cuadro
-  const detallesIntegracionSeleccionada = useMemo(() => {
-    return obtenerDetallesIntegracion(formulario.integracion);
-  }, [formulario.integracion]);
 
   // Chequear estado de la cuenta de servicio y cargar datos
   const verificarYCargar = async () => {
@@ -211,39 +205,24 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     setPaginaActual(1);
   }, [activeTab, filtroMisCasos, agenteFiltro]);
 
-  // Helper para saber si un caso es activo y está realmente en progreso (Filtro real: 33 casos)
+  // Helper para saber si un caso es activo y está en progreso según Estado del caso (Columna O)
+  // Estado del caso y Etapa del onboarding son dos campos completamente independientes.
   const esCasoActivo = (c) => {
     if (!c) return false;
     const est = String(c.estado || '').toLowerCase().trim();
-    const etap = String(c.etapa || '').toLowerCase().trim();
     
-    // 1. Descartar cualquier caso cerrado, fallido, cancelado, resuelto o con prueba finalizada
-    if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel') || est.includes('resuelt')) return false;
-    if (etap.includes('cerrad') || etap.includes('fallid') || etap.includes('cancel') || etap.includes('pedido de prueba realizado')) return false;
+    // 1. Si el estado es cerrado o fallido (Cerrado por ONB..., Cerrado por KAM..., Cerrado por API Vendor)
+    if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel')) {
+      return false;
+    }
 
-    // 2. Si el estado es una fecha corrupta (GMT, hora estándar, 00:00:00 o YYYY-MM-DD), descartar salvo etapa activa
-    const esFecha = est.includes('gmt') || est.includes('hora estándar') || est.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(est);
-
-    // 3. Casos explícitamente en progreso / activos según la lista oficial
-    const estadosActivos = ['en progreso', 'nuevo', 'ticket hc', 'abierto', 'activo'];
-    if (!esFecha && estadosActivos.some(e => est === e || est.startsWith(e))) {
+    // 2. Si el estado es explícitamente en progreso, nuevo, abierto o vacío
+    if (!est || est.includes('progreso') || est === 'nuevo' || est === 'abierto' || est === 'activo') {
       return true;
     }
 
-    // 4. Si la etapa es una etapa activa de onboarding conocida
-    const etapasActivas = [
-      'sin integración confirmada', 'sin integracion confirmada',
-      'en proceso de seteo',
-      'en proceso de verificación de catálogo', 'en proceso de verificacion de catalogo', 'en proceso de carga de catálogo',
-      'validación del onboarding', 'validacion del onboarding',
-      'en proceso para pruebas'
-    ];
-    if (etapasActivas.some(e => etap === e || etap.includes(e))) {
-      return true;
-    }
-
-    // 5. Si tiene boolean esActivo explícito, verificar que no tenga estado cerrado
-    if (c.esActivo === true && !est.includes('cerrad') && !est.includes('fallid')) {
+    // 3. Si tiene flag activo explícito y no está cerrado
+    if (c.esActivo === true) {
       return true;
     }
 
@@ -1767,27 +1746,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                       {LISTA_OPORTUNIDADES.map(op => <option key={op} value={op}>{op}</option>)}
                     </select>
                   </div>
-
-                  {/* Panel informativo de contactos del cuadro */}
-                  {detallesIntegracionSeleccionada && (
-                    <div className="sm:col-span-2 bg-[#0f111a] border border-gray-800 p-3 rounded-lg text-xs">
-                      <p className="text-pink-400 font-semibold mb-1">
-                        Contactos del cuadro para {detallesIntegracionSeleccionada.integracion}:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        {detallesIntegracionSeleccionada.contactos.map((ct, idx) => (
-                          <span key={idx} className="bg-gray-800 text-gray-300 px-2 py-0.5 rounded border border-gray-700 font-mono text-[11px]">
-                            {ct}
-                          </span>
-                        ))}
-                      </div>
-                      {detallesIntegracionSeleccionada.correoAgente && (
-                        <p className="text-gray-400 mt-2 text-[11px]">
-                          Responsable sugerido: <span className="text-cyan-400">{detallesIntegracionSeleccionada.correoAgente}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
 
                   {/* h. Asset */}
                   <div>

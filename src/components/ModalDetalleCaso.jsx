@@ -11,9 +11,6 @@ import {
   obtenerSponsorship
 } from '../data/catalogoOnboarding';
 import { 
-  obtenerDetallesIntegracion 
-} from '../data/integracionesCuadro';
-import { 
   procesarActualizacionCaso, 
   analizarAlertasCaso,
   normalizarFecha 
@@ -66,7 +63,6 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
 
   // Análisis de alertas de Push y SLA
   const alertas = analizarAlertasCaso(form);
-  const detallesIntegracion = obtenerDetallesIntegracion(form.integracion);
 
   if (!caso) return null;
 
@@ -342,22 +338,6 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                   {LISTA_OPORTUNIDADES.map(op => <option key={op} value={op}>{op}</option>)}
                 </select>
               </div>
-
-              {/* Contactos del Cuadro de Integraciones */}
-              {detallesIntegracion && (
-                <div className="sm:col-span-2 bg-[#0f111a] border border-gray-800 p-3 rounded-lg text-[11px]">
-                  <p className="text-pink-400 font-semibold mb-1">
-                    Contactos para integración {detallesIntegracion.integracion}:
-                  </p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {detallesIntegracion.contactos.map((c, i) => (
-                      <span key={i} className="bg-gray-800 text-gray-300 px-2 py-0.5 rounded border border-gray-700 font-mono">
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* h. Asset */}
               <div>
