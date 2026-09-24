@@ -1,4 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { 
+  esEstadoActivoOficial, 
+  calcularFechaInicioSeguimientoOP 
+} from '../data/catalogoOnboarding';
 
 export default function HeroCareTLView({ 
   casos = [], 
@@ -11,36 +15,21 @@ export default function HeroCareTLView({
   const [subTab, setSubTab] = useState('global'); // 'global' | 'rendimiento'
   const [filtroAgente, setFiltroAgente] = useState('todos');
 
-  // Filtrar casos activos (solo casos en progreso reales, descartando cerrados y fechas)
+  // Filtrar casos activos (solo casos en progreso oficiales)
   const casosActivos = useMemo(() => {
-    return casos.filter(c => {
-      const est = String(c.estado || '').toLowerCase().trim();
-      const etap = String(c.etapa || '').toLowerCase().trim();
-      if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel') || est.includes('resuelt')) return false;
-      if (etap.includes('cerrad') || etap.includes('fallid') || etap.includes('pedido de prueba realizado')) return false;
-      if (est.includes('gmt') || est.includes('hora estándar') || est.includes('00:00:00') || /^\d{4}-\d{2}-\d{2}/.test(est)) return false;
-      const estadosActivos = ['en progreso', 'nuevo', 'ticket hc', 'abierto', 'activo'];
-      if (estadosActivos.some(e => est === e || est.startsWith(e))) return true;
-      return Boolean(c.esActivo) && !est.includes('cerrad');
-    });
+    return casos.filter(c => esEstadoActivoOficial(c.estado));
   }, [casos]);
 
-  // Cálculo de SLA para cada caso
+  // Cálculo de SLA para cada caso según Fecha de inicio de seguimiento de OP
   const casosConSLA = useMemo(() => {
     return casosActivos.map(c => {
       let horas = 0;
-      let inicio = null;
-
-      if (c.sla_inicio) {
-        inicio = new Date(c.sla_inicio);
-      } else if (c.fechaCreacion) {
-        inicio = new Date(c.fechaCreacion);
-      }
+      const fInicioStr = calcularFechaInicioSeguimientoOP(c) || c.sla_inicio || c.fechaCreacion;
+      let inicio = fInicioStr ? new Date(fInicioStr) : null;
 
       if (inicio && !isNaN(inicio.getTime())) {
         horas = Math.max(0, Math.floor((Date.now() - inicio.getTime()) / (1000 * 60 * 60)));
       } else {
-        // Fallback estimado si no hay fecha exacta
         horas = 12;
       }
 

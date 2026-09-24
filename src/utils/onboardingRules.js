@@ -3,11 +3,18 @@
  * Implementación estricta de las 4 casuísticas del flujo de Onboarding
  */
 
+import { 
+  calcularFechaInicioSeguimientoOP, 
+  esEstadoActivoOficial, 
+  esEstadoCerradoOficial,
+  obtenerSponsorship
+} from '../data/catalogoOnboarding';
+
 // Normalización de fechas de texto a formato ISO estándar (YYYY-MM-DD o ISO String)
 export function normalizarFecha(fechaStr) {
   if (!fechaStr) return '';
   const str = String(fechaStr).trim();
-  if (!str || str === 'S/V') return str;
+  if (!str || str === 'S/V' || str === '-') return str;
 
   // Si ya es formato ISO o fecha válida
   if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
@@ -33,19 +40,20 @@ export function normalizarFecha(fechaStr) {
 
 /**
  * 1. Casuísticas de Cierre de Oportunidad (OP)
- * - Si el Estado del caso (SF) es "En progreso", "Nuevo" o está vacío: Borra cualquier fecha en Fecha de cierre.
- * - Si el Estado cambia a cualquier otro valor (Fallido, Cerrado por KAM, Cerrado por oportunidad satisfactoria, etc.):
- *   Estampa instantáneamente la fecha y hora actual en la Fecha de cierre.
+ * - Si el Estado del caso es "En progreso" o "En progreso (Sin oportunidad)": 
+ *   Sigue transcurriendo el tiempo de SLA y Fecha de Cierre permanece vacía o "-".
+ * - Si el Estado cambia a cualquiera de los estados de Cerrado (Cerrado por ONB..., Cerrado por KAM..., Cerrado por API Vendor):
+ *   Imprime la Fecha de cierre de OP y detiene el SLA.
  */
 export function aplicarReglaCierre(nuevoEstado, fechaCierreActual) {
   const est = String(nuevoEstado || '').trim().toLowerCase();
-  const esAbierto = est === 'en progreso' || est === 'nuevo' || est === '' || est === 'ticket hc';
+  const esAbierto = est === 'en progreso' || est === 'en progreso (sin oportunidad)' || est === 'nuevo' || est === '';
 
   if (esAbierto) {
     return '';
   } else {
-    // Si ya tiene fecha de cierre previa se mantiene, sino se estampa fecha actual
-    return fechaCierreActual || new Date().toISOString();
+    // Si es un estado cerrado, imprime fecha de cierre de OP para detener SLA
+    return fechaCierreActual && fechaCierreActual !== '-' ? fechaCierreActual : new Date().toISOString().split('T')[0];
   }
 }
 
@@ -247,10 +255,22 @@ export function procesarActualizacionCaso(casoAnterior, nuevosValores) {
     resultado = { ...resultado, ...cambiosRespCat };
   }
 
-  // Cálculo de indicador activo
-  const estLower = String(resultado.estado || '').toLowerCase();
-  const esCerrado = estLower.includes('cerrado') || estLower.includes('fallido');
-  resultado.esActivo = !esCerrado;
+  // Asignar automáticamente sponsorship según la integración
+  if (resultado.integracion) {
+    const spon = obtenerSponsorship(resultado.integracion);
+    resultado.sponsorship = spon;
+    resultado.descuentosBajoEstructuraSponsorship = spon;
+  }
+
+  // Asignar Fecha de inicio de seguimiento de OP según la regla de Etapa
+  const fInicioSeg = calcularFechaInicioSeguimientoOP(resultado);
+  if (fInicioSeg) {
+    resultado.fechaInicioSeguimientoOP = fInicioSeg;
+    resultado.sla_inicio = fInicioSeg;
+  }
+
+  // Cálculo de indicador activo según Estado Oficial
+  resultado.esActivo = esEstadoActivoOficial(resultado.estado);
 
   return resultado;
 }
@@ -261,12 +281,13 @@ export function procesarActualizacionCaso(casoAnterior, nuevosValores) {
 export function analizarAlertasCaso(caso) {
   const ahora = Date.now();
   const etapa = String(caso.etapa || '').toLowerCase();
+  const esActivo = typeof caso.esActivo === 'boolean' ? caso.esActivo : esEstadoActivoOficial(caso.estado);
   
   // 1. Alerta Push POS API:
   // Si está en espera ("Sin integración confirmada" o "En proceso de seteo") y la respuesta no es "Sí" ni "S/V"
   let requierePushPos = false;
   let motivoPushPos = '';
-  if (caso.esActivo) {
+  if (esActivo) {
     const enEsperaPos = etapa.includes('sin integración confirmada') || etapa.includes('sin integracion confirmada') || etapa.includes('en proceso de seteo');
     const respPosOk = caso.respuestaPos === 'Sí' || caso.respuestaPos === 'S/V';
     if (enEsperaPos && !respPosOk) {
@@ -285,7 +306,7 @@ export function analizarAlertasCaso(caso) {
   // Si está en "En proceso de verificación de catálogo" y la respuesta no es "Sí" ni "S/V"
   let requierePushCat = false;
   let motivoPushCat = '';
-  if (caso.esActivo) {
+  if (esActivo) {
     const enEsperaCat = etapa.includes('verificación de catálogo') || etapa.includes('verificacion de catalogo');
     const respCatOk = caso.respuestaCat === 'Sí' || caso.respuestaCat === 'S/V';
     if (enEsperaCat && !respCatOk) {
@@ -301,21 +322,24 @@ export function analizarAlertasCaso(caso) {
   }
 
   // 3. Vencimiento de SLA:
-  // Si hay Freeze en POS o Catálogo, el SLA está congelado
+  // Si hay Freeze en POS o Catálogo, el SLA está congelado.
+  // Si el caso está cerrado, el SLA se detiene en fechaCierre.
   const estaCongelado = Boolean(caso.freezePos || caso.freezeCat);
-  const fechaReferencia = caso.freezePos || caso.freezeCat || caso.sla_inicio || caso.fechaCreacion || new Date().toISOString();
+  const fechaReferencia = calcularFechaInicioSeguimientoOP(caso) || caso.sla_inicio || caso.fechaCreacion || new Date().toISOString();
   
   let horasTranscurridas = 0;
   const tRef = new Date(fechaReferencia).getTime();
   if (!isNaN(tRef)) {
-    const tiempoFin = estaCongelado ? new Date(caso.freezePos || caso.freezeCat).getTime() : ahora;
+    const tiempoFin = estaCongelado 
+      ? new Date(caso.freezePos || caso.freezeCat).getTime() 
+      : (!esActivo && caso.fechaCierre ? new Date(caso.fechaCierre).getTime() : ahora);
     horasTranscurridas = Math.max(0, Math.floor((tiempoFin - tRef) / (1000 * 60 * 60)));
   }
 
   const SLA_LIMITE_HORAS = 48; // 48 horas hábiles estándar de SLA
-  const horasRestantes = Math.max(0, SLA_LIMITE_HORAS - horasTranscurridas);
-  const esVencido = !estaCongelado && horasTranscurridas >= SLA_LIMITE_HORAS;
-  const esProximoVencer = !estaCongelado && !esVencido && horasTranscurridas >= 24;
+  const horasRestantes = esActivo ? Math.max(0, SLA_LIMITE_HORAS - horasTranscurridas) : 0;
+  const esVencido = esActivo && !estaCongelado && horasTranscurridas >= SLA_LIMITE_HORAS;
+  const esProximoVencer = esActivo && !estaCongelado && !esVencido && horasTranscurridas >= 24;
 
   return {
     requierePushPos,

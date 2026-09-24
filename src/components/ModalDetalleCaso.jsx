@@ -1,6 +1,16 @@
 import { useState } from 'react';
 import { 
-  LISTA_INTEGRACIONES, 
+  LISTA_PAISES,
+  LISTA_OPORTUNIDADES,
+  LISTA_ASSETS,
+  LISTA_ESTADOS,
+  LISTA_ETAPAS,
+  LISTA_TIENE_INICIO,
+  LISTA_AGENTES,
+  LISTA_INTEGRACIONES_OFICIALES,
+  obtenerSponsorship
+} from '../data/catalogoOnboarding';
+import { 
   obtenerDetallesIntegracion 
 } from '../data/integracionesCuadro';
 import { 
@@ -9,61 +19,21 @@ import {
   normalizarFecha 
 } from '../utils/onboardingRules';
 
-const LISTA_PAISES = [
-  'Argentina', 'Chile', 'Uruguay', 'Ecuador', 'Perú', 
-  'Bolivia', 'Colombia', 'Costa Rica', 'El Salvador', 
-  'Guatemala', 'Honduras', 'Nicaragua', 'Panamá', 
-  'Paraguay', 'República Dominicana', 'Venezuela'
-];
-
-const LISTA_ASSETS = [
-  'Integración', 'Menú', 'Ambos (Integración y Menú)', 
-  'Logística', 'Dispositivo', 'New Business', 
-  'Upgrade/Upsell Alta Integracion', 'Upgrade/Upsell Baja Integracion', 
-  'Franchise Extension', 'Win Back', 'Otros'
-];
-
-const LISTA_AGENTES = [
-  'Jean Palomino', 'Prisila Leon', 'Joel Tocas', 
-  'Yadira Flores', 'Guillermo Gonzales', 'Jean Changanaqui', 
-  'Henry Serrato', 'Joseline Yactayo', 'Comercial', 'Sin asignación'
-];
-
-const LISTA_ESTADOS = [
-  'Nuevo', 'En progreso', 'Ticket HC', 
-  'Cerrado por oportunidad satisfactoria', 
-  'Cerrado por KAM', 'Cerrado por API Vendor', 'Fallido'
-];
-
-const LISTA_ETAPAS = [
-  'Sin integración confirmada', 
-  'En proceso de seteo', 
-  'En proceso de verificación de catálogo', 
-  'Validación del Onboarding', 
-  'En proceso para pruebas', 
-  'Pedido de prueba realizado'
-];
-
-const LISTA_OPORTUNIDADES = [
-  'Franchise Extension', 'New Business', 'Sabor y Arte', 
-  'Migración de Sistema', 'Apertura de Sucursal', 'Reingreso', 
-  'Cambio de Razón Social', 'Upgrade/Upsell Alta Integracion', 
-  'Upgrade/Upsell Baja Integracion'
-];
-
 export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alReplicarTienda, nombreUsuarioAutenticado }) {
   const [form, setForm] = useState(() => ({
     id: caso?.id || caso?.casoOp || '',
     casoOp: caso?.casoOp || caso?.id || '',
     vendorId: caso?.vendor_id || caso?.vendorId || '',
     tienda: caso?.tienda || '',
-    pais: caso?.pais || '',
+    pais: caso?.pais || 'Argentina',
     kam: caso?.kam || '',
-    integracion: caso?.integracion || '',
-    oportunidad: caso?.oportunidad || '',
+    integracion: caso?.integracion || 'Datalive',
+    sponsorship: caso?.sponsorship || obtenerSponsorship(caso?.integracion || 'Datalive'),
+    descuentosBajoEstructuraSponsorship: caso?.descuentosBajoEstructuraSponsorship || obtenerSponsorship(caso?.integracion || 'Datalive'),
+    oportunidad: caso?.oportunidad || 'Franchise Extensión',
     asset: caso?.asset || 'Integración',
     propietarioOportunidad: caso?.propietarioOportunidad || nombreUsuarioAutenticado || 'Jean Palomino',
-    propietarioTicket: caso?.propietarioTicket || caso?.agente || 'Jean Palomino',
+    propietarioTicket: caso?.propietarioTicket || caso?.agente || nombreUsuarioAutenticado || 'Jean Palomino',
     casoSeguimiento: caso?.casoSeguimiento || '',
     tieneCasoInicio: caso?.tieneCasoInicio || 'Si',
     comentarios: caso?.comentarios || '',
@@ -131,9 +101,17 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
     const nuevoValor = type === 'checkbox' ? checked : value;
     
     setForm(prev => {
-      const actualizados = { ...prev, [name]: nuevoValor };
+      let extra = {};
+      if (name === 'integracion') {
+        const spon = obtenerSponsorship(nuevoValor);
+        extra = {
+          sponsorship: spon,
+          descuentosBajoEstructuraSponsorship: spon
+        };
+      }
+      const actualizados = { ...prev, [name]: nuevoValor, ...extra };
       // Evaluamos las reglas reactivas de negocio inmediatamente
-      const procesado = procesarActualizacionCaso(prev, { [name]: nuevoValor });
+      const procesado = procesarActualizacionCaso(prev, { [name]: nuevoValor, ...extra });
       return { ...actualizados, ...procesado };
     });
     setCambioDetectado(true);
@@ -332,9 +310,14 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                 />
               </div>
 
-              {/* f. Integración */}
+              {/* f. Integración y Sponsorship */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">f. Integración *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-gray-400 font-medium">f. Integración *</label>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${form.sponsorship === 'SI' ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300' : 'bg-gray-800/80 border-gray-700 text-gray-400'}`}>
+                    Sponsorship: {form.sponsorship || 'NO'}
+                  </span>
+                </div>
                 <select 
                   name="integracion" 
                   value={form.integracion} 
@@ -342,7 +325,7 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
                 >
                   <option value="">Seleccione integración...</option>
-                  {LISTA_INTEGRACIONES.map(i => <option key={i} value={i}>{i}</option>)}
+                  {LISTA_INTEGRACIONES_OFICIALES.map(i => <option key={i} value={i}>{i}</option>)}
                 </select>
               </div>
 
@@ -392,8 +375,8 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
               {/* i. Propietario Oportunidad */}
               <div>
                 <label className="text-pink-400 block mb-1 font-semibold flex items-center justify-between">
-                  <span>i. Propietario Oportunidad (Editable)</span>
-                  <span className="text-[10px] text-gray-400 font-normal">Actualiza en Sheets sin duplicar</span>
+                  <span>i. Propietario Oportunidad (Automático)</span>
+                  <span className="text-[10px] text-gray-400 font-normal">Asignado con cuenta logueada</span>
                 </label>
                 <select 
                   name="propietarioOportunidad" 
@@ -407,13 +390,15 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
 
               {/* j. Propietario Ticket HeroCare */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">j. Propietario Ticket HeroCare (Fijo)</label>
-                <input 
-                  type="text" 
+                <label className="text-gray-400 block mb-1 font-medium">j. Propietario Ticket HeroCare (Editable)</label>
+                <select 
+                  name="propietarioTicket" 
                   value={form.propietarioTicket} 
-                  disabled
-                  className="w-full bg-[#0f111a] border border-gray-800 rounded-lg p-2.5 text-gray-400 cursor-not-allowed"
-                />
+                  onChange={manejarCambio}
+                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium"
+                >
+                  {LISTA_AGENTES.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                </select>
               </div>
 
               {/* k. N° Caso Seguimiento */}
@@ -437,8 +422,7 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                   onChange={manejarCambio}
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white"
                 >
-                  <option value="Si">Si</option>
-                  <option value="No">No</option>
+                  {LISTA_TIENE_INICIO.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
 
@@ -456,7 +440,7 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
 
               {/* n. Estado del caso */}
               <div>
-                <label className="text-cyan-400 block mb-1 font-semibold">n. Estado del caso (SF)</label>
+                <label className="text-cyan-400 block mb-1 font-semibold">n. Estado del caso</label>
                 <select 
                   name="estado" 
                   value={form.estado} 
@@ -466,7 +450,7 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                   {LISTA_ESTADOS.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
                 <p className="text-[10px] text-gray-500 mt-1">
-                  Regla 1: Si cambia a Cerrado o Fallido se estampa automáticamente Fecha de Cierre. Si vuelve a &quot;En progreso&quot;, se borra.
+                  En progreso / En progreso (Sin oportunidad): SLA activo. Cerrado: Imprime Fecha de Cierre y detiene SLA.
                 </p>
               </div>
 
@@ -482,7 +466,7 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                   {LISTA_ETAPAS.map(et => <option key={et} value={et}>{et}</option>)}
                 </select>
                 <p className="text-[10px] text-gray-500 mt-1">
-                  Reglas 2 y 3: Saltos de etapa autollenan S/V o deducen Sí/No según inicio de seguimientos.
+                  Controla la Fecha de inicio de seguimiento de OP según POS API, Catálogo o inicio único.
                 </p>
               </div>
 
