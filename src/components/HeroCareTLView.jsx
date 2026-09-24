@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  esEstadoActivoOficial, 
-  calcularFechaInicioSeguimientoOP 
-} from '../data/catalogoOnboarding';
+import { esEstadoActivoOficial } from '../data/catalogoOnboarding';
+import { analizarAlertasCaso } from '../utils/onboardingRules';
 
 export default function HeroCareTLView({ 
   casos = [], 
@@ -20,40 +18,24 @@ export default function HeroCareTLView({
     return casos.filter(c => esEstadoActivoOficial(c.estado) || (c.esActivo === true && !String(c.estado || '').toLowerCase().includes('cerrad') && !String(c.estado || '').toLowerCase().includes('fallid')));
   }, [casos]);
 
-  // Cálculo de SLA para cada caso según Fecha de inicio de seguimiento de OP
+  // Cálculo de SLA para cada caso según motor oficial L-V y alertas
   const casosConSLA = useMemo(() => {
     return casosActivos.map(c => {
-      let horas = 0;
-      const fInicioStr = calcularFechaInicioSeguimientoOP(c) || c.sla_inicio || c.fechaCreacion;
-      let inicio = fInicioStr ? new Date(fInicioStr) : null;
-
-      if (inicio && !isNaN(inicio.getTime())) {
-        horas = Math.max(0, Math.floor((Date.now() - inicio.getTime()) / (1000 * 60 * 60)));
-      } else {
-        horas = 12;
-      }
-
-      const esCritico = horas >= 96;
-      const esAtencion = horas >= 4 && horas < 96;
-      const esEnTiempo = horas < 4;
-
-      let tiempoTexto = '< 4h';
-      if (esCritico) {
-        tiempoTexto = '≥ 96h';
-      } else if (esAtencion) {
-        tiempoTexto = '≥ 4h';
-      }
-
-      // Agente asignado
+      const alertas = analizarAlertasCaso(c);
       const agenteACargo = c.propietarioTicket || c.propietarioOportunidad || c.agente || 'Sin Asignar';
 
       return {
         ...c,
-        horasSLA: horas,
-        esCritico,
-        esAtencion,
-        esEnTiempo,
-        tiempoTexto,
+        alertas,
+        horasSLA: alertas.horasTranscurridas,
+        esCritico: alertas.esCritico,
+        esAtencion: alertas.esAtencion || alertas.esProximoVencer,
+        esEnTiempo: alertas.esEnTiempo,
+        tiempoTexto: alertas.rangoSla || alertas.tiempoTexto,
+        tiempoLargoTexto: alertas.tiempoTexto,
+        colorClass: alertas.colorClass,
+        estaCongelado: alertas.estaCongelado,
+        congeladoTrack: alertas.congeladoTrack,
         agenteACargo
       };
     });
@@ -319,19 +301,16 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
 
                       {/* TIEMPO SLA */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        {caso.esCritico ? (
-                          <span className="inline-block px-3 py-1 rounded-md text-[11px] font-black border border-red-500/80 bg-red-950/60 text-red-400 animate-pulse">
-                            ≥ 96h
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border w-fit ${caso.colorClass || 'bg-gray-800 text-gray-300 border-gray-700'}`}>
+                            {caso.estaCongelado && <span>❄️</span>}
+                            <span>{caso.horasSLA}h</span>
+                            <span className="font-normal opacity-90">• {caso.tiempoTexto}</span>
                           </span>
-                        ) : caso.esAtencion ? (
-                          <span className="inline-block px-3 py-1 rounded-md text-[11px] font-bold border border-amber-500/80 bg-amber-950/60 text-amber-300">
-                            ≥ 4h
+                          <span className="text-[10px] text-gray-400">
+                            {caso.estaCongelado ? `Pausado (${caso.congeladoTrack || 'Freeze'})` : caso.tiempoLargoTexto}
                           </span>
-                        ) : (
-                          <span className="inline-block px-3 py-1 rounded-md text-[11px] font-semibold border border-emerald-500/80 bg-emerald-950/60 text-emerald-300">
-                            &lt; 4h
-                          </span>
-                        )}
+                        </div>
                       </td>
 
                       {/* AGENTE A CARGO */}

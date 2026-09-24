@@ -247,6 +247,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
     return etStr;
   };
 
+  // Helper para formatear fechas de Push en formato compacto DD/MM
+  const formatearFechaCorta = (fStr) => {
+    if (!fStr) return '';
+    const s = String(fStr).trim();
+    if (s === 'S/V' || s === '-') return s;
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}`;
+    const m2 = s.match(/^(\d{1,2})[/-](\d{1,2})/);
+    if (m2) return `${m2[1].padStart(2, '0')}/${m2[2].padStart(2, '0')}`;
+    return s.split(' ')[0] || s;
+  };
+
   // Casos unificados totales: Firestore en tiempo real + Sheets
   const casosTotales = useMemo(() => {
     const mapaCasos = new Map();
@@ -551,20 +563,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
       console.error("Error guardando nuevo caso:", err);
       mostrarNotificacion("Error al registrar el caso en Firestore.", "error");
     }
-  };
-
-  const calcularSLA = (slaInicioStr) => {
-    if (!slaInicioStr) return { texto: 'Sin SLA', badgeClass: 'bg-gray-800 text-gray-400 border-gray-700' };
-    const inicio = new Date(slaInicioStr);
-    if (isNaN(inicio.getTime())) return { texto: slaInicioStr, badgeClass: 'bg-gray-800 text-gray-400 border-gray-700' };
-    const diffHoras = Math.floor((Date.now() - inicio.getTime()) / (1000 * 60 * 60));
-    if (diffHoras < 24) {
-      return { texto: `${diffHoras}h (En tiempo)`, badgeClass: 'bg-emerald-950/80 text-emerald-300 border-emerald-800' };
-    }
-    if (diffHoras < 48) {
-      return { texto: `${diffHoras}h (Por vencer)`, badgeClass: 'bg-amber-950/80 text-amber-300 border-amber-800' };
-    }
-    return { texto: `${diffHoras}h (SLA Vencido)`, badgeClass: 'bg-rose-950/80 text-rose-300 border-rose-800 animate-pulse' };
   };
 
   // Estados para el modal de conexión
@@ -1367,7 +1365,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {casosPaginados.map(({ caso: c, alertas }) => {
-                              const sla = calcularSLA(c.sla_inicio);
                               return (
                                 <tr 
                                   key={c.id || c.casoOp} 
@@ -1409,9 +1406,38 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
                                   {/* Push POS API */}
                                   <td className="py-3.5 px-4">
-                                    {alertas.requierePushPos ? (
-                                      <span className="bg-amber-950 text-amber-300 border border-amber-800 text-[11px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1">
-                                        <span>⚠️</span> Push Requerido
+                                    {c.fechaPushPos && c.fechaPushPos !== 'S/V' ? (
+                                      <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-1">
+                                          <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold">
+                                            Push: {formatearFechaCorta(c.fechaPushPos)}
+                                          </span>
+                                          {c.pushKamPos && <span className="text-[10px] text-cyan-400 font-bold" title="Push KAM Verificado">✓ KAM</span>}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 flex items-center gap-1">
+                                          <span>Resp:</span>
+                                          <strong className={c.respuestaPos === 'Sí' || c.respuestaPos === 'Si' ? 'text-emerald-400' : c.respuestaPos === 'No' ? 'text-rose-400' : 'text-gray-300'}>
+                                            {c.respuestaPos || 'Enviado'}
+                                          </strong>
+                                          {c.tiempoTranscurridoPos && c.tiempoTranscurridoPos !== '-' && (
+                                            <span className="text-gray-500 font-mono">• {c.tiempoTranscurridoPos}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ) : alertas.requierePushPos ? (
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="bg-amber-950 text-amber-300 border border-amber-800 text-[11px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 w-fit">
+                                          <span>⚠️</span> Push Requerido
+                                        </span>
+                                        {alertas.motivoPushPos && (
+                                          <span className="text-[10px] text-amber-400/80 max-w-[130px] truncate" title={alertas.motivoPushPos}>
+                                            {alertas.motivoPushPos}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : c.fechaInicioPos === 'S/V' || c.respuestaPos === 'S/V' ? (
+                                      <span className="text-gray-500 text-[11px] bg-gray-900 px-2 py-0.5 rounded border border-gray-800">
+                                        S/V (Omitido)
                                       </span>
                                     ) : (
                                       <span className="text-gray-400 text-[11px] bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700">
@@ -1422,9 +1448,38 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
 
                                   {/* Push Catálogo */}
                                   <td className="py-3.5 px-4">
-                                    {alertas.requierePushCat ? (
-                                      <span className="bg-pink-950 text-pink-300 border border-pink-800 text-[11px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1">
-                                        <span>📦</span> Push Catálogo
+                                    {c.fechaPushCat && c.fechaPushCat !== 'S/V' ? (
+                                      <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-1">
+                                          <span className="bg-pink-950/80 text-pink-300 border border-pink-800 text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold">
+                                            Push: {formatearFechaCorta(c.fechaPushCat)}
+                                          </span>
+                                          {c.pushKamCat && <span className="text-[10px] text-cyan-400 font-bold" title="Push KAM Verificado">✓ KAM</span>}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 flex items-center gap-1">
+                                          <span>Resp:</span>
+                                          <strong className={c.respuestaCat === 'Sí' || c.respuestaCat === 'Si' ? 'text-emerald-400' : c.respuestaCat === 'No' ? 'text-rose-400' : 'text-gray-300'}>
+                                            {c.respuestaCat || 'Enviado'}
+                                          </strong>
+                                          {c.tiempoTranscurridoCat && c.tiempoTranscurridoCat !== '-' && (
+                                            <span className="text-gray-500 font-mono">• {c.tiempoTranscurridoCat}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ) : alertas.requierePushCat ? (
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="bg-pink-950 text-pink-300 border border-pink-800 text-[11px] px-2 py-0.5 rounded-full font-semibold inline-flex items-center gap-1 w-fit">
+                                          <span>📦</span> Push Catálogo
+                                        </span>
+                                        {alertas.motivoPushCat && (
+                                          <span className="text-[10px] text-pink-400/80 max-w-[130px] truncate" title={alertas.motivoPushCat}>
+                                            {alertas.motivoPushCat}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : c.fechaInicioCat === 'S/V' || c.respuestaCat === 'S/V' ? (
+                                      <span className="text-gray-500 text-[11px] bg-gray-900 px-2 py-0.5 rounded border border-gray-800">
+                                        S/V (Omitido)
                                       </span>
                                     ) : (
                                       <span className="text-gray-400 text-[11px] bg-gray-800/60 px-2 py-0.5 rounded border border-gray-700">
@@ -1433,17 +1488,22 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }) {
                                     )}
                                   </td>
 
-                                  {/* SLA */}
+                                  {/* SLA Real L-V */}
                                   <td className="py-3.5 px-4">
-                                    {alertas.estaCongelado ? (
-                                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium border bg-indigo-950/80 text-indigo-300 border-indigo-700">
-                                        ❄️ Pausado
+                                    <div className="flex flex-col gap-0.5" title={`Tiempo acumulado L-V: ${alertas.tiempoTexto}. Inicio OP: ${c.fechaInicioSeguimientoOP || c.sla_inicio || c.fechaCreacion || 'N/A'}`}>
+                                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold border inline-flex items-center gap-1 w-fit ${alertas.colorClass}`}>
+                                        {alertas.estaCongelado && <span>❄️</span>}
+                                        <span>{alertas.horasTranscurridas}h</span>
+                                        <span className="font-normal opacity-90">• {alertas.rangoSla || '0h a <4h'}</span>
                                       </span>
-                                    ) : (
-                                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium border ${sla.badgeClass}`}>
-                                        {sla.texto}
+                                      <span className="text-[10px] text-gray-400">
+                                        {alertas.estaCongelado ? (
+                                          <span className="text-indigo-300 font-medium">Pausado ({alertas.congeladoTrack || 'Freeze'})</span>
+                                        ) : (
+                                          <span>{alertas.tiempoTexto}</span>
+                                        )}
                                       </span>
-                                    )}
+                                    </div>
                                   </td>
 
                                   {/* Propietario Oportunidad / Ticket */}

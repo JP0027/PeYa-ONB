@@ -8,6 +8,7 @@ import {
   esEstadoActivoOficial, 
   obtenerSponsorship
 } from '../data/catalogoOnboarding';
+import { analizarTiemposCaso } from './tiempoLaboral';
 
 // Normalización de fechas de texto a formato ISO estándar (YYYY-MM-DD o ISO String)
 export function normalizarFecha(fechaStr) {
@@ -276,79 +277,131 @@ export function procesarActualizacionCaso(casoAnterior, nuevosValores) {
 
 /**
  * Detección de alertas de Push y SLA para la pestaña "Mis Casos"
+ * Incorpora los tiempos laborales reales L-V (Columnas AE, AF, AG, AI, AJ, AK)
+ * y refleja con exactitud las horas acumuladas incluso cuando se realizó Push o Freeze.
  */
 export function analizarAlertasCaso(caso) {
+  if (!caso) {
+    return {
+      requierePushPos: false,
+      motivoPushPos: '',
+      requierePushCat: false,
+      motivoPushCat: '',
+      estaCongelado: false,
+      congeladoTrack: '',
+      horasTranscurridas: 0,
+      tiempoTexto: '-',
+      rangoSla: '',
+      colorClass: 'bg-gray-800 text-gray-400 border-gray-700',
+      esVencido: false,
+      esCritico: false,
+      esProximoVencer: false,
+      esAtencion: false,
+      esEnTiempo: false,
+      tienePushPos: false,
+      fechaPushPos: '',
+      tienePushCat: false,
+      fechaPushCat: ''
+    };
+  }
+
   const ahora = Date.now();
   const etapa = String(caso.etapa || '').toLowerCase();
   const esActivo = typeof caso.esActivo === 'boolean' ? caso.esActivo : esEstadoActivoOficial(caso.estado);
-  
-  // 1. Alerta Push POS API:
-  // Si está en espera ("Sin integración confirmada" o "En proceso de seteo") y la respuesta no es "Sí" ni "S/V"
+
+  // 1. Análisis integral de tiempos mediante el motor oficial L-V
+  const tiempos = analizarTiemposCaso(caso);
+  const horasTranscurridas = tiempos.totalHorasOp;
+  const tiempoTexto = tiempos.tiempoTextoOp;
+  const rangoSla = tiempos.rangoSlaOp;
+  const colorClass = tiempos.colorClassOp;
+  const estaCongelado = tiempos.estaCongelado;
+  const congeladoTrack = tiempos.congeladoTrack;
+
+  // 2. Alerta Push POS API:
+  const tienePushPos = Boolean(caso.fechaPushPos && caso.fechaPushPos !== '' && caso.fechaPushPos !== 'S/V');
   let requierePushPos = false;
   let motivoPushPos = '';
+
   if (esActivo) {
     const enEsperaPos = etapa.includes('sin integración confirmada') || etapa.includes('sin integracion confirmada') || etapa.includes('en proceso de seteo');
-    const respPosOk = caso.respuestaPos === 'Sí' || caso.respuestaPos === 'S/V';
+    const respPosOk = caso.respuestaPos === 'Sí' || caso.respuestaPos === 'Si' || caso.respuestaPos === 'S/V';
+
     if (enEsperaPos && !respPosOk) {
-      requierePushPos = true;
-      if (!caso.fechaPushPos || caso.fechaPushPos === '') {
+      if (!tienePushPos) {
+        requierePushPos = true;
         motivoPushPos = 'Sin push inicial realizado';
       } else {
         const fechaUltimoPush = new Date(caso.fechaPushPos).getTime();
         const diasPasados = !isNaN(fechaUltimoPush) ? Math.floor((ahora - fechaUltimoPush) / (1000 * 60 * 60 * 24)) : 0;
-        motivoPushPos = diasPasados > 0 ? `Hace ${diasPasados}d sin respuesta` : 'Push pendiente';
+        if (diasPasados >= 2) {
+          requierePushPos = true;
+          motivoPushPos = `Push enviado hace ${diasPasados}d sin respuesta`;
+        } else {
+          motivoPushPos = diasPasados > 0 ? `Push enviado hace ${diasPasados}d` : 'Push enviado hoy';
+        }
       }
     }
   }
 
-  // 2. Alerta Push Catálogo:
-  // Si está en "En proceso de verificación de catálogo" y la respuesta no es "Sí" ni "S/V"
+  // 3. Alerta Push Catálogo:
+  const tienePushCat = Boolean(caso.fechaPushCat && caso.fechaPushCat !== '' && caso.fechaPushCat !== 'S/V');
   let requierePushCat = false;
   let motivoPushCat = '';
+
   if (esActivo) {
     const enEsperaCat = etapa.includes('verificación de catálogo') || etapa.includes('verificacion de catalogo');
-    const respCatOk = caso.respuestaCat === 'Sí' || caso.respuestaCat === 'S/V';
+    const respCatOk = caso.respuestaCat === 'Sí' || caso.respuestaCat === 'Si' || caso.respuestaCat === 'S/V';
+
     if (enEsperaCat && !respCatOk) {
-      requierePushCat = true;
-      if (!caso.fechaPushCat || caso.fechaPushCat === '') {
+      if (!tienePushCat) {
+        requierePushCat = true;
         motivoPushCat = 'Requiere enviar catálogo a validación';
       } else {
         const fechaUltimoPushCat = new Date(caso.fechaPushCat).getTime();
         const diasPasadosCat = !isNaN(fechaUltimoPushCat) ? Math.floor((ahora - fechaUltimoPushCat) / (1000 * 60 * 60 * 24)) : 0;
-        motivoPushCat = diasPasadosCat > 0 ? `Catálogo enviado hace ${diasPasadosCat}d` : 'Validación en curso';
+        if (diasPasadosCat >= 2) {
+          requierePushCat = true;
+          motivoPushCat = `Catálogo enviado hace ${diasPasadosCat}d sin respuesta`;
+        } else {
+          motivoPushCat = diasPasadosCat > 0 ? `Catálogo enviado hace ${diasPasadosCat}d` : 'Catálogo enviado hoy';
+        }
       }
     }
   }
 
-  // 3. Vencimiento de SLA:
-  // Si hay Freeze en POS o Catálogo, el SLA está congelado.
-  // Si el caso está cerrado, el SLA se detiene en fechaCierre.
-  const estaCongelado = Boolean(caso.freezePos || caso.freezeCat);
-  const fechaReferencia = calcularFechaInicioSeguimientoOP(caso) || caso.sla_inicio || caso.fechaCreacion || new Date().toISOString();
-  
-  let horasTranscurridas = 0;
-  const tRef = new Date(fechaReferencia).getTime();
-  if (!isNaN(tRef)) {
-    const tiempoFin = estaCongelado 
-      ? new Date(caso.freezePos || caso.freezeCat).getTime() 
-      : (!esActivo && caso.fechaCierre ? new Date(caso.fechaCierre).getTime() : ahora);
-    horasTranscurridas = Math.max(0, Math.floor((tiempoFin - tRef) / (1000 * 60 * 60)));
-  }
-
-  const SLA_LIMITE_HORAS = 48; // 48 horas hábiles estándar de SLA
-  const horasRestantes = esActivo ? Math.max(0, SLA_LIMITE_HORAS - horasTranscurridas) : 0;
-  const esVencido = esActivo && !estaCongelado && horasTranscurridas >= SLA_LIMITE_HORAS;
-  const esProximoVencer = esActivo && !estaCongelado && !esVencido && horasTranscurridas >= 24;
+  // 4. Semáforos SLA: Se calculan sobre las horas acumuladas reales
+  // (Incluso si está pausado por Freeze, se muestra la gravedad de las horas acumuladas)
+  const esCritico = esActivo && horasTranscurridas >= 96; // ≥ 4 días laborales
+  const esProximoVencer = esActivo && !esCritico && horasTranscurridas >= 24; // ≥ 1 día laboral
+  const esAtencion = esActivo && !esCritico && !esProximoVencer && horasTranscurridas >= 4;
+  const esEnTiempo = esActivo && horasTranscurridas < 4;
 
   return {
     requierePushPos,
     motivoPushPos,
+    tienePushPos,
+    fechaPushPos: caso.fechaPushPos || '',
+    tiempoTranscurridoPos: tiempos.tiempoTextoPos,
+    rangoSlaPos: tiempos.rangoSlaPos,
+
     requierePushCat,
     motivoPushCat,
+    tienePushCat,
+    fechaPushCat: caso.fechaPushCat || '',
+    tiempoTranscurridoCat: tiempos.tiempoTextoCat,
+    rangoSlaCat: tiempos.rangoSlaCat,
+
     estaCongelado,
+    congeladoTrack,
     horasTranscurridas,
-    horasRestantes,
-    esVencido,
-    esProximoVencer
+    tiempoTexto,
+    rangoSla,
+    colorClass,
+    esVencido: esCritico,
+    esCritico,
+    esProximoVencer,
+    esAtencion,
+    esEnTiempo
   };
 }

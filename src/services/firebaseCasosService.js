@@ -35,9 +35,8 @@ export async function guardarCasosEnFirestore(casos, onProgreso = null) {
       }
 
       const estLower = estadoLimpio.toLowerCase();
-      const etapLower = etapaLimpia.toLowerCase();
-      const esCerrado = estLower.includes('cerrad') || estLower.includes('fallid') || estLower.includes('cancel') || etapLower.includes('pedido de prueba realizado');
-      const esActivo = !esCerrado && (estLower.includes('en progreso') || estLower.includes('nuevo') || estLower.includes('ticket hc') || estLower === 'abierto');
+      const esCerrado = estLower.includes('cerrad') || estLower.includes('fallid') || estLower.includes('cancel');
+      const esActivo = !esCerrado && (estLower.includes('progreso') || estLower === 'abierto' || estLower === 'nuevo' || !estLower);
 
       const payload = {
         id: docId,
@@ -48,8 +47,10 @@ export async function guardarCasosEnFirestore(casos, onProgreso = null) {
         pais: caso.pais || 'Argentina',
         kam: caso.kam || '',
         integracion: caso.integracion || '',
+        sponsorship: caso.sponsorship || 'NO',
+        descuentosBajoEstructuraSponsorship: caso.descuentosBajoEstructuraSponsorship || caso.sponsorship || 'NO',
         oportunidad: caso.oportunidad || '',
-        asset: caso.asset || '',
+        asset: caso.asset || 'Integración',
         casoSeguimiento: caso.casoSeguimiento || '',
         propietarioOportunidad: caso.propietarioOportunidad || '',
         propietarioTicket: caso.propietarioTicket || '',
@@ -57,9 +58,30 @@ export async function guardarCasosEnFirestore(casos, onProgreso = null) {
         tieneCasoInicio: caso.tieneCasoInicio || 'Si',
         comentarios: caso.comentarios || '',
         fechaCreacion: caso.fechaCreacion || new Date().toISOString().split('T')[0],
+        fechaInicioSeguimientoOP: caso.fechaInicioSeguimientoOP || '',
+        fechaCierre: caso.fechaCierre || '',
+        fechaInicioPos: caso.fechaInicioPos || '',
+        fechaPushPos: caso.fechaPushPos || '',
+        respuestaPos: caso.respuestaPos || '',
+        pushKamPos: Boolean(caso.pushKamPos),
+        fechaInicioCat: caso.fechaInicioCat || '',
+        fechaPushCat: caso.fechaPushCat || '',
+        respuestaCat: caso.respuestaCat || '',
+        pushKamCat: Boolean(caso.pushKamCat),
+        freezePos: caso.freezePos || '',
+        freezeCat: caso.freezeCat || '',
+        tiempoTranscurridoOp: caso.tiempoTranscurridoOp || '',
+        tiempoTranscurridoPos: caso.tiempoTranscurridoPos || '',
+        tiempoTranscurridoCat: caso.tiempoTranscurridoCat || '',
+        mesCierre: caso.mesCierre || '',
+        rangoSla: caso.rangoSla || '',
+        rangoSlaPos: caso.rangoSlaPos || '',
+        rangoSlaCat: caso.rangoSlaCat || '',
+        duplicadoTicket: caso.duplicadoTicket || '',
+        reingreso: caso.reingreso || '',
         estado: estadoLimpio || 'En progreso',
         etapa: etapaLimpia || 'Validación del Onboarding',
-        sla_inicio: caso.sla_inicio || new Date().toISOString(),
+        sla_inicio: caso.sla_inicio || caso.fechaInicioSeguimientoOP || caso.fechaCreacion || new Date().toISOString(),
         esActivo: typeof caso.esActivo === 'boolean' && !esCerrado ? caso.esActivo : esActivo,
         origen: 'Firebase (Sincronizado)',
         actualizadoEn: new Date().toISOString()
@@ -336,6 +358,15 @@ function parsearFilaCaso(row, filaNumero) {
   const fechaPushCat = formatearFechaStr(row[24]);   // Y: Push Cat
   const respCat = texto(row[25]);    // Z: Resp Cat
   const checkCat = Boolean(row[26]); // AA: Push KAM Cat
+  const tiempoTranscurridoOp = texto(row[30]); // AE: Tiempo Transcurrido L-V OP
+  const tiempoTranscurridoPos = texto(row[31]); // AF: Tiempo Transcurrido L-V POS
+  const tiempoTranscurridoCat = texto(row[32]); // AG: Tiempo Transcurrido L-V Catálogo
+  const mesCierre = texto(row[33]);            // AH: Mes de Cierre OP
+  const rangoSla = texto(row[34]);             // AI: Rango SLA (Horas) OP
+  const rangoSlaPos = texto(row[35]);          // AJ: Rango SLA (Horas) POS
+  const rangoSlaCat = texto(row[36]);          // AK: Rango SLA (Horas) Catálogo
+  const duplicadoTicket = texto(row[37]);      // AL: Variable Duplicado
+  const reingreso = texto(row[38]);            // AM: Reingreso
   const freezePos = formatearFechaStr(row[39]); // AN: Freeze POS
   const freezeCat = formatearFechaStr(row[40]); // AO: Freeze Cat
 
@@ -347,8 +378,7 @@ function parsearFilaCaso(row, filaNumero) {
   if (!etapa || etapa === 'Si' || etapa === 'No') etapa = 'Validación del Onboarding';
 
   const estadoLower = estado.toLowerCase();
-  const etapaLower = etapa.toLowerCase();
-  const esCerrado = estadoLower.indexOf('cerrad') !== -1 || estadoLower.indexOf('fallid') !== -1 || estadoLower.indexOf('cancel') !== -1 || etapaLower.indexOf('pedido de prueba realizado') !== -1;
+  const esCerrado = estadoLower.indexOf('cerrad') !== -1 || estadoLower.indexOf('fallid') !== -1 || estadoLower.indexOf('cancel') !== -1;
   const esActivo = !esCerrado && (estadoLower.indexOf('progreso') !== -1 || estadoLower === 'abierto' || estadoLower === 'nuevo');
 
   return {
@@ -386,6 +416,15 @@ function parsearFilaCaso(row, filaNumero) {
     pushKamCat: checkCat,
     freezePos: freezePos,
     freezeCat: freezeCat,
+    tiempoTranscurridoOp: tiempoTranscurridoOp,
+    tiempoTranscurridoPos: tiempoTranscurridoPos,
+    tiempoTranscurridoCat: tiempoTranscurridoCat,
+    mesCierre: mesCierre,
+    rangoSla: rangoSla,
+    rangoSlaPos: rangoSlaPos,
+    rangoSlaCat: rangoSlaCat,
+    duplicadoTicket: duplicadoTicket,
+    reingreso: reingreso,
     esActivo: esActivo,
     origen: 'Google Sheets (Tiempo Real)',
     actualizadoEn: new Date().toISOString()
@@ -435,6 +474,15 @@ function sincronizarFilaAFirebase(sheet, rowNum) {
       pushKamCat: { booleanValue: parsed.pushKamCat },
       freezePos: { stringValue: parsed.freezePos || '' },
       freezeCat: { stringValue: parsed.freezeCat || '' },
+      tiempoTranscurridoOp: { stringValue: parsed.tiempoTranscurridoOp || '' },
+      tiempoTranscurridoPos: { stringValue: parsed.tiempoTranscurridoPos || '' },
+      tiempoTranscurridoCat: { stringValue: parsed.tiempoTranscurridoCat || '' },
+      mesCierre: { stringValue: parsed.mesCierre || '' },
+      rangoSla: { stringValue: parsed.rangoSla || '' },
+      rangoSlaPos: { stringValue: parsed.rangoSlaPos || '' },
+      rangoSlaCat: { stringValue: parsed.rangoSlaCat || '' },
+      duplicadoTicket: { stringValue: parsed.duplicadoTicket || '' },
+      reingreso: { stringValue: parsed.reingreso || '' },
       esActivo: { booleanValue: parsed.esActivo },
       origen: { stringValue: 'Google Sheets (Tiempo Real)' },
       actualizadoEn: { stringValue: new Date().toISOString() }
@@ -507,6 +555,15 @@ function sincronizarCasosRecientes() {
           pushKamCat: { booleanValue: parsed.pushKamCat },
           freezePos: { stringValue: parsed.freezePos || '' },
           freezeCat: { stringValue: parsed.freezeCat || '' },
+          tiempoTranscurridoOp: { stringValue: parsed.tiempoTranscurridoOp || '' },
+          tiempoTranscurridoPos: { stringValue: parsed.tiempoTranscurridoPos || '' },
+          tiempoTranscurridoCat: { stringValue: parsed.tiempoTranscurridoCat || '' },
+          mesCierre: { stringValue: parsed.mesCierre || '' },
+          rangoSla: { stringValue: parsed.rangoSla || '' },
+          rangoSlaPos: { stringValue: parsed.rangoSlaPos || '' },
+          rangoSlaCat: { stringValue: parsed.rangoSlaCat || '' },
+          duplicadoTicket: { stringValue: parsed.duplicadoTicket || '' },
+          reingreso: { stringValue: parsed.reingreso || '' },
           esActivo: { booleanValue: parsed.esActivo },
           origen: { stringValue: 'Google Sheets (Tiempo Real)' },
           actualizadoEn: { stringValue: new Date().toISOString() }
@@ -590,10 +647,19 @@ function sincronizarCasosAFirebase() {
             pushKamPos: { booleanValue: c.pushKamPos },
             fechaInicioCat: { stringValue: c.fechaInicioCat || '' },
             fechaPushCat: { stringValue: c.fechaPushCat || '' },
-            respuestaCat: { stringValue: parsed.respuestaCat || '' },
-            pushKamCat: { booleanValue: parsed.pushKamCat },
-            freezePos: { stringValue: parsed.freezePos || '' },
-            freezeCat: { stringValue: parsed.freezeCat || '' },
+            respuestaCat: { stringValue: c.respuestaCat || '' },
+            pushKamCat: { booleanValue: c.pushKamCat },
+            freezePos: { stringValue: c.freezePos || '' },
+            freezeCat: { stringValue: c.freezeCat || '' },
+            tiempoTranscurridoOp: { stringValue: c.tiempoTranscurridoOp || '' },
+            tiempoTranscurridoPos: { stringValue: c.tiempoTranscurridoPos || '' },
+            tiempoTranscurridoCat: { stringValue: c.tiempoTranscurridoCat || '' },
+            mesCierre: { stringValue: c.mesCierre || '' },
+            rangoSla: { stringValue: c.rangoSla || '' },
+            rangoSlaPos: { stringValue: c.rangoSlaPos || '' },
+            rangoSlaCat: { stringValue: c.rangoSlaCat || '' },
+            duplicadoTicket: { stringValue: c.duplicadoTicket || '' },
+            reingreso: { stringValue: c.reingreso || '' },
             esActivo: { booleanValue: c.esActivo },
             origen: { stringValue: 'Google Sheets (Tiempo Real)' },
             actualizadoEn: { stringValue: new Date().toISOString() }

@@ -425,6 +425,22 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
   const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
   const colSlaInicio = findCol(h => (h.includes('inicio de seguimiento') && h.includes('op')) || h.includes('sla'));
   const colFechaCierre = findCol(h => h.includes('cierre') && h.includes('op'));
+  const colInicioPos = findCol(h => (h.includes('inicio') && h.includes('pos')) || h.includes('datos faltantes'));
+  const colPushPos = findCol(h => (h.includes('push') && h.includes('pos')));
+  const colRespPos = findCol(h => (h.includes('respuesta') && h.includes('pos')));
+  const colCheckPos = findCol(h => (h.includes('push kam') && h.includes('pos')));
+  const colInicioCat = findCol(h => (h.includes('inicio') && h.includes('cat')));
+  const colPushCat = findCol(h => (h.includes('push') && h.includes('cat')));
+  const colRespCat = findCol(h => (h.includes('respuesta') && h.includes('cat')));
+  const colCheckCat = findCol(h => (h.includes('push kam') && h.includes('cat')));
+  const colTiempoOp = findCol(h => (h.includes('tiempo transcurrido') && h.includes('op')));
+  const colTiempoPos = findCol(h => (h.includes('tiempo transcurrido') && h.includes('pos')));
+  const colTiempoCat = findCol(h => (h.includes('tiempo transcurrido') && h.includes('cat')));
+  const colRangoSla = findCol(h => h.includes('rango sla') && !h.includes('pos') && !h.includes('cat'));
+  const colRangoSlaPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
+  const colRangoSlaCat = findCol(h => h.includes('rango sla') && h.includes('cat'));
+  const colFreezePos = findCol(h => (h.includes('fecha de respuesta') && h.includes('pos')));
+  const colFreezeCat = findCol(h => (h.includes('fecha de respuesta') && h.includes('cat')));
 
   const rows = lines.slice(headerRowIdx + 1);
   const casos = [];
@@ -505,8 +521,7 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
     }
 
     const estadoLower = estado.toLowerCase();
-    const etapaLower = etapa.toLowerCase();
-    const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel') || etapaLower.includes('pedido de prueba realizado');
+    const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel');
     const esActivo = !esCerrado && (estadoLower.includes('progreso') || estadoLower === 'abierto' || estadoLower === 'nuevo');
 
     const propOp = getVal(colPropOp, '');
@@ -535,7 +550,24 @@ export function parsearCSVCliente(csvText, origen = 'Google Sheets') {
       tieneCasoInicio: getVal(colTieneInicio, 'Si'),
       comentarios: getVal(colComentarios, ''),
       fechaCreacion: getVal(colFechaCreacion, new Date().toISOString().split('T')[0]),
+      fechaInicioSeguimientoOP: getVal(colSlaInicio, ''),
       fechaCierre: getVal(colFechaCierre, ''),
+      fechaInicioPos: getVal(colInicioPos, ''),
+      fechaPushPos: getVal(colPushPos, ''),
+      respuestaPos: getVal(colRespPos, ''),
+      pushKamPos: getVal(colCheckPos, '').toLowerCase() === 'true',
+      fechaInicioCat: getVal(colInicioCat, ''),
+      fechaPushCat: getVal(colPushCat, ''),
+      respuestaCat: getVal(colRespCat, ''),
+      pushKamCat: getVal(colCheckCat, '').toLowerCase() === 'true',
+      tiempoTranscurridoOp: getVal(colTiempoOp, ''),
+      tiempoTranscurridoPos: getVal(colTiempoPos, ''),
+      tiempoTranscurridoCat: getVal(colTiempoCat, ''),
+      rangoSla: getVal(colRangoSla, ''),
+      rangoSlaPos: getVal(colRangoSlaPos, ''),
+      rangoSlaCat: getVal(colRangoSlaCat, ''),
+      freezePos: getVal(colFreezePos, ''),
+      freezeCat: getVal(colFreezeCat, ''),
       estado,
       etapa,
       sla_inicio: getVal(colSlaInicio, new Date().toISOString()),

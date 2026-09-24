@@ -162,9 +162,17 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                 }`}>
                   {form.estado}
                 </span>
+
+                {/* SLA Real L-V acumulado */}
+                <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border inline-flex items-center gap-1 ${alertas.colorClass}`}>
+                  {alertas.estaCongelado && <span>❄️</span>}
+                  <span>SLA: {alertas.horasTranscurridas}h</span>
+                  <span className="font-normal opacity-90">• {alertas.rangoSla || '0h a <4h'}</span>
+                </span>
+
                 {alertas.estaCongelado && (
-                  <span className="text-[11px] bg-indigo-950/80 text-indigo-300 border border-indigo-700 px-2 py-0.5 rounded-full">
-                    ❄️ SLA Pausado (Freeze)
+                  <span className="text-[11px] bg-indigo-950/80 text-indigo-300 border border-indigo-700 px-2 py-0.5 rounded-full font-medium">
+                    Pausado ({alertas.congeladoTrack || 'Freeze'})
                   </span>
                 )}
               </div>
@@ -196,13 +204,17 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
         <div className="bg-[#0f111a] px-5 py-2.5 border-b border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-gray-400">Estado de Seguimiento:</span>
+            <span className="text-gray-300 font-mono bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
+              ⏱️ Tiempo OP: {alertas.tiempoTexto} ({alertas.horasTranscurridas}h)
+            </span>
+
             {alertas.requierePushPos ? (
               <span className="bg-amber-950/80 text-amber-300 border border-amber-800 px-2 py-0.5 rounded flex items-center gap-1">
-                <span>⚠️</span> Push POS API Requerido ({alertas.motivoPushPos})
+                <span>⚠️</span> Push POS Requerido ({alertas.motivoPushPos})
               </span>
             ) : (
               <span className="text-gray-400 bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
-                POS API: {form.respuestaPos || 'Al día'}
+                POS: {form.fechaPushPos ? `Push: ${form.fechaPushPos}` : (form.respuestaPos || 'Al día')}
               </span>
             )}
 
@@ -212,13 +224,13 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
               </span>
             ) : (
               <span className="text-gray-400 bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
-                Catálogo: {form.respuestaCat || 'Al día'}
+                Catálogo: {form.fechaPushCat ? `Push: ${form.fechaPushCat}` : (form.respuestaCat || 'Al día')}
               </span>
             )}
 
-            {alertas.esVencido && (
-              <span className="bg-rose-950/80 text-rose-300 border border-rose-800 px-2 py-0.5 rounded animate-pulse">
-                🚨 SLA Vencido ({alertas.horasTranscurridas}h)
+            {alertas.esCritico && (
+              <span className="bg-rose-950/80 text-rose-300 border border-rose-800 px-2 py-0.5 rounded animate-pulse font-bold">
+                🚨 SLA Crítico (≥96h / {alertas.horasTranscurridas}h)
               </span>
             )}
           </div>
@@ -483,6 +495,11 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                   <div className="flex items-center gap-2">
                     <span className="text-base">🖥️</span>
                     <h4 className="font-bold text-white text-sm">Seguimiento POS API</h4>
+                    {alertas.tiempoTranscurridoPos && alertas.tiempoTranscurridoPos !== '-' && (
+                      <span className="bg-gray-800 text-cyan-300 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-700">
+                        ⏱️ {alertas.tiempoTranscurridoPos} {alertas.rangoSlaPos ? `• ${alertas.rangoSlaPos}` : ''}
+                      </span>
+                    )}
                   </div>
                   {alertas.requierePushPos && (
                     <span className="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[11px]">
@@ -555,6 +572,11 @@ export default function ModalDetalleCaso({ caso, alCerrar, alActualizar, alRepli
                   <div className="flex items-center gap-2">
                     <span className="text-base">📋</span>
                     <h4 className="font-bold text-white text-sm">Seguimiento Catálogo</h4>
+                    {alertas.tiempoTranscurridoCat && alertas.tiempoTranscurridoCat !== '-' && (
+                      <span className="bg-gray-800 text-pink-300 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-700">
+                        ⏱️ {alertas.tiempoTranscurridoCat} {alertas.rangoSlaCat ? `• ${alertas.rangoSlaCat}` : ''}
+                      </span>
+                    )}
                   </div>
                   {alertas.requierePushCat && (
                     <span className="bg-pink-950 text-pink-400 border border-pink-800 px-2 py-0.5 rounded text-[11px]">
