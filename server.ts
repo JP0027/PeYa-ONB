@@ -314,36 +314,23 @@ async function startServer() {
       }
       const resultado = sheetsBackendService.actualizarCaso(casoData);
 
-      // Si existe una URL de Google Apps Script configurada, reenviar la mutación directamente al Google Sheet
-      const gasUrl = (casoData._gasUrl || req.headers['x-gas-url'] || PERMANENT_GAS_URL).toString().trim();
       let sheetsSincronizado = false;
       let gasMensaje = '';
 
-      if (gasUrl && gasUrl.startsWith('http')) {
-        let targetUrl = gasUrl;
-        if (gasUrl.includes('/a/macros/')) {
-          targetUrl = gasUrl.replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/');
-        }
+      if (sheetsBackendService.tieneCredenciales() && resultado.caso) {
         try {
-          const r = await fetch(targetUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(casoData)
-          });
-          const respTxt = await r.text();
-          if (r.ok && !respTxt.includes('ServiceLogin') && !respTxt.includes('accounts.google.com')) {
-            sheetsSincronizado = true;
-            gasMensaje = 'Sincronizado con Google Sheets';
+          const syncRes = await sheetsBackendService.sincronizarCasoConGoogleSheets(resultado.caso);
+          sheetsSincronizado = syncRes.success;
+          if (syncRes.success) {
+            gasMensaje = `Sincronizado exitosamente con Google Sheets (Fila #${syncRes.filaNumero})`;
           } else {
-            gasMensaje = 'Google Apps Script rechazó la conexión (requiere inicio de sesión de PedidosYa o permisos corporativos).';
-            console.warn(`[actualizar-caso] GAS bloqueado por login: ${respTxt.slice(0, 120)}`);
+            gasMensaje = `Error al sincronizar con Sheets: ${syncRes.error}`;
           }
         } catch (e: any) {
-          gasMensaje = `Error al conectar con Google Apps Script: ${e.message}`;
-          console.warn('[actualizar-caso] Error reenviando a GAS:', e.message);
+          gasMensaje = `Error al sincronizar con Service Account: ${e.message}`;
         }
       } else {
-        gasMensaje = 'No hay Web App o Service Account conectada a Google Sheets.';
+        gasMensaje = 'No hay Service Account conectada a Google Sheets.';
       }
 
       res.json({
@@ -357,12 +344,93 @@ async function startServer() {
     }
   });
 
+  // Obtener lista completa de catálogos desde hoja Integraciones_Sponsorship
+  app.get('/api/sheets/catalogos', async (req, res) => {
+    try {
+      const catalogos = await sheetsBackendService.obtenerCatalogosSheet();
+      res.json({ success: true, catalogos });
+    } catch (err: any) {
+      console.error('[API /api/sheets/catalogos] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Guardar columna/sección del catálogo en hoja Integraciones_Sponsorship
+  app.post('/api/sheets/catalogos/guardar-seccion', async (req, res) => {
+    try {
+      const { seccion, items } = req.body;
+      if (!seccion || !Array.isArray(items)) {
+        return res.status(400).json({ success: false, error: 'Se requiere seccion y array de items' });
+      }
+
+      const resultado = await sheetsBackendService.guardarSeccionCatalogo(seccion, items);
+      if (resultado.success) {
+        const catalogosActualizados = await sheetsBackendService.obtenerCatalogosSheet();
+        res.json({ success: true, message: resultado.message, catalogos: catalogosActualizados });
+      } else {
+        res.status(400).json({ success: false, error: resultado.message });
+      }
+    } catch (err: any) {
+      console.error('[API /api/sheets/catalogos/guardar-seccion] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Obtener lista de integraciones de Sponsorship (retrocompatibilidad)
+  app.get('/api/sheets/integraciones', async (req, res) => {
+    try {
+      const cat = await sheetsBackendService.obtenerCatalogosSheet();
+      res.json({ success: true, integraciones: cat.integraciones });
+    } catch (err: any) {
+      console.error('[API /api/sheets/integraciones] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Registrar Push
+  app.post('/api/sheets/registrar-push', async (req, res) => {
+    try {
+      const { casoId, fecha, tipo } = req.body;
+      if (!casoId) {
+        return res.status(400).json({ success: false, error: 'Se requiere casoId' });
+      }
+      
+      const resultado = await sheetsBackendService.registrarPush(casoId, tipo, fecha);
+      if (resultado.success) {
+        res.json(resultado);
+      } else {
+        res.status(404).json(resultado);
+      }
+    } catch (err: any) {
+      console.error('[API /api/sheets/registrar-push] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Eliminar Caso de Sheets y Cache
+  app.post('/api/sheets/eliminar-caso', async (req, res) => {
+    try {
+      const { casoId, casoOp } = req.body;
+      const target = casoId || casoOp;
+      if (!target) {
+        return res.status(400).json({ success: false, error: 'Se requiere casoId o casoOp' });
+      }
+
+      const resultado = await sheetsBackendService.eliminarCaso(target);
+      res.json(resultado);
+    } catch (err: any) {
+      console.error('[API /api/sheets/eliminar-caso] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Montar Vite middleware para desarrollo o archivos estáticos en producción
   const distPath = path.resolve(process.cwd(), 'dist');
   const indexHtmlPath = path.resolve(distPath, 'index.html');
   const distExiste = fs.existsSync(indexHtmlPath);
 
-  if (process.env.NODE_ENV === 'production' && distExiste) {
+  if ((process.env.NODE_ENV === 'production' || distExiste) && process.env.VITE_DEV !== 'true') {
+    console.log('[Server] Sirviendo frontend estático desde dist/ (sin file-watcher para evitar recargas automáticas)');
     app.use(express.static(distPath));
     app.use((req, res, next) => {
       if (req.path.startsWith('/api')) {
@@ -371,9 +439,21 @@ async function startServer() {
       res.sendFile(indexHtmlPath);
     });
   } else {
-    // Si estamos en desarrollo o aún no se compila dist, Vite maneja el bundling
+    // Si estamos en desarrollo forzado o aún no se compila dist, Vite maneja el bundling
+    console.log('[Server] Iniciando Vite con file-watcher configurado para ignorar JSON y datos...');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        watch: {
+          ignored: [
+            '**/data_cached_casos.json',
+            '**/*.json',
+            '**/scratch/**',
+            '**/.git/**',
+            '**/dist/**'
+          ]
+        }
+      },
       appType: 'spa'
     });
     app.use(vite.middlewares);

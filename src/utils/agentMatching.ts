@@ -18,7 +18,6 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
     slugs: ['palomino', 'jppd', 'jean palomino', 'jean.palomino'],
     correos: [
       'jean.palomino_dyn.ext@pedidosya.com',
-      'jppd.e270498@gmail.com',
       'jean.palomino@pedidosya.com'
     ]
   },
@@ -28,7 +27,6 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
     slugs: ['flores', 'yadirayajaida', 'yadira flores', 'yadira.flores'],
     correos: [
       'yadira.flores_dyn.ext@pedidosya.com',
-      'yadirayajaida@gmail.com',
       'yadira.flores@pedidosya.com'
     ]
   },
@@ -82,23 +80,6 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
     correos: [
       'jean.changanaqui_dyn.ext@pedidosya.com',
       'jean.changanaqui@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Agente Demo',
-    rol: 'Agente',
-    slugs: ['agente demo', 'demo', 'agente.demo'],
-    correos: [
-      'agente.demo@pedidosya.com',
-      'demo@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Supervisor Demo',
-    rol: 'Supervisor',
-    slugs: ['supervisor demo', 'supervisor.demo'],
-    correos: [
-      'supervisor.demo@pedidosya.com'
     ]
   }
 ];

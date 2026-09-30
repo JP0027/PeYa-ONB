@@ -8,6 +8,16 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     allowedHosts: true,
+    watch: {
+      ignored: [
+        '**/data_cached_casos.json',
+        '**/*.json',
+        '**/scratch/**',
+        '**/.git/**',
+        '**/dist/**',
+        '**/node_modules/**'
+      ]
+    }
   },
   preview: {
     host: '0.0.0.0',
