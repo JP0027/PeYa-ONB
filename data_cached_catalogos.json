@@ -1,0 +1,1280 @@
+{
+  "integraciones": [
+    {
+      "nombre": "Sushi Pop - Poke Pop - Franui\nChe Sushi - Bunka Sushi\nLa Causa Nikkei\n\nAtteliersoftware",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Delivery Hub",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "abaPOS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "ABSOLUTE",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "ADA POS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Agencia Monstera",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Agil",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Aisushi",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Alberdin",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Aloha - Starbucks Panama",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Alpharest",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Alsea - Domino's UY",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Alsea AR",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Alsea CL",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Alturisa",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Ambrosia",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Anfora",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "ApiWorking",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Appex",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Appgrade",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Applebees",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Arcoprime",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Arturos (Odoo)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Arzion",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Avances_AvantSales",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Ayres IT",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Bacon Burgers",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "BeQuick",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Bianca",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Biaqsr",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Bistrosoft",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Bites",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Bona",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "BoomBurger01",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Boton",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Brodevo / Bocatti",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Bruler Software",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Buffalo Wings El Salvador",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Burger King Guatemala",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Burger King Paraguay",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cactus",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Café Barista",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Chancho Gusto RD",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cinet - Freddo",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cinet Milanga & Co",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cinet Mostaza AR",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cinet UY/BO",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Clickeame",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Coci.pro",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Codicia",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Comanda Central / Menu Fast",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Comidas Centroamericanas S.A. (Pizza Hut Costa Rica)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Complementagestion",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "ConectorPlus",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Conflux / Odoo POS La Alemana",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Control Facilito",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Copapos",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cravel",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cucina",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Cucinago",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Danos.Click",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Datalive",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Dean & Denny's",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Delicheck",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Deliverect",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "DeliveryOne / RetailOne / SoluOne",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Delosi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Delysoft",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Dintico",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Domino's Guatemala",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Domino's Pizza Panamá",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Dominos Chile",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Dominos Pizza RD",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Donkin Donuts Ecuador",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Ecuaviche",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "El Patron IA",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "EnjoySTI",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Enmarsi Cia. Ltda.",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Enqiu",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Estudio MQ",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "EstudioResto",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Evyta Sushi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Fidelio / Intedi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Flama Hub",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Flaminco",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Flex",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Foodology",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Fork",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Fornaio",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Franquify",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Freakie Dogs ERP",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "FUDO",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Gcode",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "GDPSistemas",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Gedis / Update",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Gesrest",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Gestionar Gastronomía",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "GeSuite",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "GianelliYa",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Globonet Soluciones (Pollos Stav)",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "GNBrands",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Grido Automatizado - I+DIoT",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Grupo Comidas",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Grupo Hasar",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Grupo Jade",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Grupo KFC",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Grupo KFC (ecuador)",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Grupo Madero",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Guacamole",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Halloween 2",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Harpi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "HDP Burgers",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Heidi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Heladería Paris",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Heniasoft",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Hexium / Burgery",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Hiopos",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Hoppiness",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "ICG IT",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "ID Business Intelligence",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Influye",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Infomatica (Inforest)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Ingefactura",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Innovaside EIRL",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Innovasys",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Integración Cinet General",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Integración Papa John's (Costa Rica)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Integración Paradise Venture / Bacon Burger",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Integración Popapp",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Integracion Republica Dominicana",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Integración San Camilo",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Integrasoft",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Intranet Mafer Camila",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "InvuPos",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Iungo - Sarlatam",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Izirest",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Janaq (Roky´s)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "JBSoft",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Jedisoft",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "JoinPoster.com",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Justo POS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Kaotai",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "KFC Venezuela",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Kitchenita 2.0",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "KiwyPOS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Kleer / Centipede / TIH S.A.",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Kumba (Pronto Copec)",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Kuup",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "La Cocina",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "La Fábrica de Bianca Flor",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "La Pizzada",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "La Vene",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Linisco",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Lithospos",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Live POS - Johnny Rockets",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "lrdWeb (Ofsystem)",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "LS - Sistemas",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Lucciano's",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Ludwing POS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Macrosoft",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "MammaTomato",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Manducar",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Manso Dev Shop",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "masDelivery",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "MasterSolutions",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "MatrixERP",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Maxirest",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Mayflower",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "McDonalds Paraguay",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Medio Punto",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Mediterraneo",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Megafoody",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Meltpizzas Chile",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Menooh",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "MENU Technologies",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Menufast",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Mercat BO",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Mercat CL",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Merchise",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Metre",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Mi Gestiva",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "MIl Sabores",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "MoonIdeas",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Morphi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Morsis / Synergy Shock",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Movi.Shop",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "MPM - Market",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Multicode",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Napse",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Neola",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "NeolaPOS (Los Cebiches De La Rumiñahui)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Niufoods / Coco thai",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Nori Sushi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Norkys",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Nubecenter",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "NubeFood",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Nubing",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Núcleo IT\n\nNúcleo Check",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Odoo AR",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Ofisistemas",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "OlaClick",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Operance (El Club de la Milanesa)",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Optimus",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Ordatic",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "OrdenApp",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "OrderAR",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Orgiuto",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pampa Enterprise Solutions",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Panca",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Panda Express",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Papa Johns CL",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Papa Johns El Salvador",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "PcNub - Aloha",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pedidos NGR",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pedix",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Pegasus_GodsPan",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pendiente",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Pertutti",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "PideDirecto - Ambit",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Pinulito Guatemala",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pixel Point",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Pixo Gestión",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pizza Hut - Jedisoft",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Plaglabs",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Planeta Empanada",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pollo Campestre",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Pollos Copacabana",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "POSBerry",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "POSGo",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "PostApp",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Power Chicken",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Proper Business Solutions",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Proyectiva",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Pulse",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Qikserve",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "QRmenu",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "QSR S.A.",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Quinube - Quinoa",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "QwayPOS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "RankOS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Rapanui",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Rapimesas",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Raven (El Desembarco)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Rctech",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "RedCumbre SPA",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Rentcoffit",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Restaurant.Pe",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "RestaurantSoft | Emestudio Ltda.",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "RestoExpress - GSOFT",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Restolia",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "RESTOMETRICS",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Restonline",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "RestoSimple",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Retail S.A",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Rolling Steaks",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "RunFood App",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "San Martin",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Santa Burguesa",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Sertech",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Shily",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Shipeo",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Sigg",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "SiiPi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Sinqro",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "SistemaX",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Slabcode",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Smartfran",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Smartpay",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Smarty",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "SOLUSYSTEMS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "SOUS",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Spleat",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Subway Transformapp",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Sweet Coffee",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Tabbi",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Tabletech SRL - SnowEats - TOi",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Tach Agency",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Taco Bell",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Taco Bell HN/SV (Belluno)",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Tango Resto - Axoft",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Tatú",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Tedepsa - Mostaza PY",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Teknisa",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Terceariza",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Teriyaki Madness",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "The Boss",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "The Coffee",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Thinkion",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Tillster",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Toptech - Restotech",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Tori",
+      "sponsorship": "SI"
+    },
+    {
+      "nombre": "Toteat",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Trade",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "UrbanPiper",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Vinson",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Voucheroo",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Waitry",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Wakanda Forever",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Wantan",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "WeMenú",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Wide",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "WOLOP",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "Xperto Cya",
+      "sponsorship": "NO"
+    },
+    {
+      "nombre": "ZenIA",
+      "sponsorship": "NO"
+    }
+  ],
+  "paises": [
+    "Bolivia",
+    "Chile",
+    "Ecuador",
+    "El Salvador",
+    "Perú",
+    "Uruguay",
+    "Argentina",
+    "Otros"
+  ],
+  "oportunidades": [
+    "New Business",
+    "Upgrade/Upsell Alta Integracion",
+    "Upgrade/Upsell Baja Integración",
+    "Franchise Extension",
+    "Win Back",
+    "Otros",
+    "Owner Change",
+    "Upgrade/Upsell Cambio de comisión",
+    "Legal Form Change",
+    "Switch",
+    "Sin oportunidad"
+  ],
+  "assets": [
+    "Integración",
+    "Admin",
+    "POS",
+    "Sin oportunidad"
+  ],
+  "agentes": [
+    "Prisila Leon",
+    "Joel Tocas",
+    "Yadira Flores",
+    "Comercial",
+    "Sin asignación",
+    "Jean Palomino",
+    "Jean Changanaqui",
+    "Guillermo Gonzales"
+  ],
+  "estados": [
+    "Cerrado por ONB (satisfactorio)",
+    "Cerrado por ONB (fallido)",
+    "Cerrado por KAM (satisfactorio)",
+    "Cerrado por KAM (fallido)",
+    "Cerrado por API Vendor",
+    "En progreso (sin oportunidad)",
+    "En progreso"
+  ],
+  "etapas": [
+    "Sin integración confirmada",
+    "En proceso de seteo",
+    "En proceso de verificación de catálogo",
+    "Validación del Onboarding",
+    "En proceso para pruebas",
+    "Pedido de prueba realizado",
+    "En proceso para pruebas (baja de integración)",
+    "Pedido de prueba realizado  (baja de integración)",
+    "Solicitar creación de oportunidad Admin (Sin go)",
+    "Sin configuraciones a nivel integración"
+  ]
+}

@@ -14,9 +14,6 @@ onb-data*.json
 *.pem
 *.key
 
-# Caché y datos locales temporales
-data_cached_*.json
-
 # Logs
 npm-debug.log*
 yarn-debug.log*

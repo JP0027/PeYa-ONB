@@ -16,6 +16,7 @@ import {
   LISTA_ETAPAS,
   MAPA_INTEGRACIONES_SPONSORSHIP
 } from '../data/catalogoOnboarding';
+import CATALOGOS_CACHE from '../../data_cached_catalogos.json';
 
 const STORAGE_KEY = 'peya_catalogos_personalizados';
 const FIRESTORE_DOC_PATH = ['configuracion', 'catalogos'];
@@ -36,12 +37,13 @@ export interface CatalogosPorDefecto {
 }
 
 export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
-  paises: [...LISTA_PAISES],
-  oportunidades: [...LISTA_OPORTUNIDADES],
-  assets: [...LISTA_ASSETS],
-  estados: [...LISTA_ESTADOS],
-  etapas: [...LISTA_ETAPAS],
-  integraciones: Object.entries(MAPA_INTEGRACIONES_SPONSORSHIP).map(([nombre, sponsorship]) => ({
+  paises: CATALOGOS_CACHE?.paises || [...LISTA_PAISES],
+  oportunidades: CATALOGOS_CACHE?.oportunidades || [...LISTA_OPORTUNIDADES],
+  assets: CATALOGOS_CACHE?.assets || [...LISTA_ASSETS],
+  estados: CATALOGOS_CACHE?.estados || [...LISTA_ESTADOS],
+  etapas: CATALOGOS_CACHE?.etapas || [...LISTA_ETAPAS],
+  agentes: CATALOGOS_CACHE?.agentes || ['Prisila Leon', 'Joel Tocas', 'Yadira Flores', 'Comercial', 'Sin asignación'],
+  integraciones: (CATALOGOS_CACHE?.integraciones as any) || Object.entries(MAPA_INTEGRACIONES_SPONSORSHIP).map(([nombre, sponsorship]) => ({
     nombre,
     sponsorship: String(sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO'
   }))
@@ -55,14 +57,19 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Si la caché local tiene menos integraciones que los datos actualizados embebidos, actualizarla
+      const integracionesLocales = (parsed.integraciones?.length && parsed.integraciones.length >= CATALOGOS_POR_DEFECTO.integraciones.length)
+        ? parsed.integraciones
+        : CATALOGOS_POR_DEFECTO.integraciones;
+
       return {
         paises: parsed.paises?.length ? parsed.paises : CATALOGOS_POR_DEFECTO.paises,
         oportunidades: parsed.oportunidades?.length ? parsed.oportunidades : CATALOGOS_POR_DEFECTO.oportunidades,
         assets: parsed.assets?.length ? parsed.assets : CATALOGOS_POR_DEFECTO.assets,
         estados: parsed.estados?.length ? parsed.estados : CATALOGOS_POR_DEFECTO.estados,
         etapas: parsed.etapas?.length ? parsed.etapas : CATALOGOS_POR_DEFECTO.etapas,
-        integraciones: parsed.integraciones?.length ? parsed.integraciones : CATALOGOS_POR_DEFECTO.integraciones,
-        agentes: parsed.agentes?.length ? parsed.agentes : []
+        integraciones: integracionesLocales,
+        agentes: parsed.agentes?.length ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || [])
       };
     }
   } catch (err) {
@@ -89,7 +96,7 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
   } catch (err) {
     console.warn('[catalogoService] Error consultando /api/sheets/catalogos:', err);
   }
-  return null;
+  return { ...CATALOGOS_POR_DEFECTO };
 }
 
 /**

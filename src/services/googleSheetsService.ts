@@ -4,6 +4,8 @@
  * y con fallback a Google Apps Script si está configurado.
  */
 
+import CASOS_OFFLINE_INICIALES from '../../data_cached_casos.json';
+
 export interface GoogleSheetsStatus {
   configured: boolean;
   email: string | null;
@@ -790,20 +792,29 @@ export async function consultarCasosGoogleSheets(): Promise<any[]> {
     }
   }
 
-  // 3. Fallback de resiliencia: leer de localStorage
+  // 3. Fallback de resiliencia: leer de localStorage o casos iniciales embebidos
   const local = localStorage.getItem('PEDA_CASOS_LOCAL');
+  let casosRetorno: any[] = [];
   if (local) {
     try {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        casosRetorno = parsed;
       }
     } catch {
       // Ignorar
     }
   }
 
-  return [];
+  // Si el dataset embebido tiene más casos o la caché local está desactualizada (ej. 1821 vs 1855)
+  if (Array.isArray(CASOS_OFFLINE_INICIALES) && CASOS_OFFLINE_INICIALES.length > casosRetorno.length) {
+    casosRetorno = CASOS_OFFLINE_INICIALES as any[];
+    try {
+      localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(casosRetorno));
+    } catch {}
+  }
+
+  return casosRetorno;
 }
 
 /**

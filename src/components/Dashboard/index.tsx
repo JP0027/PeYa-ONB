@@ -22,6 +22,7 @@ import AdminCatalogoView from '../Admin/AdminCatalogoView';
 import GestionUsuariosView from '../Admin/GestionUsuariosView';
 import PushAlertContainer, { AlertaPush } from './PushAlertToast';
 import { suscribirCatalogos, CATALOGOS_POR_DEFECTO } from '../../services/catalogoService';
+import CASOS_OFFLINE_INICIALES from '../../../data_cached_casos.json';
 
 export interface DashboardProps {
   role?: string;
@@ -281,9 +282,26 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   }, [pestanasPermitidas, activeTab, puedeVerTab, setActiveTab]);
 
   const [casosFirestore, setCasosFirestore] = useState<any[]>([]);
-  const [casosSheets, setCasosSheets] = useState<any[]>([]);
+  const [casosSheets, setCasosSheets] = useState<any[]>(() => {
+    try {
+      const local = localStorage.getItem('PEDA_CASOS_LOCAL');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && Array.isArray(CASOS_OFFLINE_INICIALES) && parsed.length >= CASOS_OFFLINE_INICIALES.length) {
+          return parsed;
+        }
+      }
+    } catch {}
+    if (Array.isArray(CASOS_OFFLINE_INICIALES) && CASOS_OFFLINE_INICIALES.length > 0) {
+      try {
+        localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(CASOS_OFFLINE_INICIALES));
+      } catch {}
+      return CASOS_OFFLINE_INICIALES;
+    }
+    return [];
+  });
   const [cargandoSheets, setCargandoSheets] = useState<boolean>(false);
-  const [ultimaSync, setUltimaSync] = useState<Date | null>(null);
+  const [ultimaSync, setUltimaSync] = useState<Date | null>(() => new Date());
   
   const [casoSeleccionadoModal, setCasoSeleccionadoModal] = useState<any | null>(null);
   const [filtroMisCasos, setFiltroMisCasos] = useState<string>('todos');
