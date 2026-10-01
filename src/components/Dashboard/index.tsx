@@ -474,60 +474,49 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   }, []);
 
   const casosTotales = useMemo(() => {
+    // Si no hay casos de Sheets aún, mostrar los de Firestore
     if (!casosSheets || casosSheets.length === 0) return casosFirestore;
+    if (!casosFirestore || casosFirestore.length === 0) return casosSheets;
 
-    const mapaCasos = new Map<string, any>();
-    // Guardar cada caso de Google Sheets con su clave única para preservar todas las filas
-    casosSheets.forEach((c, idx) => {
-      const key = String(c.id || (c.casoOp ? `${c.casoOp}_${idx}` : `fila_${idx}`)).trim();
-      mapaCasos.set(key, c);
-    });
-
-    // Mezclar actualizaciones puntuales de Firestore sin duplicar casos ni revivir cerrados
+    // Indexar Firestore para O(1) matching sin bucles anidados
+    const firestoreMap = new Map<string, any>();
     casosFirestore.forEach(c => {
-      const idKey = String(c.id || '').trim();
-      const opKey = String(c.casoOp || '').trim();
-      const vendorKey = String(c.vendorId || c.vendor_id || '').trim();
-
-      let casoExistenteKey: string | null = null;
-      for (const [key, prev] of mapaCasos.entries()) {
-        const matchOp = opKey && String(prev.casoOp || '').trim() === opKey;
-        const matchVendor = vendorKey && String(prev.vendorId || prev.vendor_id || '').trim() === vendorKey && (!opKey || !prev.casoOp);
-        const matchId = idKey && (key === idKey || key.startsWith(idKey + '_') || String(prev.vendorId || '').trim() === idKey);
-
-        if (matchOp || matchVendor || matchId) {
-          casoExistenteKey = key;
-          break;
-        }
-      }
-
-      if (casoExistenteKey) {
-        const prev = mapaCasos.get(casoExistenteKey);
-        // Si en Google Sheets ya figura como cerrado o sin oportunidad, respetar la clasificación oficial de Sheets
-        const sheetsCerrado = !prev.esActivo || String(prev.estado || '').toLowerCase().match(/cerrad|fallid|cancel/);
-        const sheetsSinOp = String(prev.estado || '').toLowerCase().includes('sin oportunidad');
-
-        mapaCasos.set(casoExistenteKey, { 
-          ...prev,
-          comentarios: c.comentarios || prev.comentarios,
-          fechaPushPos: c.fechaPushPos || prev.fechaPushPos,
-          fechaPushCat: c.fechaPushCat || prev.fechaPushCat,
-          pushKamPos: c.pushKamPos !== undefined ? c.pushKamPos : prev.pushKamPos,
-          pushKamCat: c.pushKamCat !== undefined ? c.pushKamCat : prev.pushKamCat,
-          respuestaPos: c.respuestaPos || prev.respuestaPos,
-          respuestaCat: c.respuestaCat || prev.respuestaCat,
-          freezePos: c.freezePos || prev.freezePos,
-          freezeCat: c.freezeCat || prev.freezeCat,
-          estado: sheetsCerrado ? prev.estado : (sheetsSinOp ? prev.estado : (c.estado || prev.estado)),
-          esActivo: sheetsCerrado ? false : prev.esActivo
-        });
-      } else if (opKey && !opKey.startsWith('row_') && c.tienda && !mapaCasos.has(opKey)) {
-        // Solo agregar un nuevo caso genuino creado en la app si tiene OP y tienda válida
-        mapaCasos.set(opKey, c);
-      }
+      const docId = String(c.id || '').trim();
+      const op = String(c.casoOp || '').trim();
+      if (docId) firestoreMap.set(docId, c);
+      if (op && !firestoreMap.has(op)) firestoreMap.set(op, c);
     });
 
-    return Array.from(mapaCasos.values());
+    // Mapear preservando exactamente cada fila de casosSheets (las 1,859 filas se preservan intactas)
+    return casosSheets.map(s => {
+      const idKey = String(s.id || '').trim();
+      const opKey = String(s.casoOp || '').trim();
+      const filaKey = s.filaNumero ? `${opKey || 'caso'}_${s.filaNumero}` : '';
+      
+      const fCaso = (idKey && firestoreMap.get(idKey)) || 
+                    (filaKey && firestoreMap.get(filaKey)) || 
+                    (opKey && firestoreMap.get(opKey));
+
+      if (!fCaso) return s;
+
+      const sheetsCerrado = !s.esActivo || String(s.estado || '').toLowerCase().match(/cerrad|fallid|cancel/);
+      const sheetsSinOp = String(s.estado || '').toLowerCase().includes('sin oportunidad');
+
+      return {
+        ...s,
+        comentarios: fCaso.comentarios || s.comentarios,
+        fechaPushPos: fCaso.fechaPushPos || s.fechaPushPos,
+        fechaPushCat: fCaso.fechaPushCat || s.fechaPushCat,
+        pushKamPos: fCaso.pushKamPos !== undefined ? fCaso.pushKamPos : s.pushKamPos,
+        pushKamCat: fCaso.pushKamCat !== undefined ? fCaso.pushKamCat : s.pushKamCat,
+        respuestaPos: fCaso.respuestaPos || s.respuestaPos,
+        respuestaCat: fCaso.respuestaCat || s.respuestaCat,
+        freezePos: fCaso.freezePos || s.freezePos,
+        freezeCat: fCaso.freezeCat || s.freezeCat,
+        estado: sheetsCerrado ? s.estado : (sheetsSinOp ? s.estado : (fCaso.estado || s.estado)),
+        esActivo: sheetsCerrado ? false : s.esActivo
+      };
+    });
   }, [casosFirestore, casosSheets]);
 
   const sesionUsuarioKey = useMemo(() => `${email || ''}_${nombreUsuarioAutenticado || ''}`, [email, nombreUsuarioAutenticado]);

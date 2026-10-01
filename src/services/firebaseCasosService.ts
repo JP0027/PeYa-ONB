@@ -79,7 +79,7 @@ export async function guardarCasosEnFirestore(casos: Caso[], onProgreso: ((proce
     const batch = writeBatch(db);
 
     chunk.forEach(caso => {
-      const docId = String(caso.casoOp || caso.id || `CASO_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
+      const docId = String(caso.id || (caso.filaNumero ? `${caso.casoOp || 'caso'}_${caso.filaNumero}` : caso.casoOp) || `CASO_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       const casoRef = doc(db, 'casos', docId);
       
       let estadoLimpio = String(caso.estado || '').trim();

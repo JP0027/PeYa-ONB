@@ -61,22 +61,22 @@ export default async function handler(req: any, res: any) {
       }
 
       const pais = String(r[3] || '').trim();
-      if (pais && !pais.toLowerCase().includes('país') && !pais.toLowerCase().includes('pais')) paisesSet.add(pais);
+      if (pais && pais.toLowerCase() !== 'país' && pais.toLowerCase() !== 'pais') paisesSet.add(pais);
 
       const op = String(r[5] || '').trim();
-      if (op && !op.toLowerCase().includes('oportunidad')) oportunidadesSet.add(op);
+      if (op && op.toLowerCase() !== 'oportunidad') oportunidadesSet.add(op);
 
       const asset = String(r[7] || '').trim();
-      if (asset && !asset.toLowerCase().includes('asset')) assetsSet.add(asset);
+      if (asset && asset.toLowerCase() !== 'asset') assetsSet.add(asset);
 
       const agente = String(r[9] || '').trim();
-      if (agente && !agente.toLowerCase().includes('agente')) agentesSet.add(agente);
+      if (agente && agente.toLowerCase() !== 'agente') agentesSet.add(agente);
 
       const estado = String(r[11] || '').trim();
-      if (estado && !estado.toLowerCase().includes('estado')) estadosSet.add(estado);
+      if (estado && estado.toLowerCase() !== 'estado' && estado.toLowerCase() !== 'estado del caso') estadosSet.add(estado);
 
       const etapa = String(r[13] || '').trim();
-      if (etapa && !etapa.toLowerCase().includes('etapa')) etapasSet.add(etapa);
+      if (etapa && etapa.toLowerCase() !== 'etapa' && etapa.toLowerCase() !== 'etapa del onboarding') etapasSet.add(etapa);
     }
 
     return res.status(200).json({

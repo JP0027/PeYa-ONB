@@ -139,7 +139,7 @@ export default async function handler(req: any, res: any) {
       const esActivo = estadoNorm === 'en progreso' || estadoNorm === 'nuevo' || estadoNorm === 'abierto' || estadoNorm.includes('ticket hc') || estadoNorm.includes('sin oportunidad');
 
       const filaNumero = headerRowIdx + 2 + idx;
-      const idUnico = (casoOp && casoOp !== '-') ? casoOp : (vendorId ? `${vendorId}_${filaNumero}` : `fila_${filaNumero}`);
+      const idUnico = (casoOp && casoOp !== '-') ? `${casoOp}_${filaNumero}` : (vendorId ? `${vendorId}_${filaNumero}` : `fila_${filaNumero}`);
 
       casos.push({
         id: idUnico,
