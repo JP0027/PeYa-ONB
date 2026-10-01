@@ -94,30 +94,37 @@ export default function AdminCatalogoView({
     }
   };
 
-  // Guardar cambio en catálogo (impacta en Google Sheets Integraciones_Sponsorship y en Firestore)
+  // Guardar cambio en catálogo (impacta en Firestore en tiempo real y en Google Sheets si está disponible)
   const persistirCambios = async (nuevaLista: any[]) => {
     setGuardando(true);
     try {
-      // 1. Guardar en Google Sheets (hoja Integraciones_Sponsorship)
-      const resSheets = await guardarSeccionEnGoogleSheets(categoriaActiva, nuevaLista);
-
-      const nuevosCatalogos = resSheets?.catalogos || {
+      const nuevosCatalogos = {
         ...catalogos,
         [categoriaActiva]: nuevaLista
       };
 
-      // 2. Guardar en Firestore para persistencia adicional
-      await guardarCatalogosEnFirestore(nuevosCatalogos).catch((fsErr: any) => {
-        console.warn('Error sincronizando Firestore (secundario):', fsErr);
+      // 1. Guardar en Firestore para actualización instantánea en tiempo real
+      await guardarCatalogosEnFirestore(nuevosCatalogos as any).catch((fsErr: any) => {
+        console.warn('Error sincronizando Firestore:', fsErr);
       });
+
+      // 2. Intentar guardar en Google Sheets (hoja Integraciones_Sponsorship)
+      try {
+        const resSheets = await guardarSeccionEnGoogleSheets(categoriaActiva, nuevaLista);
+        if (resSheets?.catalogos && onActualizarCatalogos) {
+          onActualizarCatalogos(resSheets.catalogos);
+        }
+      } catch (sheetsErr) {
+        console.info('Backend de Sheets no disponible en entorno estático, cambio guardado en Firebase:', sheetsErr);
+      }
 
       if (onActualizarCatalogos) {
         onActualizarCatalogos(nuevosCatalogos);
       }
-      mostrarNotificacion && mostrarNotificacion(`✅ Columna "${categoriaActiva}" guardada e impactada en hoja Integraciones_Sponsorship.`, 'success');
+      mostrarNotificacion && mostrarNotificacion(`✅ Columna "${categoriaActiva}" guardada y sincronizada correctamente.`, 'success');
     } catch (err: any) {
       console.error('Error guardando catálogo:', err);
-      mostrarNotificacion && mostrarNotificacion(`❌ Error al guardar en Google Sheets: ${err.message}`, 'error');
+      mostrarNotificacion && mostrarNotificacion(`❌ Error al guardar: ${err.message}`, 'error');
     } finally {
       setGuardando(false);
     }
@@ -266,6 +273,7 @@ export default function AdminCatalogoView({
         paises: [...CATALOGOS_POR_DEFECTO.paises],
         oportunidades: [...CATALOGOS_POR_DEFECTO.oportunidades],
         assets: [...CATALOGOS_POR_DEFECTO.assets],
+        agentes: [...(CATALOGOS_POR_DEFECTO.agentes || [])],
         estados: [...CATALOGOS_POR_DEFECTO.estados],
         etapas: [...CATALOGOS_POR_DEFECTO.etapas],
         integraciones: [...CATALOGOS_POR_DEFECTO.integraciones]

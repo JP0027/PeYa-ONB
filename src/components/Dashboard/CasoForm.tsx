@@ -41,6 +41,7 @@ export interface CasoFormProps {
   assets?: string[];
   estados?: string[];
   etapas?: string[];
+  agentes?: string[];
 }
 
 export default function CasoForm({ 
@@ -54,7 +55,8 @@ export default function CasoForm({
   oportunidades = LISTA_OPORTUNIDADES,
   assets = LISTA_ASSETS,
   estados = LISTA_ESTADOS,
-  etapas = LISTA_ETAPAS
+  etapas = LISTA_ETAPAS,
+  agentes = LISTA_AGENTES
 }: CasoFormProps) {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState<boolean>(false);
 
@@ -147,8 +149,8 @@ export default function CasoForm({
             <span className="text-[10px] text-gray-400 font-normal">Auto</span>
           </label>
           <select name="propietarioOportunidad" value={formulario.propietarioOportunidad} onChange={onChange} className="w-full bg-[#0f111a] border border-pink-700/60 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium">
-            {LISTA_AGENTES.map(ag => <option key={ag} value={ag}>{ag}</option>)}
-            {formulario.propietarioOportunidad && !LISTA_AGENTES.includes(formulario.propietarioOportunidad) && (
+            {agentes.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+            {formulario.propietarioOportunidad && !agentes.includes(formulario.propietarioOportunidad) && (
               <option value={formulario.propietarioOportunidad}>{formulario.propietarioOportunidad}</option>
             )}
           </select>
@@ -157,8 +159,8 @@ export default function CasoForm({
         <div>
           <label className="text-gray-400 block mb-1 font-medium">j. Propietario Ticket (Editable)</label>
           <select name="propietarioTicket" value={formulario.propietarioTicket} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium">
-            {LISTA_AGENTES.map(ag => <option key={ag} value={ag}>{ag}</option>)}
-            {formulario.propietarioTicket && !LISTA_AGENTES.includes(formulario.propietarioTicket) && (
+            {agentes.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+            {formulario.propietarioTicket && !agentes.includes(formulario.propietarioTicket) && (
               <option value={formulario.propietarioTicket}>{formulario.propietarioTicket}</option>
             )}
           </select>

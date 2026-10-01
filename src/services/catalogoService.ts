@@ -42,7 +42,16 @@ export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
   assets: CATALOGOS_CACHE?.assets || [...LISTA_ASSETS],
   estados: CATALOGOS_CACHE?.estados || [...LISTA_ESTADOS],
   etapas: CATALOGOS_CACHE?.etapas || [...LISTA_ETAPAS],
-  agentes: CATALOGOS_CACHE?.agentes || ['Prisila Leon', 'Joel Tocas', 'Yadira Flores', 'Comercial', 'Sin asignación'],
+  agentes: (CATALOGOS_CACHE?.agentes && CATALOGOS_CACHE.agentes.length > 0) ? CATALOGOS_CACHE.agentes : [
+    'Prisila Leon',
+    'Joel Tocas',
+    'Yadira Flores',
+    'Comercial',
+    'Sin asignación',
+    'Jean Palomino',
+    'Jean Changanaqui',
+    'Guillermo Gonzales'
+  ],
   integraciones: (CATALOGOS_CACHE?.integraciones as any) || Object.entries(MAPA_INTEGRACIONES_SPONSORSHIP).map(([nombre, sponsorship]) => ({
     nombre,
     sponsorship: String(sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO'
@@ -69,7 +78,7 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
         estados: parsed.estados?.length ? parsed.estados : CATALOGOS_POR_DEFECTO.estados,
         etapas: parsed.etapas?.length ? parsed.etapas : CATALOGOS_POR_DEFECTO.etapas,
         integraciones: integracionesLocales,
-        agentes: parsed.agentes?.length ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || [])
+        agentes: (Array.isArray(parsed.agentes) && parsed.agentes.length > 0) ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || [])
       };
     }
   } catch (err) {
@@ -149,7 +158,7 @@ export function suscribirCatalogos(callback: (catalogos: CatalogosPorDefecto) =>
           paises: Array.isArray(data.paises) && data.paises.length ? data.paises : CATALOGOS_POR_DEFECTO.paises,
           oportunidades: Array.isArray(data.oportunidades) && data.oportunidades.length ? data.oportunidades : CATALOGOS_POR_DEFECTO.oportunidades,
           assets: Array.isArray(data.assets) && data.assets.length ? data.assets : CATALOGOS_POR_DEFECTO.assets,
-          agentes: Array.isArray(data.agentes) && data.agentes.length ? data.agentes : [],
+          agentes: Array.isArray(data.agentes) && data.agentes.length ? data.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
           estados: Array.isArray(data.estados) && data.estados.length ? data.estados : CATALOGOS_POR_DEFECTO.estados,
           etapas: Array.isArray(data.etapas) && data.etapas.length ? data.etapas : CATALOGOS_POR_DEFECTO.etapas,
           integraciones: Array.isArray(data.integraciones) && data.integraciones.length ? data.integraciones : CATALOGOS_POR_DEFECTO.integraciones

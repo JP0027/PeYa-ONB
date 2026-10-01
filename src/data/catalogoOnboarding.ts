@@ -71,18 +71,16 @@ export const LISTA_ETAPAS: string[] = [
   'Sin configuraciones a nivel integración'
 ];
 
-// 7. Agentes conocidos
+// 7. Agentes oficiales (Columna J de Integraciones_Sponsorship)
 export const LISTA_AGENTES: string[] = [
-  'Jean Palomino',
   'Prisila Leon',
   'Joel Tocas',
   'Yadira Flores',
-  'Guillermo Gonzales',
-  'Jean Changanaqui',
-  'Henry Serrato',
-  'Joseline Yactayo',
   'Comercial',
-  'Sin asignación'
+  'Sin asignación',
+  'Jean Palomino',
+  'Jean Changanaqui',
+  'Guillermo Gonzales'
 ];
 
 // 8. Mapa de Integraciones y descuentos bajo estructura sponsorship (SI / NO)

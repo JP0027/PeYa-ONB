@@ -27,6 +27,9 @@ export interface ModalDetalleCasoProps {
   estados?: string[];
   etapas?: string[];
   oportunidades?: string[];
+  agentes?: string[];
+  paises?: string[];
+  assets?: string[];
 }
 
 export default function ModalDetalleCaso({ 
@@ -37,7 +40,10 @@ export default function ModalDetalleCaso({
   nombreUsuarioAutenticado,
   estados = LISTA_ESTADOS,
   etapas = LISTA_ETAPAS,
-  oportunidades = LISTA_OPORTUNIDADES
+  oportunidades = LISTA_OPORTUNIDADES,
+  agentes = LISTA_AGENTES,
+  paises = LISTA_PAISES,
+  assets = LISTA_ASSETS
 }: ModalDetalleCasoProps) {
   const resolverOportunidad = (val: any): string => {
     if (!val) return '';
@@ -364,7 +370,7 @@ export default function ModalDetalleCaso({
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
                 >
                   <option value="">Seleccione país...</option>
-                  {LISTA_PAISES.map(p => <option key={p} value={p}>{p}</option>)}
+                  {paises.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
 
@@ -422,7 +428,7 @@ export default function ModalDetalleCaso({
                   onChange={manejarCambio}
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
                 >
-                  {LISTA_ASSETS.map(a => <option key={a} value={a}>{a}</option>)}
+                  {assets.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
 
@@ -438,7 +444,10 @@ export default function ModalDetalleCaso({
                   onChange={manejarCambio}
                   className="w-full bg-[#0f111a] border border-pink-700/60 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium"
                 >
-                  {LISTA_AGENTES.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                  {agentes.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                  {form.propietarioOportunidad && !agentes.includes(form.propietarioOportunidad) && (
+                    <option value={form.propietarioOportunidad}>{form.propietarioOportunidad}</option>
+                  )}
                 </select>
               </div>
 
@@ -451,7 +460,10 @@ export default function ModalDetalleCaso({
                   onChange={manejarCambio}
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium"
                 >
-                  {LISTA_AGENTES.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                  {agentes.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                  {form.propietarioTicket && !agentes.includes(form.propietarioTicket) && (
+                    <option value={form.propietarioTicket}>{form.propietarioTicket}</option>
+                  )}
                 </select>
               </div>
 

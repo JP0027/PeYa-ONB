@@ -1111,6 +1111,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   assets={catalogosDinamicos.assets}
                   estados={catalogosDinamicos.estados}
                   etapas={catalogosDinamicos.etapas}
+                  agentes={catalogosDinamicos.agentes}
                 />
               )}
             </div>
@@ -1242,6 +1243,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           estados={catalogosDinamicos.estados}
           etapas={catalogosDinamicos.etapas}
           oportunidades={catalogosDinamicos.oportunidades}
+          agentes={catalogosDinamicos.agentes}
+          paises={catalogosDinamicos.paises}
+          assets={catalogosDinamicos.assets}
         />
       )}
     </div>
