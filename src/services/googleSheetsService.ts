@@ -764,18 +764,25 @@ export async function importarCasosCSV(csvText: string, origen: string = 'Archiv
  * Soporta Netlify y localmente usando caché de navegador
  */
 export async function consultarCasosGoogleSheets(): Promise<any[]> {
-  // 1. Intento por API backend /api/sheets/casos (Service Account oficial - máxima prioridad y velocidad)
-  try {
-    const res = await fetch('/api/sheets/casos');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && Array.isArray(data.casos) && data.casos.length > 0) {
-        localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(data.casos));
-        return data.casos;
+  // 1. Intento por API backend /api/sheets/casos (Service Account oficial en Vercel o local)
+  const urlsAIntentar = [
+    '/api/sheets/casos',
+    'https://pe-ya-onb.vercel.app/api/sheets/casos'
+  ];
+
+  for (const url of urlsAIntentar) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.casos) && data.casos.length > 0) {
+          localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(data.casos));
+          return data.casos;
+        }
       }
+    } catch (errApi) {
+      console.warn(`[GoogleSheets] Intento en ${url} falló:`, errApi);
     }
-  } catch (errApi) {
-    console.warn('[GoogleSheets] Consulta backend /api/sheets/casos:', errApi);
   }
 
   // 2. Intento secundario por proxy de Apps Script / Google Sheets (fallback)

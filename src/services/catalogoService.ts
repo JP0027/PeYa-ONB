@@ -91,19 +91,27 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
  * Consulta los catálogos en vivo directamente desde la hoja Integraciones_Sponsorship
  */
 export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefecto | null> {
-  try {
-    const res = await fetch('/api/sheets/catalogos');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.catalogos) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.catalogos));
-        } catch (_) {}
-        return data.catalogos;
+  const urlsAIntentar = [
+    '/api/sheets/catalogos',
+    'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
+  ];
+
+  for (const url of urlsAIntentar) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.catalogos) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.catalogos));
+          } catch (_) {}
+          guardarCatalogosEnFirestore(data.catalogos).catch(() => {});
+          return data.catalogos;
+        }
       }
+    } catch (err) {
+      console.warn(`[catalogoService] Error consultando ${url}:`, err);
     }
-  } catch (err) {
-    console.warn('[catalogoService] Error consultando /api/sheets/catalogos:', err);
   }
   return { ...CATALOGOS_POR_DEFECTO };
 }

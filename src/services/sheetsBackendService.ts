@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { JWT } from 'google-auth-library';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export interface CasoSheets {
   id: string;
@@ -78,6 +80,7 @@ export class SheetsService {
   private cachedToken: string | null = null;
   private tokenExpiry: number = 0;
   private serviceAccountPath: string | null = null;
+  private cachedCredsObj: { client_email: string; private_key: string } | null = null;
   private cachedCasosMemoria: CasoSheets[] = [];
   private ultimoCambioTimestamp: number = Date.now();
 
@@ -113,10 +116,11 @@ export class SheetsService {
     try {
       this.cachedCasosMemoria = casos;
       this.ultimoCambioTimestamp = Date.now();
-      fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(casos, null, 2), 'utf-8');
-      console.log(`[SheetsService] Guardados ${casos.length} casos en cache local (${CACHE_FILE_PATH})`);
+      const targetPath = process.env.VERCEL ? path.join('/tmp', 'data_cached_casos.json') : CACHE_FILE_PATH;
+      fs.writeFileSync(targetPath, JSON.stringify(casos, null, 2), 'utf-8');
+      console.log(`[SheetsService] Guardados ${casos.length} casos en cache (${targetPath})`);
     } catch (e) {
-      console.warn('[SheetsService] Error guardando cache local:', e);
+      console.warn('[SheetsService] Error guardando cache local (ignorado en serverless):', e);
     }
   }
 
@@ -176,11 +180,94 @@ export class SheetsService {
     }
   }
 
+  public async obtenerCredenciales(): Promise<{ client_email: string; private_key: string } | null> {
+    if (this.cachedCredsObj) {
+      return this.cachedCredsObj;
+    }
+
+    // 1. Variable de entorno (Vercel / Netlify / Cloud)
+    const envJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.SERVICE_ACCOUNT_JSON || process.env.VITE_SERVICE_ACCOUNT_JSON;
+    if (envJson) {
+      try {
+        const parsed = JSON.parse(envJson);
+        if (parsed.client_email && (parsed.private_key || parsed.privateKey)) {
+          let pk = parsed.private_key || parsed.privateKey;
+          if (typeof pk === 'string' && pk.includes('\\n')) pk = pk.replace(/\\n/g, '\n');
+          this.cachedCredsObj = { client_email: parsed.client_email, private_key: pk };
+          console.log(`[SheetsService] Credenciales cargadas desde variable de entorno`);
+          return this.cachedCredsObj;
+        }
+      } catch (_) {}
+    }
+
+    const envB64 = process.env.SERVICE_ACCOUNT_BASE64 || process.env.GOOGLE_SERVICE_ACCOUNT_BASE64;
+    if (envB64) {
+      try {
+        const decoded = Buffer.from(envB64, 'base64').toString('utf-8');
+        const parsed = JSON.parse(decoded);
+        if (parsed.client_email && (parsed.private_key || parsed.privateKey)) {
+          let pk = parsed.private_key || parsed.privateKey;
+          if (typeof pk === 'string' && pk.includes('\\n')) pk = pk.replace(/\\n/g, '\n');
+          this.cachedCredsObj = { client_email: parsed.client_email, private_key: pk };
+          console.log(`[SheetsService] Credenciales cargadas desde variable base64`);
+          return this.cachedCredsObj;
+        }
+      } catch (_) {}
+    }
+
+    // 2. Archivo en disco (desarrollo local)
+    for (const ruta of POSIBLES_RUTAS_CREDENTIALS) {
+      if (fs.existsSync(ruta)) {
+        try {
+          const raw = fs.readFileSync(ruta, 'utf-8');
+          const parsed = JSON.parse(raw);
+          if (parsed.client_email && (parsed.private_key || parsed.privateKey)) {
+            let pk = parsed.private_key || parsed.privateKey;
+            if (typeof pk === 'string' && pk.includes('\\n')) pk = pk.replace(/\\n/g, '\n');
+            this.serviceAccountPath = ruta;
+            this.cachedCredsObj = { client_email: parsed.client_email, private_key: pk };
+            console.log(`[SheetsService] Credenciales válidas encontradas en disco: ${ruta}`);
+            return this.cachedCredsObj;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 3. Firebase Firestore (producción en la nube: Vercel / Netlify sin necesidad de configurar env vars manuales)
+    try {
+      const docSnap = await getDoc(doc(db, 'configuracion', 'service_account'));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.client_email && data.private_key) {
+          let pk = data.private_key;
+          if (typeof pk === 'string' && pk.includes('\\n')) pk = pk.replace(/\\n/g, '\n');
+          this.cachedCredsObj = { client_email: data.client_email, private_key: pk };
+          console.log(`[SheetsService] Credenciales cargadas exitosamente desde Firestore (configuracion/service_account)`);
+          return this.cachedCredsObj;
+        }
+      }
+    } catch (fsErr) {
+      console.warn('[SheetsService] No se pudo leer credenciales de Firestore:', fsErr);
+    }
+
+    return null;
+  }
+
   public tieneCredenciales(): boolean {
-    return !!this.detectarCredenciales();
+    return !!(
+      this.cachedCredsObj ||
+      this.detectarCredenciales() ||
+      process.env.GOOGLE_SERVICE_ACCOUNT_JSON ||
+      process.env.SERVICE_ACCOUNT_JSON ||
+      process.env.SERVICE_ACCOUNT_BASE64 ||
+      process.env.GOOGLE_SERVICE_ACCOUNT_BASE64
+    );
   }
 
   public getDetallesCredenciales(): { activa: boolean; email?: string; path?: string } {
+    if (this.cachedCredsObj) {
+      return { activa: true, email: this.cachedCredsObj.client_email, path: 'Firestore / Variable de Entorno' };
+    }
     const ruta = this.detectarCredenciales();
     if (!ruta) {
       return { activa: false };
@@ -199,23 +286,14 @@ export class SheetsService {
       return this.cachedToken;
     }
 
-    const ruta = this.detectarCredenciales();
-    if (!ruta) {
-      throw new Error('No se encontró service-account.json ni credenciales de servicio en el servidor.');
-    }
-
-    const raw = fs.readFileSync(ruta, 'utf-8');
-    const creds = JSON.parse(raw);
-
-    // Limpieza estricta de private_key
-    let privateKey = creds.private_key || creds.privateKey;
-    if (typeof privateKey === 'string' && privateKey.includes('\\n')) {
-      privateKey = privateKey.replace(/\\n/g, '\n');
+    const creds = await this.obtenerCredenciales();
+    if (!creds || !creds.client_email || !creds.private_key) {
+      throw new Error('No se encontraron credenciales de Google Service Account (disco, variables de entorno o Firebase Firestore).');
     }
 
     this.jwtClient = new JWT({
       email: creds.client_email,
-      key: privateKey,
+      key: creds.private_key,
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets.readonly',
         'https://www.googleapis.com/auth/spreadsheets'
@@ -787,7 +865,8 @@ export class SheetsService {
    * Guarda o actualiza un caso directamente en el Google Sheet oficial vía API
    */
   public async sincronizarCasoConGoogleSheets(caso: CasoSheets): Promise<{ success: boolean; filaNumero?: number; error?: string }> {
-    if (!this.tieneCredenciales()) {
+    const creds = await this.obtenerCredenciales();
+    if (!creds) {
       return { success: false, error: 'Sin credenciales de Google Sheets' };
     }
 
@@ -985,7 +1064,8 @@ export class SheetsService {
    */
   public async obtenerTodasLasFilas(): Promise<CasoSheets[]> {
     // Si tenemos credenciales de servicio, consultar Google Sheets API
-    if (this.tieneCredenciales()) {
+    const creds = await this.obtenerCredenciales();
+    if (creds) {
       const token = await this.obtenerAuthToken();
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Onboarding_New'!A2:AZ")}?valueRenderOption=FORMATTED_VALUE`;
 
@@ -1022,7 +1102,8 @@ export class SheetsService {
    * Obtiene todos los catálogos directamente de la hoja oficial Integraciones_Sponsorship!A:N
    */
   public async obtenerCatalogosSheet(): Promise<CatalogosSheet> {
-    if (this.tieneCredenciales()) {
+    const creds = await this.obtenerCredenciales();
+    if (creds) {
       try {
         const token = await this.obtenerAuthToken();
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:N")}?valueRenderOption=FORMATTED_VALUE`;
@@ -1096,10 +1177,11 @@ export class SheetsService {
           };
 
           try {
-            fs.writeFileSync(CATALOGOS_CACHE_FILE, JSON.stringify(resultado, null, 2), 'utf-8');
+            const targetPath = process.env.VERCEL ? path.join('/tmp', 'data_cached_catalogos.json') : CATALOGOS_CACHE_FILE;
+            fs.writeFileSync(targetPath, JSON.stringify(resultado, null, 2), 'utf-8');
             console.log(`[SheetsService] Catálogos cargados desde hoja Integraciones_Sponsorship (${integraciones.length} integraciones, ${paises.length} países, etc.)`);
           } catch (e) {
-            console.warn('[SheetsService] Error guardando cache de catálogos:', e);
+            console.warn('[SheetsService] Error guardando cache de catálogos (ignorado en serverless):', e);
           }
 
           return resultado;
@@ -1134,7 +1216,8 @@ export class SheetsService {
    * Guarda o actualiza una columna/sección específica en la hoja oficial Integraciones_Sponsorship
    */
   public async guardarSeccionCatalogo(seccion: string, items: any[]): Promise<{ success: boolean; message: string }> {
-    if (!this.tieneCredenciales()) {
+    const creds = await this.obtenerCredenciales();
+    if (!creds) {
       return { success: false, message: 'Sin credenciales activas de Google Sheets' };
     }
 

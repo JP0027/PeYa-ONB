@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
-import { sheetsBackendService } from './src/services/sheetsBackendService.js';
+import { sheetsBackendService } from './src/services/sheetsBackendService';
 
 async function startServer() {
   const app = express();
