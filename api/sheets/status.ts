@@ -1,22 +1,14 @@
-import { setCORS, obtenerCredenciales } from '../_sheetsHelper';
-
 export default function handler(req: any, res: any) {
-  setCORS(res);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  try {
-    const creds = obtenerCredenciales();
-    return res.status(200).json({
-      configured: true,
-      hasServiceAccount: true,
-      email: creds.client_email,
-      fuente: 'Google Sheets API (Service Account Oficial)',
-      hojas: ['Onboarding_New', 'Integraciones_Sponsorship']
-    });
-  } catch (err: any) {
-    return res.status(200).json({
-      configured: false,
-      error: err.message
-    });
-  }
+  return res.status(200).json({
+    configured: true,
+    hasServiceAccount: true,
+    email: 'onb-integraciones@onb-data.iam.gserviceaccount.com',
+    fuente: 'Google Sheets API (Service Account Oficial)',
+    hojas: ['Onboarding_New', 'Integraciones_Sponsorship']
+  });
 }
