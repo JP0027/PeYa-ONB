@@ -5,13 +5,7 @@ export default function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   return res.status(200).json({
     status: 'ok',
-    message: 'PeYa ONB Serverless API',
-    endpoints: [
-      '/api/health',
-      '/api/sheets/casos',
-      '/api/sheets/catalogos',
-      '/api/sheets/status'
-    ],
+    server: 'vercel-serverless-native',
     timestamp: new Date().toISOString()
   });
 }

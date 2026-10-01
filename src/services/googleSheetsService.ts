@@ -4,7 +4,6 @@
  * y con fallback a Google Apps Script si está configurado.
  */
 
-import CASOS_OFFLINE_INICIALES from '../../data_cached_casos.json';
 
 export interface GoogleSheetsStatus {
   configured: boolean;
@@ -811,14 +810,6 @@ export async function consultarCasosGoogleSheets(): Promise<any[]> {
     } catch {
       // Ignorar
     }
-  }
-
-  // Si el dataset embebido tiene más casos o la caché local está desactualizada (ej. 1821 vs 1855)
-  if (Array.isArray(CASOS_OFFLINE_INICIALES) && CASOS_OFFLINE_INICIALES.length > casosRetorno.length) {
-    casosRetorno = CASOS_OFFLINE_INICIALES as any[];
-    try {
-      localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(casosRetorno));
-    } catch {}
   }
 
   return casosRetorno;

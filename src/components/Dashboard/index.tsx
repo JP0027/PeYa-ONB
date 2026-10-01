@@ -420,20 +420,42 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const cargarCasosGoogleSheets = async (silencioso = false) => {
     if (!silencioso) setCargandoSheets(true);
     try {
-      const data = await consultarCasosGoogleSheets();
-      if (Array.isArray(data) && data.length > 0) {
-        setCasosSheets(data);
+      // 1. Sincronizar Casos desde hoja 'Onboarding_New'
+      const dataCasos = await consultarCasosGoogleSheets();
+      let totalCasosCargados = 0;
+      if (Array.isArray(dataCasos) && dataCasos.length > 0) {
+        setCasosSheets(dataCasos);
+        totalCasosCargados = dataCasos.length;
         setUltimaSync(new Date());
+      }
+
+      // 2. Sincronizar Catálogos y Seleccionables desde hoja 'Integraciones_Sponsorship'
+      const dataCatalogos = await consultarCatalogosGoogleSheets();
+      if (dataCatalogos) {
+        setCatalogosDinamicos(dataCatalogos);
+        if (Array.isArray(dataCatalogos.integraciones) && dataCatalogos.integraciones.length > 0) {
+          setListaIntegraciones(dataCatalogos.integraciones.map((i: any) => typeof i === 'object' ? i.nombre : i));
+        }
+      }
+
+      if (!silencioso && mostrarNotificacion) {
+        mostrarNotificacion(
+          `✅ Sincronización exitosa: ${totalCasosCargados} casos desde 'Onboarding_New' y seleccionables desde 'Integraciones_Sponsorship'`,
+          'success'
+        );
       }
     } catch (err) {
       console.warn("Consulta Google Sheets fallida:", err);
+      if (!silencioso && mostrarNotificacion) {
+        mostrarNotificacion('Error al sincronizar con Google Sheets', 'error');
+      }
     } finally {
       if (!silencioso) setCargandoSheets(false);
     }
   };
 
   useEffect(() => {
-    cargarCasosGoogleSheets();
+    cargarCasosGoogleSheets(true);
   }, []);
 
   useEffect(() => {
