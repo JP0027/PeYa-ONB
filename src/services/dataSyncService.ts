@@ -123,17 +123,27 @@ class DataSyncService {
   }
 
   private async _guardarEnSheets(caso: Caso): Promise<void> {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/sheets/actualizar-caso`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(caso)
-      });
-      if (!response.ok) {
-        console.error("Backend error updating Sheets:", await response.text());
+    const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
+    const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+
+    const urls = isNetlify && !isVercel
+      ? ['https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso', '/api/sheets/actualizar-caso']
+      : ['/api/sheets/actualizar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso'];
+
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+          body: JSON.stringify(caso)
+        });
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json') && response.ok) {
+          return;
+        }
+      } catch (error) {
+        console.warn(`[dataSyncService] Error guardando en Sheets (${url}):`, error);
       }
-    } catch (error) {
-      console.error("Network error updating Sheets:", error);
     }
   }
 

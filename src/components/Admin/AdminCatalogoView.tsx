@@ -127,7 +127,7 @@ export default function AdminCatalogoView({
       if (onActualizarCatalogos) {
         onActualizarCatalogos(nuevosCatalogos);
       }
-      mostrarNotificacion && mostrarNotificacion(`✅ Columna "${categoriaActiva}" guardada y sincronizada correctamente.`, 'success');
+      mostrarNotificacion && mostrarNotificacion('Actualizado', 'success');
     } catch (err: any) {
       console.error('Error guardando catálogo:', err);
       mostrarNotificacion && mostrarNotificacion(`❌ Error al guardar: ${err.message}`, 'error');

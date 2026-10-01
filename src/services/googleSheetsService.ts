@@ -852,31 +852,46 @@ export async function actualizarCasoEnSheets(casoActualizado: any): Promise<any>
   }
 
   const gasUrl = obtenerGasUrl();
+  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
 
-  try {
-    const res = await fetch('/api/sheets/actualizar-caso', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-gas-url': gasUrl || ''
-      },
-      body: JSON.stringify({ ...casoActualizado, _gasUrl: gasUrl })
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch {
-    if (gasUrl && gasUrl.startsWith('http')) {
-      try {
-        await fetch(gasUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(casoActualizado)
-        });
-      } catch {
-        // Ignorar
+  const endpoints = isNetlify && !isVercel
+    ? ['https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso', '/api/sheets/actualizar-caso']
+    : ['/api/sheets/actualizar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso'];
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'x-gas-url': gasUrl || ''
+        },
+        body: JSON.stringify({ ...casoActualizado, _gasUrl: gasUrl })
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.success) {
+          return data;
+        }
       }
+    } catch (errApi) {
+      console.warn(`[GoogleSheets] Error en actualizarCasoEnSheets (${endpoint}):`, errApi);
+    }
+  }
+
+  if (gasUrl && gasUrl.startsWith('http')) {
+    try {
+      await fetch(gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(casoActualizado)
+      });
+    } catch {
+      // Ignorar
     }
   }
 

@@ -754,7 +754,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       };
       setCasosSheets(prev => [casoFinalConFila, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
 
-      mostrarNotificacion(`✅ Caso OP #${docId} registrado con éxito en Firebase y Google Sheets.`, "success");
+      mostrarNotificacion('Actualizado', "success");
       setFormulario(prev => ({ ...prev, casoOp: '', vendorId: '', tienda: '', comentarios: '', casoSeguimiento: '' }));
     } catch (err: any) {
       console.error("Error al registrar caso en Firebase/Sheets:", err);
@@ -786,7 +786,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       await actualizarCasoEnSheets(casoFinal).catch(() => null);
 
       setCasoSeleccionadoModal(casoFinal);
-      mostrarNotificacion(`✅ Caso OP #${idBuscado} actualizado en Firebase y Google Sheets.`, "success");
+      mostrarNotificacion('Actualizado', "success");
     } catch (err: any) {
       console.error("Error actualizando caso en Firebase/Sheets:", err);
       mostrarNotificacion(`❌ Error actualizando caso: ${err.message}`, "error");

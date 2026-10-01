@@ -7,6 +7,12 @@
   NPM_FLAGS = "--legacy-peer-deps"
 
 [[redirects]]
+  from = "/api/*"
+  to = "https://pe-ya-onb.vercel.app/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

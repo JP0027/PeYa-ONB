@@ -124,7 +124,7 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
         }
       }
     } catch (err) {
-      console.warn(`[catalogoService] Error consultando ${url}:`, err);
+      console.warn(`[catalogoService] Error consultando ${baseUrl}:`, err);
     }
   }
   return { ...CATALOGOS_POR_DEFECTO };
@@ -134,27 +134,57 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
  * Guarda una sección específica del catálogo impactando directamente en la hoja Integraciones_Sponsorship
  */
 export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]): Promise<any> {
-  try {
-    const res = await fetch('/api/sheets/catalogos/guardar-seccion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ seccion, items })
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || data.message || 'Error guardando en Google Sheets');
-    }
+  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
 
-    if (data.catalogos) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.catalogos));
-      } catch (_) {}
+  const urlsAIntentar = isNetlify && !isVercel
+    ? [
+        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
+        '/api/sheets/catalogos/guardar-seccion',
+        'https://pe-ya-onb.vercel.app/api/sheets/catalogos',
+        '/api/sheets/catalogos'
+      ]
+    : [
+        '/api/sheets/catalogos/guardar-seccion',
+        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
+        '/api/sheets/catalogos',
+        'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
+      ];
+
+  let ultimoError: any = null;
+
+  for (const url of urlsAIntentar) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({ seccion, items })
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        continue;
+      }
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.catalogos) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.catalogos));
+          } catch (_) {}
+        }
+        return data;
+      } else {
+        ultimoError = new Error(data.error || data.message || 'Error guardando en Google Sheets');
+      }
+    } catch (err) {
+      ultimoError = err;
+      console.warn(`[catalogoService] Intento en ${url} falló:`, err);
     }
-    return data;
-  } catch (err) {
-    console.error('[catalogoService] Error en guardarSeccionEnGoogleSheets:', err);
-    throw err;
   }
+
+  throw ultimoError || new Error('No se pudo guardar la sección en Google Sheets');
 }
 
 /**

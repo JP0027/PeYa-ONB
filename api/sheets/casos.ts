@@ -58,9 +58,9 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    const headers = (rows[headerRowIdx] || []).map((h: any) => String(h || '').trim());
+    const headers: string[] = (rows[headerRowIdx] || []).map((h: any) => String(h || '').trim());
     const findCol = (predicate: (h: string) => boolean): number => {
-      return headers.findIndex(h => predicate(h.toLowerCase()));
+      return headers.findIndex((h: string) => predicate(h.toLowerCase()));
     };
 
     const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op');
