@@ -268,6 +268,9 @@ async function startServer() {
 
   // Consulta de filas reales de Onboarding_New!A3:AZ
   app.get('/api/sheets/casos', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     try {
       const tieneCreds = sheetsBackendService.tieneCredenciales();
       const casosMemoria = sheetsBackendService.getCasosEnMemoria();
@@ -346,6 +349,9 @@ async function startServer() {
 
   // Obtener lista completa de catálogos desde hoja Integraciones_Sponsorship
   app.get('/api/sheets/catalogos', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     try {
       const catalogos = await sheetsBackendService.obtenerCatalogosSheet();
       res.json({ success: true, catalogos });
@@ -410,13 +416,13 @@ async function startServer() {
   // Eliminar Caso de Sheets y Cache
   app.post('/api/sheets/eliminar-caso', async (req, res) => {
     try {
-      const { casoId, casoOp } = req.body;
+      const { casoId, casoOp, filaNumero } = req.body;
       const target = casoId || casoOp;
-      if (!target) {
-        return res.status(400).json({ success: false, error: 'Se requiere casoId o casoOp' });
+      if (!target && !filaNumero) {
+        return res.status(400).json({ success: false, error: 'Se requiere casoId, casoOp o filaNumero' });
       }
 
-      const resultado = await sheetsBackendService.eliminarCaso(target);
+      const resultado = await sheetsBackendService.eliminarCaso(target, typeof filaNumero === 'number' ? filaNumero : undefined);
       res.json(resultado);
     } catch (err: any) {
       console.error('[API /api/sheets/eliminar-caso] Error:', err);

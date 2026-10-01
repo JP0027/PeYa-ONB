@@ -6,7 +6,7 @@ import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto } from '..
 import { procesarActualizacionCaso, analizarAlertasCaso, limpiarTextoEtapa } from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
 
-import { consultarCasosGoogleSheets, actualizarCasoEnSheets } from '../../services/googleSheetsService';
+import { consultarCasosGoogleSheets, actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
 import { eliminarCasoFirestore, guardarCasosEnFirestore } from '../../services/firebaseCasosService';
 
 import SearchBar from './SearchBar';
@@ -294,7 +294,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     return [];
   });
   const [cargandoSheets, setCargandoSheets] = useState<boolean>(false);
-  const [ultimaSync, setUltimaSync] = useState<Date | null>(() => new Date());
+  const [ultimaSync, setUltimaSync] = useState<Date | null>(() => {
+    try {
+      const saved = localStorage.getItem('PEDA_ULTIMA_SYNC');
+      return saved ? new Date(saved) : new Date();
+    } catch {
+      return new Date();
+    }
+  });
   
   const [casoSeleccionadoModal, setCasoSeleccionadoModal] = useState<any | null>(null);
   const [filtroMisCasos, setFiltroMisCasos] = useState<string>('todos');
@@ -420,6 +427,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         setCasosSheets(dataCasos);
         totalCasosCargados = dataCasos.length;
         setUltimaSync(new Date());
+        try { localStorage.setItem('PEDA_ULTIMA_SYNC', new Date().toISOString()); } catch (_) {}
 
         // Respaldar casos en Firebase Firestore para tiempo real en todas las plataformas
         guardarCasosEnFirestore(dataCasos).catch(err => {
@@ -442,10 +450,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       }
 
       if (!silencioso && mostrarNotificacion) {
-        mostrarNotificacion(
-          `✅ Sincronización exitosa: ${totalCasosCargados} casos de 'Onboarding_New' y catálogos de 'Integraciones_Sponsorship' actualizados y respaldados en Firebase`,
-          'success'
-        );
+        mostrarNotificacion('Actualizado', 'success');
       }
     } catch (err: any) {
       console.warn("Consulta Google Sheets fallida:", err);
@@ -467,6 +472,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const nuevosCasos = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
       casosCountRef.current = nuevosCasos.length;
       setCasosFirestore(nuevosCasos);
+      setUltimaSync(new Date());
+      try { localStorage.setItem('PEDA_ULTIMA_SYNC', new Date().toISOString()); } catch (_) {}
     }, (err) => {
       console.warn("Firestore subscription warning:", err);
     });
@@ -792,15 +799,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     const op = caso.casoOp || caso.vendorId || targetId;
 
     try {
-      // 1. Eliminar en Google Sheets (backend)
+      // 1. Eliminar en Google Sheets (API serverless / backend)
       try {
-        await fetch('/api/sheets/eliminar-caso', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ casoId: targetId, casoOp: caso.casoOp })
-        });
+        await eliminarCasoGoogleSheets(targetId, caso.casoOp, caso.filaNumero);
       } catch (sheetsErr) {
-        console.warn('Error llamando /api/sheets/eliminar-caso:', sheetsErr);
+        console.warn('Error llamando eliminarCasoGoogleSheets:', sheetsErr);
       }
 
       // 2. Eliminar en Firebase Firestore
@@ -816,7 +819,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       setCasosSheets(prev => prev.filter(c => String(c.id).trim() !== targetId && String(c.casoOp || '').trim() !== String(caso.casoOp || '').trim()));
       setCasosFirestore(prev => prev.filter(c => String(c.id).trim() !== targetId && String(c.casoOp || '').trim() !== String(caso.casoOp || '').trim()));
 
-      mostrarNotificacion(`✅ Caso OP #${op} eliminado de Firebase y Google Sheets.`, "success");
+      mostrarNotificacion('Actualizado', 'success');
       return true;
     } catch (err: any) {
       console.error("Error al eliminar caso:", err);
@@ -1049,6 +1052,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               onSeleccionarCaso={setCasoSeleccionadoModal}
               onActualizarCaso={actualizarCasoExistente}
               onEliminarCaso={manejarEliminarCaso}
+              onForzarSyncCasos={cargarCasosGoogleSheets}
+              sincronizando={cargandoSheets}
             />
           )}
           

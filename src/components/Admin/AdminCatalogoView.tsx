@@ -29,6 +29,8 @@ export interface AdminCatalogoViewProps {
   onSeleccionarCaso?: (caso: any) => void;
   onActualizarCaso?: (caso: any) => Promise<void> | void;
   onEliminarCaso?: (caso: any) => Promise<void> | void;
+  sincronizando?: boolean;
+  onForzarSyncCasos?: () => Promise<void> | void;
 }
 
 export default function AdminCatalogoView({
@@ -38,7 +40,9 @@ export default function AdminCatalogoView({
   casos = [],
   onSeleccionarCaso,
   onActualizarCaso,
-  onEliminarCaso
+  onEliminarCaso,
+  sincronizando = false,
+  onForzarSyncCasos
 }: AdminCatalogoViewProps) {
   const [categoriaActiva, setCategoriaActiva] = useState<string>('onboarding');
   const [busqueda, setBusqueda] = useState<string>('');
@@ -75,17 +79,19 @@ export default function AdminCatalogoView({
     return listaActual.filter(item => String(item).toLowerCase().includes(term));
   }, [listaActual, busqueda, categoriaActiva]);
 
-  // Recargar catálogos en vivo desde la hoja Integraciones_Sponsorship
+  // Recargar casos y catálogos en vivo desde Google Sheets
   const recargarDesdeSheets = async () => {
     setRecargandoSheets(true);
     try {
-      const data = await consultarCatalogosGoogleSheets();
-      if (data) {
-        if (onActualizarCatalogos) onActualizarCatalogos(data);
-        mostrarNotificacion && mostrarNotificacion('✅ Catálogos actualizados desde hoja Integraciones_Sponsorship.', 'success');
+      if (onForzarSyncCasos) {
+        await onForzarSyncCasos();
       } else {
-        mostrarNotificacion && mostrarNotificacion('No se obtuvieron datos actualizados de Google Sheets.', 'info');
+        const data = await consultarCatalogosGoogleSheets();
+        if (data && onActualizarCatalogos) {
+          onActualizarCatalogos(data);
+        }
       }
+      mostrarNotificacion && mostrarNotificacion('Actualizado', 'success');
     } catch (err) {
       console.error('Error recargando desde Google Sheets:', err);
       mostrarNotificacion && mostrarNotificacion('Error recargando desde Google Sheets.', 'error');
@@ -307,17 +313,17 @@ export default function AdminCatalogoView({
           <div className="flex flex-wrap gap-2 items-center">
             <button
               onClick={recargarDesdeSheets}
-              disabled={recargandoSheets || guardando}
-              className="bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm"
+              disabled={recargandoSheets || sincronizando || guardando}
+              className="bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
               title="Recargar los datos directamente desde la hoja de Google Sheets"
             >
-              <span className={recargandoSheets ? 'animate-spin' : ''}>🔄</span>
-              <span>{recargandoSheets ? 'Leyendo Sheets...' : 'Sincronizar desde Sheets'}</span>
+              <span className={recargandoSheets || sincronizando ? 'animate-spin' : ''}>🔄</span>
+              <span>{recargandoSheets || sincronizando ? 'Actualizando datos...' : 'Sincronizar desde Sheets'}</span>
             </button>
             <button
               onClick={manejarRestaurar}
               disabled={guardando}
-              className="bg-gray-800/80 hover:bg-gray-700 text-gray-400 border border-gray-700 text-xs font-semibold px-3 py-2 rounded-xl transition"
+              className="bg-gray-800/80 hover:bg-gray-700 text-gray-400 border border-gray-700 text-xs font-semibold px-3 py-2 rounded-xl transition cursor-pointer"
               title="Restaurar todos los catálogos a valores de fábrica"
             >
               Restaurar Valores Iniciales
@@ -361,6 +367,7 @@ export default function AdminCatalogoView({
           onEditarCaso={onSeleccionarCaso}
           onEliminarCaso={onEliminarCaso}
           mostrarNotificacion={mostrarNotificacion}
+          cargando={recargandoSheets || sincronizando}
         />
       ) : (
         /* Contenedor Principal Catálogos */

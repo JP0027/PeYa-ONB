@@ -6,6 +6,7 @@ export interface TablaOnboardingCasosProps {
   onEditarCaso?: (caso: any) => void;
   onEliminarCaso?: (caso: any) => Promise<void> | void;
   mostrarNotificacion?: (texto: string, tipo?: string) => void;
+  cargando?: boolean;
 }
 
 /**
@@ -17,7 +18,8 @@ export default function TablaOnboardingCasos({
   casos = [],
   onEditarCaso,
   onEliminarCaso,
-  mostrarNotificacion
+  mostrarNotificacion,
+  cargando = false
 }: TablaOnboardingCasosProps) {
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
@@ -521,6 +523,15 @@ export default function TablaOnboardingCasos({
 
       {/* 3. Tabla Reducida de Casos Totales (Ancho completo) */}
       <div className="bg-[#151824] border border-gray-800 rounded-2xl overflow-hidden shadow-xl w-full">
+        {cargando && (
+          <div className="bg-emerald-950/60 border-b border-emerald-800/70 px-4 py-2.5 flex items-center justify-between animate-pulse">
+            <div className="flex items-center gap-2.5 text-xs text-emerald-300 font-semibold">
+              <span className="animate-spin text-sm">🔄</span>
+              <span>Sincronizando casos en vivo desde Google Sheets (Onboarding_New)...</span>
+            </div>
+            <span className="text-[11px] text-emerald-400 font-mono">Actualizando tabla...</span>
+          </div>
+        )}
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs border-collapse">
             <thead>

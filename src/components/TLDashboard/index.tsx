@@ -257,6 +257,15 @@ export default function TLDashboard({
                 </span>
               )}
             </div>
+            {sincronizando && (
+              <div className="bg-emerald-950/60 border-b border-emerald-800/70 px-4 py-2.5 flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-2 text-xs text-emerald-300 font-semibold">
+                  <span className="animate-spin text-sm">🔄</span>
+                  <span>Sincronizando casos en tiempo real desde Google Sheets (Onboarding_New)...</span>
+                </div>
+                <span className="text-[11px] text-emerald-400 font-mono">Actualizando tabla...</span>
+              </div>
+            )}
             <div className="overflow-x-auto max-h-[460px]">
               <table className="w-full text-left text-xs text-gray-300">
                 <thead className="bg-[#0f111a] text-gray-400 uppercase sticky top-0 z-10 shadow">

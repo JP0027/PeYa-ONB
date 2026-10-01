@@ -98,9 +98,17 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
     ? ['https://pe-ya-onb.vercel.app/api/sheets/catalogos']
     : ['/api/sheets/catalogos', 'https://pe-ya-onb.vercel.app/api/sheets/catalogos'];
 
-  for (const url of urlsAIntentar) {
+  for (const baseUrl of urlsAIntentar) {
     try {
-      const res = await fetch(url);
+      const separator = baseUrl.includes('?') ? '&' : '?';
+      const url = `${baseUrl}${separator}_t=${Date.now()}`;
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         continue;

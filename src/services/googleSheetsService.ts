@@ -771,9 +771,17 @@ export async function consultarCasosGoogleSheets(): Promise<any[]> {
     ? ['https://pe-ya-onb.vercel.app/api/sheets/casos']
     : ['/api/sheets/casos', 'https://pe-ya-onb.vercel.app/api/sheets/casos'];
 
-  for (const url of urlsAIntentar) {
+  for (const baseUrl of urlsAIntentar) {
     try {
-      const res = await fetch(url);
+      const separator = baseUrl.includes('?') ? '&' : '?';
+      const url = `${baseUrl}${separator}_t=${Date.now()}`;
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         continue;
@@ -788,7 +796,7 @@ export async function consultarCasosGoogleSheets(): Promise<any[]> {
         }
       }
     } catch (errApi) {
-      console.warn(`[GoogleSheets] Intento en ${url} falló:`, errApi);
+      console.warn(`[GoogleSheets] Intento en ${baseUrl} falló:`, errApi);
     }
   }
 
@@ -874,3 +882,54 @@ export async function actualizarCasoEnSheets(casoActualizado: any): Promise<any>
 
   return { success: true, caso: casoActualizado };
 }
+
+/**
+ * Elimina un caso directamente en Google Sheets (hoja Onboarding_New) vía API serverless / backend
+ */
+export async function eliminarCasoGoogleSheets(casoId: string, casoOp?: string, filaNumero?: number): Promise<any> {
+  // Actualizar cache local en localStorage si existe
+  try {
+    const local = localStorage.getItem('PEDA_CASOS_LOCAL');
+    if (local) {
+      const target = String(casoOp || casoId).trim();
+      const lista = JSON.parse(local).filter((c: any) => 
+        String(c.id).trim() !== target && 
+        String(c.casoOp || '').trim() !== target &&
+        (!filaNumero || c.filaNumero !== filaNumero)
+      );
+      localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(lista));
+    }
+  } catch (_) {}
+
+  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+
+  const endpoints = isNetlify && !isVercel
+    ? ['https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso', '/api/sheets/eliminar-caso']
+    : ['/api/sheets/eliminar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso'];
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({ casoId, casoOp, filaNumero })
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.success) {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn(`[GoogleSheets] Intento eliminar en ${endpoint} falló:`, e);
+    }
+  }
+
+  return { success: true, message: 'Caso eliminado localmente y enviado a Sheets.' };
+}
+

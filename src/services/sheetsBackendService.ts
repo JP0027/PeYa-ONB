@@ -719,21 +719,27 @@ export class SheetsService {
   /**
    * Elimina un caso tanto de Google Sheets (hoja Onboarding_New) como de memoria y caché local
    */
-  public async eliminarCaso(casoIdOCasoOp: string): Promise<{ success: boolean; message: string; filaEliminada?: number }> {
+  public async eliminarCaso(casoIdOCasoOp: string, filaHint?: number): Promise<{ success: boolean; message: string; filaEliminada?: number }> {
     const idStr = String(casoIdOCasoOp || '').trim();
-    if (!idStr) {
+    if (!idStr && !filaHint) {
       return { success: false, message: 'ID o Caso OP requerido.' };
     }
 
     let filaTarget = 0;
-    const casoEnMemoria = this.cachedCasosMemoria.find(c => 
-      String(c.id).trim() === idStr || 
-      String(c.casoOp).trim() === idStr || 
-      String(c.vendorId || c.vendor_id || '').trim() === idStr
-    );
+    if (filaHint && filaHint >= 3) {
+      filaTarget = filaHint;
+    }
 
-    if (casoEnMemoria?.filaNumero) {
-      filaTarget = casoEnMemoria.filaNumero;
+    if (!filaTarget) {
+      const casoEnMemoria = this.cachedCasosMemoria.find(c => 
+        String(c.id).trim() === idStr || 
+        String(c.casoOp).trim() === idStr || 
+        String(c.vendorId || c.vendor_id || '').trim() === idStr
+      );
+
+      if (casoEnMemoria?.filaNumero) {
+        filaTarget = casoEnMemoria.filaNumero;
+      }
     }
 
     // Si tenemos credenciales activas, eliminar la fila en Google Sheets
@@ -742,11 +748,28 @@ export class SheetsService {
         const token = await this.obtenerAuthToken();
         const sheetIdOnboardingNew = 104076048; // GID oficial de la hoja Onboarding_New
 
-        // Si no encontramos la fila exacta en memoria, buscar en las columnas B y C de Sheets
-        if (!filaTarget || filaTarget < 2) {
-          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!B2:C?valueRenderOption=FORMATTED_VALUE`;
+        // 1. Si tenemos filaTarget, verificar rápidamente si coincide
+        if (filaTarget >= 3 && idStr) {
+          const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
+          const resCheck = await fetch(urlCheck, {
+            headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+          });
+          if (resCheck.ok) {
+            const dataCheck = await resCheck.json();
+            const row = dataCheck.values?.[0] || [];
+            const opVal = String(row[0] || '').trim();
+            const venVal = String(row[1] || '').trim();
+            if (opVal !== idStr && venVal !== idStr && !idStr.includes(opVal)) {
+              filaTarget = 0; // Desfasada, buscar posición exacta
+            }
+          }
+        }
+
+        // 2. Si no encontramos la fila exacta en memoria o se desfasó, buscar en A2:B
+        if (!filaTarget || filaTarget < 3) {
+          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
           const resCols = await fetch(urlCols, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
           });
           if (resCols.ok) {
             const dataCols = await resCols.json();
@@ -754,7 +777,10 @@ export class SheetsService {
             for (let i = 0; i < rows.length; i++) {
               const op = String(rows[i]?.[0] || '').trim();
               const ven = String(rows[i]?.[1] || '').trim();
-              if (op === idStr || ven === idStr) {
+              if (
+                (op && (op === idStr || idStr.startsWith(op + '_'))) ||
+                (ven && (ven === idStr || idStr.startsWith(ven + '_')))
+              ) {
                 filaTarget = i + 2;
                 break;
               }
@@ -762,7 +788,7 @@ export class SheetsService {
           }
         }
 
-        if (filaTarget >= 2) {
+        if (filaTarget >= 3) {
           const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
           const resBatch = await fetch(urlBatch, {
             method: 'POST',
@@ -1066,7 +1092,9 @@ export class SheetsService {
       const res = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: 'application/json'
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         }
       });
 
@@ -1102,7 +1130,12 @@ export class SheetsService {
         const token = await this.obtenerAuthToken();
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:N")}?valueRenderOption=FORMATTED_VALUE`;
         const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
         });
 
         if (res.ok) {
