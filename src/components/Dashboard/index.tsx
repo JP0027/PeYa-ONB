@@ -382,7 +382,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     etapa: 'Sin integración confirmada', fechaCreacion: new Date().toISOString().split('T')[0]
   });
 
-  const [catalogosDinamicos, setCatalogosDinamicos] = useState<Record<string, any[]>>(CATALOGOS_POR_DEFECTO);
+  const [catalogosDinamicos, setCatalogosDinamicos] = useState<any>(CATALOGOS_POR_DEFECTO);
 
   useEffect(() => {
     const unsubscribe = suscribirCatalogos((nuevosCatalogos) => {
@@ -398,7 +398,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       .then(res => res.json())
       .then(data => {
         if (data.success && data.catalogos) {
-          setCatalogosDinamicos(prev => ({
+          setCatalogosDinamicos((prev: any) => ({
             ...prev,
             ...data.catalogos
           }));
@@ -772,7 +772,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   };
 
-  const manejarEliminarCaso = async (caso: any): Promise<boolean> => {
+  const manejarEliminarCaso = async (caso: any): Promise<any> => {
     if (!caso) return false;
     const targetId = String(caso.id || caso.casoOp || '').trim();
     const op = caso.casoOp || caso.vendorId || targetId;
@@ -811,7 +811,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   };
 
-  const manejarRegistrarPush = async (caso: any, tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat') => {
+  const manejarRegistrarPush = async (caso: any, tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat' | string) => {
     try {
       const fechaSheet = formatearFechaEspanol(new Date());
       const idBuscado = String(caso.casoOp || caso.id).trim();
@@ -891,8 +891,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     mostrarNotificacion(`Datos replicados. Ingresa el N° de Caso OP.`);
   };
 
-  const mostrarNotificacion = (texto: string, tipo: 'success' | 'error' | 'info' = "success") => {
-    setNotificacion({ texto, tipo });
+  const mostrarNotificacion = (texto: string, tipo: string = "success") => {
+    const tipoNormalizado: 'success' | 'error' | 'info' = tipo === 'error' ? 'error' : (tipo === 'info' ? 'info' : 'success');
+    setNotificacion({ texto, tipo: tipoNormalizado });
     setTimeout(() => setNotificacion(null), 5000);
   };
 

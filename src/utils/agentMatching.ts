@@ -81,6 +81,18 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
       'jean.changanaqui_dyn.ext@pedidosya.com',
       'jean.changanaqui@pedidosya.com'
     ]
+  },
+  {
+    nombre: 'Supervisor Demo',
+    rol: 'Agente / Supervisor',
+    slugs: ['supervisor demo', 'demo'],
+    correos: ['supervisor.demo@pedidosya.com']
+  },
+  {
+    nombre: 'Agente Demo',
+    rol: 'Agente',
+    slugs: ['agente demo', 'demo'],
+    correos: ['agente.demo@pedidosya.com']
   }
 ];
 
@@ -98,7 +110,7 @@ export function normalizarTexto(texto: string): string {
     .replace(/\s+/g, ' ');
 }
 
-export function normalizarCorreo(correo: string): string {
+export function normalizarCorreo(correo?: string): string {
   if (!correo) return '';
   return correo.toLowerCase().trim();
 }
@@ -106,7 +118,7 @@ export function normalizarCorreo(correo: string): string {
 /**
  * Encuentra a qué miembro del equipo corresponde una consulta (nombre o correo)
  */
-export function identificarMiembro(queryStr: string): MiembroEquipo | null {
+export function identificarMiembro(queryStr?: string): MiembroEquipo | null {
   if (!queryStr) return null;
   const qNorm = normalizarTexto(queryStr);
   const qEmail = normalizarCorreo(queryStr);
@@ -126,7 +138,7 @@ export function identificarMiembro(queryStr: string): MiembroEquipo | null {
  */
 export function isAgentMatch(
   caso: { agente?: string; propietarioTicket?: string; propietarioOportunidad?: string },
-  userEmail: string,
+  userEmail?: string,
   userDisplayName?: string
 ): boolean {
   if (!userEmail && !userDisplayName) return false;

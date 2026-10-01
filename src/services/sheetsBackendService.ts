@@ -612,7 +612,8 @@ export class SheetsService {
       return { success: true, caso: casoMerged, message: `Caso ${idBusqueda} actualizado.` };
     } else {
       const nuevo: CasoSheets = {
-        id: idBusqueda || `OP-${Date.now()}`,
+        ...casoActualizado,
+        id: idBusqueda || (casoActualizado as any).id || `OP-${Date.now()}`,
         casoOp: (casoActualizado as any).casoOp || idBusqueda,
         vendorId: (casoActualizado as any).vendorId || '',
         vendor_id: (casoActualizado as any).vendorId || '',
@@ -634,8 +635,7 @@ export class SheetsService {
         sla_inicio: (casoActualizado as any).sla_inicio || new Date().toISOString(),
         esActivo: true,
         origen: 'Manual / Actualización',
-        filaNumero: this.cachedCasosMemoria.length + 2,
-        ...casoActualizado
+        filaNumero: this.cachedCasosMemoria.length + 2
       } as CasoSheets;
 
       this.cachedCasosMemoria.unshift(nuevo);

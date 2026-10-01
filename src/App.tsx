@@ -3,7 +3,7 @@ import { signInWithPopup, onAuthStateChanged, signOut, User } from "firebase/aut
 import { collection, query, where, getDocs } from "firebase/firestore"; 
 import { auth, provider, db } from './firebase';
 import Dashboard from './components/Dashboard/index';
-import { obtenerPerfilPorCorreo } from './utils/userPermissions';
+import { obtenerPerfilPorCorreo, RolUsuario } from './utils/userPermissions';
 
 const LOCAL_SESSION_KEY = 'peya_session_user';
 const LOCAL_ROLE_KEY = 'peya_session_role';
@@ -165,6 +165,15 @@ export default function App() {
     }
   };
 
+  const handleDemoLogin = (rolDemo: RolUsuario = 'Supervisor / TL') => {
+    const esSup = rolDemo === 'Supervisor / TL';
+    const demoUser: UserSession = {
+      email: esSup ? 'supervisor.demo@pedidosya.com' : 'agente.demo@pedidosya.com',
+      displayName: esSup ? 'Supervisor Demo' : 'Agente Demo'
+    };
+    guardarSesion(demoUser, rolDemo);
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -199,7 +208,7 @@ export default function App() {
             onClick={login} 
             className="w-full bg-[#151824] border border-gray-700 hover:border-pink-500 px-6 py-3.5 rounded-xl font-semibold hover:bg-gray-800 transition flex items-center justify-center gap-3 text-sm shadow-xl cursor-pointer"
           >
-            <svg className="w-5 h-5" viewBox="0 24 24">
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
               <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/>
               <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12 0 14.5s.7 4.8 1.9 7.2l3.7-2.9z"/>
@@ -207,6 +216,32 @@ export default function App() {
             </svg>
             <span>Iniciar sesión con cuenta Google</span>
           </button>
+
+          <div className="flex items-center gap-2 my-1">
+            <div className="flex-1 h-px bg-gray-800"></div>
+            <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold">o probar demo</span>
+            <div className="flex-1 h-px bg-gray-800"></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => handleDemoLogin('Supervisor / TL')}
+              className="bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-pink-500/50 text-pink-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
+              title="Ingresar como Supervisor Demo con acceso completo"
+            >
+              <span>👑 Demo Supervisor</span>
+              <span className="text-[10px] text-gray-400 font-normal">Todas las opciones</span>
+            </button>
+
+            <button
+              onClick={() => handleDemoLogin('Agente')}
+              className="bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-blue-500/50 text-blue-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
+              title="Ingresar como Agente Demo con vista operativa"
+            >
+              <span>👤 Demo Agente</span>
+              <span className="text-[10px] text-gray-400 font-normal">Vista operativa</span>
+            </button>
+          </div>
         </div>
 
         {error && (
