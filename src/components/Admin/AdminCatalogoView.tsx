@@ -109,24 +109,24 @@ export default function AdminCatalogoView({
         [categoriaActiva]: nuevaLista
       };
 
-      // 1. Guardar en Firestore para actualización instantánea en tiempo real
-      await guardarCatalogosEnFirestore(nuevosCatalogos as any).catch((fsErr: any) => {
-        console.warn('Error sincronizando Firestore:', fsErr);
-      });
-
-      // 2. Intentar guardar en Google Sheets (hoja Integraciones_Sponsorship)
+      // 1. Guardar en Google Sheets (hoja Integraciones_Sponsorship - fuente principal)
       try {
         const resSheets = await guardarSeccionEnGoogleSheets(categoriaActiva, nuevaLista);
         if (resSheets?.catalogos && onActualizarCatalogos) {
           onActualizarCatalogos(resSheets.catalogos);
         }
       } catch (sheetsErr) {
-        console.info('Backend de Sheets no disponible en entorno estático, cambio guardado en Firebase:', sheetsErr);
+        console.warn('Notice guardando en Google Sheets:', sheetsErr);
       }
 
+      // 2. Actualizar estado en UI inmediatamente
       if (onActualizarCatalogos) {
         onActualizarCatalogos(nuevosCatalogos);
       }
+
+      // 3. Respaldar en Firestore en segundo plano (sin bloquear)
+      guardarCatalogosEnFirestore(nuevosCatalogos as any).catch(() => {});
+
       mostrarNotificacion && mostrarNotificacion('Actualizado', 'success');
     } catch (err: any) {
       console.error('Error guardando catálogo:', err);

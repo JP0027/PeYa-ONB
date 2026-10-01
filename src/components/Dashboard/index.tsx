@@ -429,10 +429,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         setUltimaSync(new Date());
         try { localStorage.setItem('PEDA_ULTIMA_SYNC', new Date().toISOString()); } catch (_) {}
 
-        // Respaldar casos en Firebase Firestore para tiempo real en todas las plataformas
-        guardarCasosEnFirestore(dataCasos).catch(err => {
-          console.warn('[Dashboard] Error guardando casos en Firestore:', err);
-        });
+        // Los casos ya se encuentran sincronizados y cacheados desde Google Sheets
       }
 
       // 2. Sincronizar Catálogos y Seleccionables desde hoja oficial 'Integraciones_Sponsorship'
@@ -739,25 +736,30 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         actualizadoEn: new Date().toISOString()
       });
 
-      // 1. Guardar en Firebase Firestore (Persistencia inmediata)
-      const casoRef = doc(db, "casos", docId);
-      await setDoc(casoRef, casoProcesado, { merge: true });
-
-      // Actualizar estado local de Firestore de inmediato
-      setCasosFirestore(prev => [casoProcesado, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
-      
-      // 2. Guardar y sincronizar con Google Sheets
-      const sheetsRes = await actualizarCasoEnSheets(casoProcesado).catch(() => null);
+      // 1. Guardar y sincronizar con Google Sheets (fuente de verdad)
+      const sheetsRes = await actualizarCasoEnSheets(casoProcesado).catch(err => {
+        console.warn('Sheets sync notice:', err);
+        return null;
+      });
       const casoFinalConFila = {
         ...casoProcesado,
         filaNumero: sheetsRes?.caso?.filaNumero || (casosSheets.length + 2)
       };
+
+      // 2. Actualizar estado local de inmediato
       setCasosSheets(prev => [casoFinalConFila, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
+      setCasosFirestore(prev => [casoProcesado, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
+
+      // 3. Respaldar en Firestore en segundo plano (sin bloquear la interfaz)
+      try {
+        const casoRef = doc(db, "casos", docId);
+        setDoc(casoRef, casoProcesado, { merge: true }).catch(() => {});
+      } catch (_) {}
 
       mostrarNotificacion('Actualizado', "success");
       setFormulario(prev => ({ ...prev, casoOp: '', vendorId: '', tienda: '', comentarios: '', casoSeguimiento: '' }));
     } catch (err: any) {
-      console.error("Error al registrar caso en Firebase/Sheets:", err);
+      console.error("Error al registrar caso:", err);
       mostrarNotificacion(`❌ Error al registrar caso: ${err.message}`, "error");
     }
   };
@@ -768,22 +770,24 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const casoPrevio = casosTotales.find(c => String(c.casoOp || c.id) === idBuscado) || {};
       const casoFinal = procesarActualizacionCaso(casoPrevio, casoActualizado);
       
-      // 1. Guardar en Firebase Firestore (Persistencia en tiempo real)
-      const casoRef = doc(db, "casos", idBuscado);
-      await setDoc(casoRef, { ...casoFinal, id: idBuscado, actualizadoEn: new Date().toISOString() }, { merge: true });
-      
-      // Si el caso tenía un ID numérico o alternativo diferente a casoOp, actualizarlo también en Firebase
-      if (casoActualizado.id && String(casoActualizado.id).trim() !== idBuscado) {
-        const altRef = doc(db, "casos", String(casoActualizado.id).trim());
-        await setDoc(altRef, { ...casoFinal, actualizadoEn: new Date().toISOString() }, { merge: true }).catch(() => {});
-      }
-
-      // Actualizar estados locales inmediatos
+      // 1. Actualizar estados locales de inmediato para respuesta instantánea
       setCasosFirestore(prev => prev.map(c => (String(c.casoOp || c.id) === idBuscado || (casoActualizado.id && String(c.id) === String(casoActualizado.id))) ? { ...c, ...casoFinal } : c));
       setCasosSheets(prev => prev.map(c => (String(c.casoOp || c.id) === idBuscado || (casoActualizado.id && String(c.id) === String(casoActualizado.id))) ? { ...c, ...casoFinal } : c));
 
-      // 2. Guardar y sincronizar con Google Sheets
-      await actualizarCasoEnSheets(casoFinal).catch(() => null);
+      // 2. Guardar y sincronizar con Google Sheets (fuente de verdad)
+      await actualizarCasoEnSheets(casoFinal).catch(err => {
+        console.warn('Sheets sync notice:', err);
+      });
+
+      // 3. Respaldar en Firestore en segundo plano (no bloquea el modal si hay backoff delay)
+      try {
+        const casoRef = doc(db, "casos", idBuscado);
+        setDoc(casoRef, { ...casoFinal, id: idBuscado, actualizadoEn: new Date().toISOString() }, { merge: true }).catch(() => {});
+        if (casoActualizado.id && String(casoActualizado.id).trim() !== idBuscado) {
+          const altRef = doc(db, "casos", String(casoActualizado.id).trim());
+          setDoc(altRef, { ...casoFinal, actualizadoEn: new Date().toISOString() }, { merge: true }).catch(() => {});
+        }
+      } catch (_) {}
 
       setCasoSeleccionadoModal(casoFinal);
       mostrarNotificacion('Actualizado', "success");

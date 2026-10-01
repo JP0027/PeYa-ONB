@@ -91,11 +91,10 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
  * Consulta los catálogos en vivo directamente desde la hoja Integraciones_Sponsorship
  */
 export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefecto | null> {
-  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
-  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
 
-  const urlsAIntentar = isNetlify && !isVercel
-    ? ['https://pe-ya-onb.vercel.app/api/sheets/catalogos']
+  const urlsAIntentar = isNetlify
+    ? ['https://pe-ya-onb.vercel.app/api/sheets/catalogos', '/api/sheets/catalogos']
     : ['/api/sheets/catalogos', 'https://pe-ya-onb.vercel.app/api/sheets/catalogos'];
 
   for (const baseUrl of urlsAIntentar) {
@@ -134,10 +133,9 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
  * Guarda una sección específica del catálogo impactando directamente en la hoja Integraciones_Sponsorship
  */
 export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]): Promise<any> {
-  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
-  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
 
-  const urlsAIntentar = isNetlify && !isVercel
+  const urlsAIntentar = isNetlify
     ? [
         'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
         '/api/sheets/catalogos/guardar-seccion',
@@ -146,8 +144,8 @@ export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]
       ]
     : [
         '/api/sheets/catalogos/guardar-seccion',
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
         '/api/sheets/catalogos',
+        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
         'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
       ];
 

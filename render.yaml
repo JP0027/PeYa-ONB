@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: peya-onb
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_GOOGLE_SHEET_ID
+        value: 1obGQuhQx0FcxdoHNYUMzGqOzLFalhA63W8ze1tygHkk

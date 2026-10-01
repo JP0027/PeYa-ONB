@@ -763,12 +763,9 @@ export async function importarCasosCSV(csvText: string, origen: string = 'Archiv
  * Soporta Netlify y localmente usando caché de navegador
  */
 export async function consultarCasosGoogleSheets(): Promise<any[]> {
-  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
-  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-  
-  // Si estamos en Netlify u otro hosting, llamar directamente al endpoint oficial de Vercel
-  const urlsAIntentar = isNetlify && !isVercel
-    ? ['https://pe-ya-onb.vercel.app/api/sheets/casos']
+  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
+  const urlsAIntentar = isNetlify
+    ? ['https://pe-ya-onb.vercel.app/api/sheets/casos', '/api/sheets/casos']
     : ['/api/sheets/casos', 'https://pe-ya-onb.vercel.app/api/sheets/casos'];
 
   for (const baseUrl of urlsAIntentar) {
@@ -852,10 +849,9 @@ export async function actualizarCasoEnSheets(casoActualizado: any): Promise<any>
   }
 
   const gasUrl = obtenerGasUrl();
-  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
-  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
 
-  const endpoints = isNetlify && !isVercel
+  const endpoints = isNetlify
     ? ['https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso', '/api/sheets/actualizar-caso']
     : ['/api/sheets/actualizar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso'];
 
@@ -916,10 +912,9 @@ export async function eliminarCasoGoogleSheets(casoId: string, casoOp?: string, 
     }
   } catch (_) {}
 
-  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
-  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
 
-  const endpoints = isNetlify && !isVercel
+  const endpoints = isNetlify
     ? ['https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso', '/api/sheets/eliminar-caso']
     : ['/api/sheets/eliminar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso'];
 

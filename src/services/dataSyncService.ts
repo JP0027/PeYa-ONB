@@ -106,14 +106,16 @@ class DataSyncService {
         caso
       );
 
-      // 2. Guardar en Firebase (optimista/rápido)
-      const docRef = doc(db, COLLECTION_NAME, casoProcesado.casoOp);
-      await setDoc(docRef, casoProcesado, { merge: true });
-
-      // 3. Actualizar Sheets en background (fire and forget o awaited si necesario)
+      // 1. Actualizar Sheets (fuente de verdad)
       this._guardarEnSheets(casoProcesado).catch(err => {
-        console.error("Error saving to Sheets:", err);
+        console.warn("Notice saving to Sheets:", err);
       });
+
+      // 2. Guardar en Firebase en background (no bloquea si hay backoff delay)
+      try {
+        const docRef = doc(db, COLLECTION_NAME, casoProcesado.casoOp);
+        setDoc(docRef, casoProcesado, { merge: true }).catch(() => {});
+      } catch (_) {}
 
       return casoProcesado;
     } catch (error) {
