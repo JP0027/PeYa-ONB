@@ -3,7 +3,7 @@ import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
 import { db } from '../../firebase';
 import { isAgentMatch, identificarMiembro } from '../../utils/agentMatching';
 import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto } from '../../utils/userPermissions';
-import { procesarActualizacionCaso, analizarAlertasCaso, limpiarTextoEtapa } from '../../utils/onboardingRules';
+import { procesarActualizacionCaso, analizarAlertasCaso, limpiarTextoEtapa, formatearFechaHora } from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
 
 import { consultarCasosGoogleSheets, actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
@@ -374,12 +374,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const miembroActual = useMemo(() => identificarMiembro(email), [email]);
   const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
 
-  const [formulario, setFormulario] = useState<FormularioNuevoCaso>({
-    casoOp: '', vendorId: '', tienda: '', pais: 'Argentina', kam: '',
-    integracion: 'Datalive', oportunidad: 'Franchise Extensión', asset: 'Integración',
-    propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
-    casoSeguimiento: '', tieneCasoInicio: 'Si', comentarios: '', estado: 'En progreso',
-    etapa: 'Sin integración confirmada', fechaCreacion: new Date().toISOString().split('T')[0]
+  const [formulario, setFormulario] = useState<FormularioNuevoCaso>(() => {
+    const ahora = formatearFechaEspanol(new Date());
+    return {
+      casoOp: '', vendorId: '', tienda: '', pais: 'Argentina', kam: '',
+      integracion: 'Datalive', oportunidad: 'Franchise Extensión', asset: 'Integración',
+      propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
+      casoSeguimiento: '', tieneCasoInicio: 'Si', comentarios: '', estado: 'En progreso',
+      etapa: 'Sin integración confirmada', 
+      fechaCreacion: ahora,
+      sla_inicio: ahora
+    };
   });
 
   const [catalogosDinamicos, setCatalogosDinamicos] = useState<any>(CATALOGOS_POR_DEFECTO);
@@ -726,13 +731,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (!formulario.casoOp) return mostrarNotificacion("El N° Caso OP es obligatorio.", "error");
     try {
       const docId = String(formulario.casoOp).trim();
+      const ahora = formatearFechaHora(new Date());
+      const fCreacion = formatearFechaHora(formulario.fechaCreacion) || ahora;
+      const fInicio = formatearFechaHora(formulario.sla_inicio || formulario.fechaCreacion) || ahora;
+
       const casoProcesado = procesarActualizacionCaso({}, {
         ...formulario, 
         id: docId, 
         vendor_id: formulario.vendorId, 
         agente: formulario.propietarioTicket,
-        sla_inicio: formulario.sla_inicio || formulario.fechaCreacion || new Date().toISOString(),
-        fechaInicioSeguimientoOP: formulario.sla_inicio || formulario.fechaCreacion || '',
+        fechaCreacion: fCreacion,
+        sla_inicio: fInicio,
+        fechaInicioSeguimientoOP: fInicio,
         actualizadoEn: new Date().toISOString()
       });
 
@@ -757,7 +767,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       } catch (_) {}
 
       mostrarNotificacion('Actualizado', "success");
-      setFormulario(prev => ({ ...prev, casoOp: '', vendorId: '', tienda: '', comentarios: '', casoSeguimiento: '' }));
+      const nuevoAhora = formatearFechaHora(new Date());
+      setFormulario(prev => ({ 
+        ...prev, 
+        casoOp: '', 
+        vendorId: '', 
+        tienda: '', 
+        comentarios: '', 
+        casoSeguimiento: '',
+        fechaCreacion: nuevoAhora,
+        sla_inicio: nuevoAhora
+      }));
     } catch (err: any) {
       console.error("Error al registrar caso:", err);
       mostrarNotificacion(`❌ Error al registrar caso: ${err.message}`, "error");

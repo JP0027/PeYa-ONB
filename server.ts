@@ -433,10 +433,26 @@ async function startServer() {
   // Montar Vite middleware para desarrollo o archivos estáticos en producción
   const distPath = path.resolve(process.cwd(), 'dist');
   const indexHtmlPath = path.resolve(distPath, 'index.html');
-  const distExiste = fs.existsSync(indexHtmlPath);
+  let distExiste = fs.existsSync(indexHtmlPath);
 
-  if ((process.env.NODE_ENV === 'production' || distExiste) && process.env.VITE_DEV !== 'true') {
-    console.log('[Server] Sirviendo frontend estático desde dist/ (sin file-watcher para evitar recargas automáticas)');
+  // Si estamos en producción pero no se compiló dist/ (ej: si Render ejecutó solo 'npm install'),
+  // compilarlo automáticamente para evitar que el servidor falle al servir la app.
+  if (!distExiste && process.env.VITE_DEV !== 'true') {
+    console.log('[Server] dist/index.html no encontrado. Iniciando compilación automática con Vite...');
+    try {
+      const { execSync } = await import('child_process');
+      execSync('npx vite build', { stdio: 'inherit' });
+      distExiste = fs.existsSync(indexHtmlPath);
+      if (distExiste) {
+        console.log('[Server] Compilación automática de dist/ completada con éxito.');
+      }
+    } catch (buildErr: any) {
+      console.warn('[Server] No se pudo compilar dist automáticamente:', buildErr?.message);
+    }
+  }
+
+  if (distExiste && process.env.VITE_DEV !== 'true') {
+    console.log('[Server] Sirviendo frontend estático desde dist/');
     app.use(express.static(distPath));
     app.use((req, res, next) => {
       if (req.path.startsWith('/api')) {
@@ -445,24 +461,40 @@ async function startServer() {
       res.sendFile(indexHtmlPath);
     });
   } else {
-    // Si estamos en desarrollo forzado o aún no se compila dist, Vite maneja el bundling
-    console.log('[Server] Iniciando Vite con file-watcher configurado para ignorar JSON y datos...');
-    const vite = await createViteServer({
-      server: { 
-        middlewareMode: true,
-        watch: {
-          ignored: [
-            '**/data_cached_casos.json',
-            '**/*.json',
-            '**/scratch/**',
-            '**/.git/**',
-            '**/dist/**'
-          ]
-        }
-      },
-      appType: 'spa'
-    });
-    app.use(vite.middlewares);
+    // Si estamos en desarrollo forzado o como fallback si no existe dist, Vite maneja el bundling
+    console.log('[Server] Iniciando Vite middleware dinámico...');
+    try {
+      const vite = await createViteServer({
+        server: { 
+          middlewareMode: true,
+          watch: {
+            ignored: [
+              '**/data_cached_casos.json',
+              '**/*.json',
+              '**/scratch/**',
+              '**/.git/**',
+              '**/dist/**'
+            ]
+          }
+        },
+        appType: 'spa'
+      });
+      app.use(vite.middlewares);
+    } catch (viteErr: any) {
+      console.error('[Server] Error iniciando Vite middleware:', viteErr);
+      app.use((req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.status(500).send(`
+          <html>
+            <body style="background:#0f111a;color:#fff;font-family:sans-serif;padding:40px;text-align:center;">
+              <h2 style="color:#f43f5e;">Compilación frontend requerida</h2>
+              <p>El directorio <code>dist/index.html</code> no fue encontrado y la compilación falló.</p>
+              <p>Por favor asegúrate de configurar el <b>Build Command</b> en Render como: <br><code style="background:#1e293b;padding:4px 8px;border-radius:4px;margin-top:8px;display:inline-block;">npm install && npm run build</code></p>
+            </body>
+          </html>
+        `);
+      });
+    }
   }
 
   app.listen(PORT, '0.0.0.0', () => {

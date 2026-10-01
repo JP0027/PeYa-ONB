@@ -13,56 +13,98 @@ import { analizarTiemposCaso } from './tiempoLaboral';
 
 export { normalizarRespuesta };
 
-// Normalización de fechas asegurando SIEMPRE fecha y hora (DD/MM/YYYY HH:mm:ss)
+/**
+ * Normaliza y formatea asegurando SIEMPRE Fecha y Hora (DD/MM/YYYY HH:mm:ss)
+ */
+export function formatearFechaHora(fecha?: Date | string | number | null): string {
+  if (!fecha) {
+    const d = new Date();
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  }
+
+  if (typeof fecha === 'string') {
+    const str = fecha.trim();
+    if (!str || str === 'S/V' || str === '-' || str.toUpperCase() === 'NULL') return str;
+
+    // 1. DD/MM/YYYY o DD-MM-YYYY con hora
+    const matchDDMMTime = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (matchDDMMTime) {
+      const dia = parseInt(matchDDMMTime[1], 10);
+      const mes = parseInt(matchDDMMTime[2], 10);
+      let anio = parseInt(matchDDMMTime[3], 10);
+      if (anio < 100) anio += 2000;
+      const hora = String(matchDDMMTime[4]).padStart(2, '0');
+      const min = String(matchDDMMTime[5]).padStart(2, '0');
+      const seg = matchDDMMTime[6] !== undefined ? String(matchDDMMTime[6]).padStart(2, '0') : '00';
+      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    }
+
+    // 2. YYYY-MM-DD o YYYY/MM/DD con hora
+    const matchISOTime = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (matchISOTime) {
+      const anio = parseInt(matchISOTime[1], 10);
+      const mes = parseInt(matchISOTime[2], 10);
+      const dia = parseInt(matchISOTime[3], 10);
+      const hora = String(matchISOTime[4]).padStart(2, '0');
+      const min = String(matchISOTime[5]).padStart(2, '0');
+      const seg = matchISOTime[6] !== undefined ? String(matchISOTime[6]).padStart(2, '0') : '00';
+      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    }
+
+    // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual para completar fecha y hora
+    const matchDDMM = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+    if (matchDDMM) {
+      const dia = parseInt(matchDDMM[1], 10);
+      const mes = parseInt(matchDDMM[2], 10);
+      let anio = parseInt(matchDDMM[3], 10);
+      if (anio < 100) anio += 2000;
+      const now = new Date();
+      const hora = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const seg = String(now.getSeconds()).padStart(2, '0');
+      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    }
+
+    // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual para completar fecha y hora
+    const matchISO = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+    if (matchISO) {
+      const anio = parseInt(matchISO[1], 10);
+      const mes = parseInt(matchISO[2], 10);
+      const dia = parseInt(matchISO[3], 10);
+      const now = new Date();
+      const hora = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const seg = String(now.getSeconds()).padStart(2, '0');
+      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    }
+
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const dia = d.getDate();
+      const mes = d.getMonth() + 1;
+      const anio = d.getFullYear();
+      const hora = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      const seg = String(d.getSeconds()).padStart(2, '0');
+      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    }
+
+    return str;
+  }
+
+  const d = fecha instanceof Date ? fecha : new Date(fecha);
+  if (isNaN(d.getTime())) return '';
+  const dia = d.getDate();
+  const mes = d.getMonth() + 1;
+  const anio = d.getFullYear();
+  const hora = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const seg = String(d.getSeconds()).padStart(2, '0');
+  return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+}
+
 export function normalizarFecha(fechaStr: any): string {
-  if (!fechaStr) return '';
-  const str = String(fechaStr).trim();
-  if (!str || str === 'S/V' || str === '-' || str.toUpperCase() === 'NULL') return str;
-
-  // 1. Formato DD/MM/YYYY o DD-MM-YYYY con hora opcional (DD/MM/YYYY HH:mm:ss o DD/MM/YYYY HH:mm)
-  const matchDDMM = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (matchDDMM) {
-    const dia = parseInt(matchDDMM[1], 10);
-    const mes = parseInt(matchDDMM[2], 10);
-    let anio = parseInt(matchDDMM[3], 10);
-    if (anio < 100) anio += 2000;
-    const hora = matchDDMM[4] !== undefined ? String(matchDDMM[4]).padStart(2, '0') : null;
-    const min = matchDDMM[5] !== undefined ? String(matchDDMM[5]).padStart(2, '0') : null;
-    const seg = matchDDMM[6] !== undefined ? String(matchDDMM[6]).padStart(2, '0') : '00';
-    if (hora !== null && min !== null) {
-      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
-    }
-    return `${dia}/${mes}/${anio}`;
-  }
-
-  // 2. Formato YYYY-MM-DD o YYYY/MM/DD con hora opcional
-  const matchISO = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-  if (matchISO) {
-    const anio = parseInt(matchISO[1], 10);
-    const mes = parseInt(matchISO[2], 10);
-    const dia = parseInt(matchISO[3], 10);
-    const hora = matchISO[4] !== undefined ? String(matchISO[4]).padStart(2, '0') : null;
-    const min = matchISO[5] !== undefined ? String(matchISO[5]).padStart(2, '0') : null;
-    const seg = matchISO[6] !== undefined ? String(matchISO[6]).padStart(2, '0') : '00';
-    if (hora !== null && min !== null) {
-      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
-    }
-    return `${dia}/${mes}/${anio}`;
-  }
-
-  // 3. Fallback a objeto Date
-  const d = new Date(str);
-  if (!isNaN(d.getTime())) {
-    const dia = d.getDate();
-    const mes = d.getMonth() + 1;
-    const anio = d.getFullYear();
-    const hora = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    const seg = String(d.getSeconds()).padStart(2, '0');
-    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
-  }
-
-  return str;
+  return formatearFechaHora(fechaStr);
 }
 
 /**
@@ -155,8 +197,8 @@ export function aplicarReglaCierre(nuevoEstado: any, fechaCierreActual: any): st
   if (esAbierto) {
     return '';
   } else {
-    // Si es un estado cerrado, imprime fecha de cierre de OP para detener SLA
-    return fechaCierreActual && fechaCierreActual !== '-' ? fechaCierreActual : new Date().toISOString().split('T')[0];
+    // Si es un estado cerrado, imprime fecha y hora de cierre de OP para detener SLA
+    return fechaCierreActual && fechaCierreActual !== '-' ? formatearFechaHora(fechaCierreActual) : formatearFechaHora(new Date());
   }
 }
 
@@ -332,12 +374,14 @@ export function aplicarReglaRespuestaDirecta(tipo: string, respuesta: any, casoA
 export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any): any {
   let resultado = { ...casoAnterior, ...nuevosValores };
 
-  // Normalizar fechas de entrada
-  if (resultado.fechaInicioPos) resultado.fechaInicioPos = normalizarFecha(resultado.fechaInicioPos);
-  if (resultado.fechaPushPos) resultado.fechaPushPos = normalizarFecha(resultado.fechaPushPos);
-  if (resultado.fechaInicioCat) resultado.fechaInicioCat = normalizarFecha(resultado.fechaInicioCat);
-  if (resultado.fechaPushCat) resultado.fechaPushCat = normalizarFecha(resultado.fechaPushCat);
+  // Normalizar fechas de entrada garantizando fecha y hora en todos los formatos
+  if (resultado.fechaInicioPos && resultado.fechaInicioPos !== 'S/V') resultado.fechaInicioPos = normalizarFecha(resultado.fechaInicioPos);
+  if (resultado.fechaPushPos && resultado.fechaPushPos !== 'S/V') resultado.fechaPushPos = normalizarFecha(resultado.fechaPushPos);
+  if (resultado.fechaInicioCat && resultado.fechaInicioCat !== 'S/V') resultado.fechaInicioCat = normalizarFecha(resultado.fechaInicioCat);
+  if (resultado.fechaPushCat && resultado.fechaPushCat !== 'S/V') resultado.fechaPushCat = normalizarFecha(resultado.fechaPushCat);
   if (resultado.fechaCreacion) resultado.fechaCreacion = normalizarFecha(resultado.fechaCreacion);
+  if (resultado.sla_inicio) resultado.sla_inicio = normalizarFecha(resultado.sla_inicio);
+  if (resultado.fechaInicioSeguimientoOP) resultado.fechaInicioSeguimientoOP = normalizarFecha(resultado.fechaInicioSeguimientoOP);
 
   // 1. Regla de Cierre de OP
   resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre);

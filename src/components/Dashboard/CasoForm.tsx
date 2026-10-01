@@ -9,6 +9,7 @@ import {
   LISTA_AGENTES,
   obtenerSponsorship
 } from '../../data/catalogoOnboarding';
+import { formatearFechaHora } from '../../utils/onboardingRules';
 
 export interface CasoFormProps {
   formulario: {
@@ -179,19 +180,36 @@ export default function CasoForm({
         </div>
 
         <div>
-          <label className="text-gray-400 block mb-1 font-medium">p. Fecha de Creación</label>
-          <input type="text" name="fechaCreacion" value={formulario.fechaCreacion || ''} onChange={onChange} placeholder="DD/MM/YYYY HH:mm:ss" className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono" />
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-gray-400 font-medium">p. Fecha y Hora de Creación *</label>
+            <button
+              type="button"
+              onClick={() => {
+                onChange({ target: { name: 'fechaCreacion', value: formatearFechaHora(new Date()) } });
+              }}
+              className="text-[10px] bg-pink-900/60 hover:bg-pink-800 text-pink-300 px-1.5 py-0.5 rounded cursor-pointer border border-pink-700/60"
+              title="Estampar fecha y hora actual"
+            >
+              🕒 Ahora
+            </button>
+          </div>
+          <input 
+            type="text" 
+            name="fechaCreacion" 
+            value={formulario.fechaCreacion || ''} 
+            onChange={onChange} 
+            placeholder="DD/MM/YYYY HH:mm:ss" 
+            className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono" 
+          />
         </div>
 
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-gray-400 font-medium">r. Inicio de seguimiento OP</label>
+            <label className="text-gray-400 font-medium">r. Inicio de seguimiento OP (Fecha y Hora) *</label>
             <button
               type="button"
               onClick={() => {
-                const d = new Date();
-                const fechaNow = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-                onChange({ target: { name: 'sla_inicio', value: fechaNow } });
+                onChange({ target: { name: 'sla_inicio', value: formatearFechaHora(new Date()) } });
               }}
               className="text-[10px] bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded cursor-pointer border border-cyan-700/60"
               title="Estampar fecha y hora actual"

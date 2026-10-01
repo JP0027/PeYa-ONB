@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { JWT } from 'google-auth-library';
+import { formatearFechaHora } from '../utils/onboardingRules';
 
 export interface CasoSheets {
   id: string;
@@ -443,8 +444,10 @@ export class SheetsService {
       const comentarios = getVal(colComentarios >= 0 ? colComentarios : 13);
       let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'Cerrado por oportunidad satisfactoria');
       let etapa = getVal(bestColEtapa >= 0 ? bestColEtapa : 15, 'Validación del Onboarding');
-      const fechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
-      const sla_inicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, fechaCreacion || new Date().toISOString());
+      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
+      const fechaCreacion = formatearFechaHora(rawFechaCreacion);
+      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, rawFechaCreacion || '');
+      const sla_inicio = formatearFechaHora(rawSlaInicio);
 
       // Saneamiento si vino con fecha
       if (estado.includes('GMT') || estado.includes('00:00:00') || !estado) {
@@ -466,14 +469,19 @@ export class SheetsService {
       }
 
       // Fechas y Campos de Push
-      const fechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 18);
-      const fechaInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 19);
-      const fechaPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
+      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 18);
+      const fechaCierre = rawFechaCierre && rawFechaCierre !== '-' ? formatearFechaHora(rawFechaCierre) : rawFechaCierre;
+      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 19);
+      const fechaInicioPos = rawInicioPos && rawInicioPos !== 'S/V' ? formatearFechaHora(rawInicioPos) : rawInicioPos;
+      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
+      const fechaPushPos = rawPushPos && rawPushPos !== 'S/V' ? formatearFechaHora(rawPushPos) : rawPushPos;
       const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 21);
       const respuestaPos = (rawRespPos.toLowerCase() === 'si' || rawRespPos.toLowerCase() === 'sí') ? 'Si' : (rawRespPos.toLowerCase() === 'no' ? 'No' : (rawRespPos.toUpperCase() === 'S/V' || rawRespPos.toUpperCase() === 'SV' ? 'S/V' : rawRespPos));
       const pushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
-      const fechaInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
-      const fechaPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
+      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
+      const fechaInicioCat = rawInicioCat && rawInicioCat !== 'S/V' ? formatearFechaHora(rawInicioCat) : rawInicioCat;
+      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
+      const fechaPushCat = rawPushCat && rawPushCat !== 'S/V' ? formatearFechaHora(rawPushCat) : rawPushCat;
       const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 25);
       const respuestaCat = (rawRespCat.toLowerCase() === 'si' || rawRespCat.toLowerCase() === 'sí') ? 'Si' : (rawRespCat.toLowerCase() === 'no' ? 'No' : (rawRespCat.toUpperCase() === 'S/V' || rawRespCat.toUpperCase() === 'SV' ? 'S/V' : rawRespCat));
       const pushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
@@ -701,10 +709,10 @@ export class SheetsService {
         agente: casoActualizado.agente || casoActualizado.propietarioOportunidad || '',
         tieneCasoInicio: (casoActualizado as any).tieneCasoInicio || 'Si',
         comentarios: casoActualizado.comentarios || '',
-        fechaCreacion: casoActualizado.fechaCreacion || new Date().toISOString().split('T')[0],
+        fechaCreacion: formatearFechaHora(casoActualizado.fechaCreacion),
         estado: casoActualizado.estado || 'Nuevo',
         etapa: casoActualizado.etapa || 'Validación del Onboarding',
-        sla_inicio: (casoActualizado as any).sla_inicio || new Date().toISOString(),
+        sla_inicio: formatearFechaHora((casoActualizado as any).sla_inicio || casoActualizado.fechaCreacion),
         esActivo: true,
         origen: 'Manual / Actualización',
         filaNumero: this.cachedCasosMemoria.length + 2
@@ -850,6 +858,14 @@ export class SheetsService {
     const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' ? 'FALSE' : '');
     const sponsorship = c.sponsorship || c.descuentosBajoEstructuraSponsorship || 'NO';
 
+    const fechaCreacionStr = formatearFechaHora(c.fechaCreacion || new Date());
+    const slaInicioStr = formatearFechaHora(c.sla_inicio || c.fechaInicioSeguimientoOP || c.fechaCreacion || new Date());
+    const fechaCierreStr = c.fechaCierre && c.fechaCierre !== '-' ? formatearFechaHora(c.fechaCierre) : (c.fechaCierre || '');
+    const fechaInicioPosStr = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' ? formatearFechaHora(c.fechaInicioPos) : (c.fechaInicioPos || '');
+    const fechaPushPosStr = c.fechaPushPos && c.fechaPushPos !== 'S/V' ? formatearFechaHora(c.fechaPushPos) : (c.fechaPushPos || '');
+    const fechaInicioCatStr = c.fechaInicioCat && c.fechaInicioCat !== 'S/V' ? formatearFechaHora(c.fechaInicioCat) : (c.fechaInicioCat || '');
+    const fechaPushCatStr = c.fechaPushCat && c.fechaPushCat !== 'S/V' ? formatearFechaHora(c.fechaPushCat) : (c.fechaPushCat || '');
+
     return [
       c.casoOp || '',                                                      // A: N° Caso OP
       c.vendorId || c.vendor_id || '',                                     // B: ID
@@ -867,15 +883,15 @@ export class SheetsService {
       c.comentarios || '',                                                 // N: Comentarios del Onboarding
       c.estado || 'En progreso',                                           // O: Estado del caso
       c.etapa || 'Validación del Onboarding',                              // P: Etapa del onboarding
-      c.fechaCreacion || '',                                               // Q: Fecha de creación de la OP
-      c.sla_inicio || c.fechaCreacion || '',                               // R: Fecha de inicio de seguimiento de OP
-      c.fechaCierre || '',                                                 // S: Fecha de cierre de OP
-      c.fechaInicioPos || '',                                              // T: Fecha de inicio de seguimiento - Datos Faltantes POS API
-      c.fechaPushPos || '',                                                // U: Fecha de push de seguimiento - Datos Faltantes POS API
+      fechaCreacionStr,                                                    // Q: Fecha de creación de la OP
+      slaInicioStr,                                                        // R: Fecha de inicio de seguimiento de OP
+      fechaCierreStr,                                                      // S: Fecha de cierre de OP
+      fechaInicioPosStr,                                                   // T: Fecha de inicio de seguimiento - Datos Faltantes POS API
+      fechaPushPosStr,                                                     // U: Fecha de push de seguimiento - Datos Faltantes POS API
       c.respuestaPos || '',                                                // V: ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
       pushKamPosStr,                                                       // W: Push KAM - Datos Faltantes POS API
-      c.fechaInicioCat || '',                                              // X: Fecha de inicio de seguimiento - Catálogo
-      c.fechaPushCat || '',                                                // Y: Fecha de push de seguimiento - Catálogo
+      fechaInicioCatStr,                                                   // X: Fecha de inicio de seguimiento - Catálogo
+      fechaPushCatStr,                                                     // Y: Fecha de push de seguimiento - Catálogo
       c.respuestaCat || '',                                                // Z: ¿Existe respuesta en el roadmap de Catálogo?
       pushKamCatStr                                                        // AA: Push KAM - Catálogo
     ];

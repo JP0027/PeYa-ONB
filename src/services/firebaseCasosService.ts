@@ -1,6 +1,6 @@
 import { collection, writeBatch, doc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { limpiarTextoEtapa } from '../utils/onboardingRules';
+import { limpiarTextoEtapa, formatearFechaHora } from '../utils/onboardingRules';
 
 export interface Caso {
   id?: string;
@@ -113,7 +113,7 @@ export async function guardarCasosEnFirestore(casos: Caso[], onProgreso: ((proce
         agente: caso.agente || caso.propietarioTicket || caso.propietarioOportunidad || 'Sin asignación',
         tieneCasoInicio: caso.tieneCasoInicio || 'Si',
         comentarios: caso.comentarios || '',
-        fechaCreacion: caso.fechaCreacion || new Date().toISOString().split('T')[0],
+        fechaCreacion: formatearFechaHora(caso.fechaCreacion),
         fechaInicioSeguimientoOP: caso.fechaInicioSeguimientoOP || '',
         fechaCierre: caso.fechaCierre || '',
         fechaInicioPos: caso.fechaInicioPos || '',
@@ -510,10 +510,10 @@ function parsearFilaCaso(row, filaNumero) {
     comentarios: comentarios,
     estado: estado,
     etapa: etapa,
-    fechaCreacion: fechaCreacion || new Date().toISOString().split('T')[0],
-    fechaInicioSeguimientoOP: fechaInicioSeg,
-    sla_inicio: fechaInicioSeg || fechaCreacion || new Date().toISOString(),
-    fechaCierre: fechaCierre,
+    fechaCreacion: formatearFechaHora(fechaCreacion),
+    fechaInicioSeguimientoOP: fechaInicioSeg ? formatearFechaHora(fechaInicioSeg) : '',
+    sla_inicio: formatearFechaHora(fechaInicioSeg || fechaCreacion),
+    fechaCierre: fechaCierre ? formatearFechaHora(fechaCierre) : '',
     fechaInicioPos: fechaInicioPos,
     fechaPushPos: fechaPushPos,
     respuestaPos: respPos,

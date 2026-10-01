@@ -20,6 +20,69 @@ async function getToken(): Promise<string> {
   return cachedToken;
 }
 
+function formatearFechaHoraSheet(val: any): string {
+  if (!val) return '';
+  const str = String(val).trim();
+  if (!str || str === 'S/V' || str === '-' || str.toUpperCase() === 'NULL') return str;
+
+  // 1. DD/MM/YYYY o DD-MM-YYYY con hora
+  const matchDDMMTime = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (matchDDMMTime) {
+    const dia = parseInt(matchDDMMTime[1], 10);
+    const mes = parseInt(matchDDMMTime[2], 10);
+    let anio = parseInt(matchDDMMTime[3], 10);
+    if (anio < 100) anio += 2000;
+    const hora = String(matchDDMMTime[4]).padStart(2, '0');
+    const min = String(matchDDMMTime[5]).padStart(2, '0');
+    const seg = matchDDMMTime[6] !== undefined ? String(matchDDMMTime[6]).padStart(2, '0') : '00';
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  // 2. YYYY-MM-DD o YYYY/MM/DD con hora
+  const matchISOTime = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (matchISOTime) {
+    const anio = parseInt(matchISOTime[1], 10);
+    const mes = parseInt(matchISOTime[2], 10);
+    const dia = parseInt(matchISOTime[3], 10);
+    const hora = String(matchISOTime[4]).padStart(2, '0');
+    const min = String(matchISOTime[5]).padStart(2, '0');
+    const seg = matchISOTime[6] !== undefined ? String(matchISOTime[6]).padStart(2, '0') : '00';
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora 00:00:00
+  const matchDDMM = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (matchDDMM) {
+    const dia = parseInt(matchDDMM[1], 10);
+    const mes = parseInt(matchDDMM[2], 10);
+    let anio = parseInt(matchDDMM[3], 10);
+    if (anio < 100) anio += 2000;
+    return `${dia}/${mes}/${anio} 00:00:00`;
+  }
+
+  // 4. YYYY-MM-DD o YYYY/MM/DD sin hora
+  const matchISO = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (matchISO) {
+    const anio = parseInt(matchISO[1], 10);
+    const mes = parseInt(matchISO[2], 10);
+    const dia = parseInt(matchISO[3], 10);
+    return `${dia}/${mes}/${anio} 00:00:00`;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const dia = d.getDate();
+    const mes = d.getMonth() + 1;
+    const anio = d.getFullYear();
+    const hora = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const seg = String(d.getSeconds()).padStart(2, '0');
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  return str;
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -119,14 +182,21 @@ export default async function handler(req: any, res: any) {
       const comentarios = getVal(colComentarios >= 0 ? colComentarios : 13);
       let estado = getVal(colEstado >= 0 ? colEstado : 14, 'Cerrado por oportunidad satisfactoria');
       let etapa = getVal(colEtapa >= 0 ? colEtapa : 15, 'Validación del Onboarding');
-      const fechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
-      const sla_inicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, fechaCreacion || new Date().toISOString());
-      const fechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 18);
-      const fechaInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 19);
-      const fechaPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
+      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
+      const fechaCreacion = formatearFechaHoraSheet(rawFechaCreacion);
+      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, rawFechaCreacion || '');
+      const sla_inicio = formatearFechaHoraSheet(rawSlaInicio);
+      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 18);
+      const fechaCierre = rawFechaCierre && rawFechaCierre !== '-' ? formatearFechaHoraSheet(rawFechaCierre) : rawFechaCierre;
+      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 19);
+      const fechaInicioPos = rawInicioPos && rawInicioPos !== 'S/V' ? formatearFechaHoraSheet(rawInicioPos) : rawInicioPos;
+      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
+      const fechaPushPos = rawPushPos && rawPushPos !== 'S/V' ? formatearFechaHoraSheet(rawPushPos) : rawPushPos;
       const pushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
-      const fechaInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
-      const fechaPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
+      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
+      const fechaInicioCat = rawInicioCat && rawInicioCat !== 'S/V' ? formatearFechaHoraSheet(rawInicioCat) : rawInicioCat;
+      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
+      const fechaPushCat = rawPushCat && rawPushCat !== 'S/V' ? formatearFechaHoraSheet(rawPushCat) : rawPushCat;
       const pushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
       const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
       const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 34);

@@ -5,6 +5,8 @@
  */
 
 
+import { formatearFechaHora } from '../utils/onboardingRules';
+
 export interface GoogleSheetsStatus {
   configured: boolean;
   email: string | null;
@@ -568,15 +570,15 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
       agente,
       tieneCasoInicio: getVal(colTieneInicio, 'Si'),
       comentarios: getVal(colComentarios, ''),
-      fechaCreacion: getVal(colFechaCreacion, new Date().toISOString().split('T')[0]),
-      fechaInicioSeguimientoOP: getVal(colSlaInicio, ''),
-      fechaCierre: getVal(colFechaCierre, ''),
-      fechaInicioPos: getVal(colInicioPos, ''),
-      fechaPushPos: getVal(colPushPos, ''),
+      fechaCreacion: getVal(colFechaCreacion) ? formatearFechaHora(getVal(colFechaCreacion)) : formatearFechaHora(new Date()),
+      fechaInicioSeguimientoOP: getVal(colSlaInicio) ? formatearFechaHora(getVal(colSlaInicio)) : '',
+      fechaCierre: getVal(colFechaCierre) ? formatearFechaHora(getVal(colFechaCierre)) : '',
+      fechaInicioPos: getVal(colInicioPos) && getVal(colInicioPos) !== 'S/V' ? formatearFechaHora(getVal(colInicioPos)) : getVal(colInicioPos, ''),
+      fechaPushPos: getVal(colPushPos) && getVal(colPushPos) !== 'S/V' ? formatearFechaHora(getVal(colPushPos)) : getVal(colPushPos, ''),
       respuestaPos: getVal(colRespPos, ''),
       pushKamPos: getVal(colCheckPos, '').toLowerCase() === 'true',
-      fechaInicioCat: getVal(colInicioCat, ''),
-      fechaPushCat: getVal(colPushCat, ''),
+      fechaInicioCat: getVal(colInicioCat) && getVal(colInicioCat) !== 'S/V' ? formatearFechaHora(getVal(colInicioCat)) : getVal(colInicioCat, ''),
+      fechaPushCat: getVal(colPushCat) && getVal(colPushCat) !== 'S/V' ? formatearFechaHora(getVal(colPushCat)) : getVal(colPushCat, ''),
       respuestaCat: getVal(colRespCat, ''),
       pushKamCat: getVal(colCheckCat, '').toLowerCase() === 'true',
       tiempoTranscurridoOp: getVal(colTiempoOp, ''),
@@ -589,7 +591,7 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
       freezeCat: getVal(colFreezeCat, ''),
       estado,
       etapa,
-      sla_inicio: getVal(colSlaInicio, new Date().toISOString()),
+      sla_inicio: getVal(colSlaInicio) ? formatearFechaHora(getVal(colSlaInicio)) : (getVal(colFechaCreacion) ? formatearFechaHora(getVal(colFechaCreacion)) : formatearFechaHora(new Date())),
       esActivo,
       origen,
       filaNumero: idx + 3

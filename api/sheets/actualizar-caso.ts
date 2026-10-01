@@ -20,10 +20,89 @@ async function getToken(): Promise<string> {
   return cachedToken;
 }
 
+function formatearFechaHoraSheet(val: any): string {
+  if (!val) return '';
+  const str = String(val).trim();
+  if (!str || str === 'S/V' || str === '-' || str.toUpperCase() === 'NULL') return str;
+
+  // 1. DD/MM/YYYY o DD-MM-YYYY con hora
+  const matchDDMMTime = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (matchDDMMTime) {
+    const dia = parseInt(matchDDMMTime[1], 10);
+    const mes = parseInt(matchDDMMTime[2], 10);
+    let anio = parseInt(matchDDMMTime[3], 10);
+    if (anio < 100) anio += 2000;
+    const hora = String(matchDDMMTime[4]).padStart(2, '0');
+    const min = String(matchDDMMTime[5]).padStart(2, '0');
+    const seg = matchDDMMTime[6] !== undefined ? String(matchDDMMTime[6]).padStart(2, '0') : '00';
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  // 2. YYYY-MM-DD o YYYY/MM/DD con hora
+  const matchISOTime = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (matchISOTime) {
+    const anio = parseInt(matchISOTime[1], 10);
+    const mes = parseInt(matchISOTime[2], 10);
+    const dia = parseInt(matchISOTime[3], 10);
+    const hora = String(matchISOTime[4]).padStart(2, '0');
+    const min = String(matchISOTime[5]).padStart(2, '0');
+    const seg = matchISOTime[6] !== undefined ? String(matchISOTime[6]).padStart(2, '0') : '00';
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual para completar formato
+  const matchDDMM = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (matchDDMM) {
+    const dia = parseInt(matchDDMM[1], 10);
+    const mes = parseInt(matchDDMM[2], 10);
+    let anio = parseInt(matchDDMM[3], 10);
+    if (anio < 100) anio += 2000;
+    const now = new Date();
+    const hora = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const seg = String(now.getSeconds()).padStart(2, '0');
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual para completar formato
+  const matchISO = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
+  if (matchISO) {
+    const anio = parseInt(matchISO[1], 10);
+    const mes = parseInt(matchISO[2], 10);
+    const dia = parseInt(matchISO[3], 10);
+    const now = new Date();
+    const hora = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const seg = String(now.getSeconds()).padStart(2, '0');
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const dia = d.getDate();
+    const mes = d.getMonth() + 1;
+    const anio = d.getFullYear();
+    const hora = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const seg = String(d.getSeconds()).padStart(2, '0');
+    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  }
+
+  return str;
+}
+
 function mapearCasoAColumnasSheet(c: any): any[] {
   const pushKamPosStr = c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE' ? 'TRUE' : (c.pushKamPos === false || String(c.pushKamPos).toUpperCase() === 'FALSE' ? 'FALSE' : '');
   const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' ? 'FALSE' : '');
   const sponsorship = c.sponsorship || c.descuentosBajoEstructuraSponsorship || 'NO';
+
+  const fechaCreacionStr = formatearFechaHoraSheet(c.fechaCreacion || new Date());
+  const slaInicioStr = formatearFechaHoraSheet(c.sla_inicio || c.fechaInicioSeguimientoOP || c.fechaCreacion || new Date());
+  const fechaCierreStr = c.fechaCierre && c.fechaCierre !== '-' ? formatearFechaHoraSheet(c.fechaCierre) : (c.fechaCierre || '');
+  const fechaInicioPosStr = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' ? formatearFechaHoraSheet(c.fechaInicioPos) : (c.fechaInicioPos || '');
+  const fechaPushPosStr = c.fechaPushPos && c.fechaPushPos !== 'S/V' ? formatearFechaHoraSheet(c.fechaPushPos) : (c.fechaPushPos || '');
+  const fechaInicioCatStr = c.fechaInicioCat && c.fechaInicioCat !== 'S/V' ? formatearFechaHoraSheet(c.fechaInicioCat) : (c.fechaInicioCat || '');
+  const fechaPushCatStr = c.fechaPushCat && c.fechaPushCat !== 'S/V' ? formatearFechaHoraSheet(c.fechaPushCat) : (c.fechaPushCat || '');
 
   return [
     c.casoOp || '',                                                      // A: N° Caso OP
@@ -42,15 +121,15 @@ function mapearCasoAColumnasSheet(c: any): any[] {
     c.comentarios || '',                                                 // N: Comentarios del Onboarding
     c.estado || 'En progreso',                                           // O: Estado del caso
     c.etapa || 'Validación del Onboarding',                              // P: Etapa del onboarding
-    c.fechaCreacion || '',                                               // Q: Fecha de creación de la OP
-    c.sla_inicio || c.fechaCreacion || '',                               // R: Fecha de inicio de seguimiento de OP
-    c.fechaCierre || '',                                                 // S: Fecha de cierre de OP
-    c.fechaInicioPos || '',                                              // T: Fecha de inicio de seguimiento - Datos Faltantes POS API
-    c.fechaPushPos || '',                                                // U: Fecha de push de seguimiento - Datos Faltantes POS API
+    fechaCreacionStr,                                                    // Q: Fecha de creación de la OP
+    slaInicioStr,                                                        // R: Fecha de inicio de seguimiento de OP
+    fechaCierreStr,                                                      // S: Fecha de cierre de OP
+    fechaInicioPosStr,                                                   // T: Fecha de inicio de seguimiento - Datos Faltantes POS API
+    fechaPushPosStr,                                                     // U: Fecha de push de seguimiento - Datos Faltantes POS API
     c.respuestaPos || '',                                                // V: ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
     pushKamPosStr,                                                       // W: Push KAM - Datos Faltantes POS API
-    c.fechaInicioCat || '',                                              // X: Fecha de inicio de seguimiento - Catálogo
-    c.fechaPushCat || '',                                                // Y: Fecha de push de seguimiento - Catálogo
+    fechaInicioCatStr,                                                   // X: Fecha de inicio de seguimiento - Catálogo
+    fechaPushCatStr,                                                     // Y: Fecha de push de seguimiento - Catálogo
     c.respuestaCat || '',                                                // Z: ¿Existe respuesta en el roadmap de Catálogo?
     pushKamCatStr                                                        // AA: Push KAM - Catálogo
   ];
