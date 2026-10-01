@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 /* Ocultar barra de scroll nativa en contenedores principales */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;

@@ -57,13 +57,13 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
   // Barra de progreso de 30 segundos (de 100% a 0%)
   const progreso = Math.max(0, 100 - (tiempoMs / duracionTotal) * 100);
 
-  // A los 25 segundos se desvanece suavemente (opacity 1 -> 0) y se desplaza hacia la derecha (0 -> 180px)
+  // A los 25 segundos se desvanece suavemente (opacity 1 -> 0) con ligero desplazamiento
   let opacidad = 1;
   let desplazamientoX = 0;
   if (!hovered && tiempoMs >= inicioDesvanecer) {
     const fraccion = Math.min(1, (tiempoMs - inicioDesvanecer) / (duracionTotal - inicioDesvanecer));
     opacidad = Math.max(0, 1 - fraccion);
-    desplazamientoX = fraccion * 180;
+    desplazamientoX = fraccion * 30;
   }
 
   return (
@@ -140,11 +140,13 @@ export default function PushAlertContainer({ alertas, onCerrarAlerta, onCerrarTo
 
   return (
     <div
-      className="fixed top-5 right-5 z-[9999] flex flex-col gap-2.5 pointer-events-auto max-h-[88vh] overflow-y-auto pr-1 select-none"
+      className="fixed top-5 right-5 z-[9999] flex flex-col gap-2.5 pointer-events-auto max-h-[88vh] overflow-y-auto overflow-x-hidden pr-1 select-none no-scrollbar"
       style={{
         maxWidth: '400px',
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#f59e0b transparent'
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
       }}
     >
       {alertas.length > 2 && (
