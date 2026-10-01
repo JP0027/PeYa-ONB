@@ -763,19 +763,27 @@ export async function importarCasosCSV(csvText: string, origen: string = 'Archiv
  * Soporta Netlify y localmente usando caché de navegador
  */
 export async function consultarCasosGoogleSheets(): Promise<any[]> {
-  // 1. Intento por API backend /api/sheets/casos (Service Account oficial en Vercel o local)
-  const urlsAIntentar = [
-    '/api/sheets/casos',
-    'https://pe-ya-onb.vercel.app/api/sheets/casos'
-  ];
+  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  
+  // Si estamos en Netlify u otro hosting, llamar directamente al endpoint oficial de Vercel
+  const urlsAIntentar = isNetlify && !isVercel
+    ? ['https://pe-ya-onb.vercel.app/api/sheets/casos']
+    : ['/api/sheets/casos', 'https://pe-ya-onb.vercel.app/api/sheets/casos'];
 
   for (const url of urlsAIntentar) {
     try {
       const res = await fetch(url);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        continue;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.casos) && data.casos.length > 0) {
-          localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(data.casos));
+          try {
+            localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(data.casos));
+          } catch (_) {}
           return data.casos;
         }
       }

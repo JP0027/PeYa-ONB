@@ -91,14 +91,20 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
  * Consulta los catálogos en vivo directamente desde la hoja Integraciones_Sponsorship
  */
 export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefecto | null> {
-  const urlsAIntentar = [
-    '/api/sheets/catalogos',
-    'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
-  ];
+  const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+
+  const urlsAIntentar = isNetlify && !isVercel
+    ? ['https://pe-ya-onb.vercel.app/api/sheets/catalogos']
+    : ['/api/sheets/catalogos', 'https://pe-ya-onb.vercel.app/api/sheets/catalogos'];
 
   for (const url of urlsAIntentar) {
     try {
       const res = await fetch(url);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        continue;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.catalogos) {

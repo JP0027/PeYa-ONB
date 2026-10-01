@@ -7,7 +7,7 @@ import { procesarActualizacionCaso, analizarAlertasCaso, limpiarTextoEtapa } fro
 import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
 
 import { consultarCasosGoogleSheets, actualizarCasoEnSheets } from '../../services/googleSheetsService';
-import { eliminarCasoFirestore } from '../../services/firebaseCasosService';
+import { eliminarCasoFirestore, guardarCasosEnFirestore } from '../../services/firebaseCasosService';
 
 import SearchBar from './SearchBar';
 import CasoForm from './CasoForm';
@@ -21,8 +21,7 @@ import TLDashboard from '../TLDashboard';
 import AdminCatalogoView from '../Admin/AdminCatalogoView';
 import GestionUsuariosView from '../Admin/GestionUsuariosView';
 import PushAlertContainer, { AlertaPush } from './PushAlertToast';
-import { suscribirCatalogos, CATALOGOS_POR_DEFECTO } from '../../services/catalogoService';
-import CASOS_OFFLINE_INICIALES from '../../../data_cached_casos.json';
+import { suscribirCatalogos, CATALOGOS_POR_DEFECTO, consultarCatalogosGoogleSheets, guardarCatalogosEnFirestore } from '../../services/catalogoService';
 
 export interface DashboardProps {
   role?: string;
@@ -287,17 +286,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const local = localStorage.getItem('PEDA_CASOS_LOCAL');
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && Array.isArray(CASOS_OFFLINE_INICIALES) && parsed.length >= CASOS_OFFLINE_INICIALES.length) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed;
         }
       }
     } catch {}
-    if (Array.isArray(CASOS_OFFLINE_INICIALES) && CASOS_OFFLINE_INICIALES.length > 0) {
-      try {
-        localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(CASOS_OFFLINE_INICIALES));
-      } catch {}
-      return CASOS_OFFLINE_INICIALES;
-    }
     return [];
   });
   const [cargandoSheets, setCargandoSheets] = useState<boolean>(false);
@@ -420,34 +413,44 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const cargarCasosGoogleSheets = async (silencioso = false) => {
     if (!silencioso) setCargandoSheets(true);
     try {
-      // 1. Sincronizar Casos desde hoja 'Onboarding_New'
+      // 1. Sincronizar Casos desde hoja oficial 'Onboarding_New'
       const dataCasos = await consultarCasosGoogleSheets();
       let totalCasosCargados = 0;
       if (Array.isArray(dataCasos) && dataCasos.length > 0) {
         setCasosSheets(dataCasos);
         totalCasosCargados = dataCasos.length;
         setUltimaSync(new Date());
+
+        // Respaldar casos en Firebase Firestore para tiempo real en todas las plataformas
+        guardarCasosEnFirestore(dataCasos).catch(err => {
+          console.warn('[Dashboard] Error guardando casos en Firestore:', err);
+        });
       }
 
-      // 2. Sincronizar Catálogos y Seleccionables desde hoja 'Integraciones_Sponsorship'
+      // 2. Sincronizar Catálogos y Seleccionables desde hoja oficial 'Integraciones_Sponsorship'
       const dataCatalogos = await consultarCatalogosGoogleSheets();
       if (dataCatalogos) {
         setCatalogosDinamicos(dataCatalogos);
         if (Array.isArray(dataCatalogos.integraciones) && dataCatalogos.integraciones.length > 0) {
           setListaIntegraciones(dataCatalogos.integraciones.map((i: any) => typeof i === 'object' ? i.nombre : i));
         }
+
+        // Respaldar catálogos en Firebase Firestore
+        guardarCatalogosEnFirestore(dataCatalogos).catch(err => {
+          console.warn('[Dashboard] Error guardando catálogos en Firestore:', err);
+        });
       }
 
       if (!silencioso && mostrarNotificacion) {
         mostrarNotificacion(
-          `✅ Sincronización exitosa: ${totalCasosCargados} casos desde 'Onboarding_New' y seleccionables desde 'Integraciones_Sponsorship'`,
+          `✅ Sincronización exitosa: ${totalCasosCargados} casos de 'Onboarding_New' y catálogos de 'Integraciones_Sponsorship' actualizados y respaldados en Firebase`,
           'success'
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Consulta Google Sheets fallida:", err);
       if (!silencioso && mostrarNotificacion) {
-        mostrarNotificacion('Error al sincronizar con Google Sheets', 'error');
+        mostrarNotificacion(`Error al sincronizar: ${err?.message || 'Error de conexión'}`, 'error');
       }
     } finally {
       if (!silencioso) setCargandoSheets(false);
