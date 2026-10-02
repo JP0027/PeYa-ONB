@@ -30,13 +30,24 @@ export interface GestionUsuariosViewProps {
   nombreUsuarioAutenticado?: string;
   mostrarNotificacion?: (texto: string, tipo?: string) => void;
   rolesDisponibles?: string[];
+  rolUsuario?: string | null;
 }
 
-export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarNotificacion, rolesDisponibles }: GestionUsuariosViewProps) {
+export default function GestionUsuariosView({ 
+  nombreUsuarioAutenticado, 
+  mostrarNotificacion, 
+  rolesDisponibles,
+  rolUsuario 
+}: GestionUsuariosViewProps) {
   const [usuarios, setUsuarios] = useState<UsuarioFirestore[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtroRol, setFiltroRol] = useState<string>('todos');
+
+  const esSupervisor = useMemo(() => {
+    const r = String(rolUsuario || '').toLowerCase().trim();
+    return r.includes('supervisor') || r.includes('tl') || r.includes('admin') || r.includes('leader');
+  }, [rolUsuario]);
 
   const listaRoles = useMemo(() => {
     if (Array.isArray(rolesDisponibles) && rolesDisponibles.length > 0) {
@@ -485,28 +496,35 @@ export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarN
 
               <div>
                 <label className="text-gray-300 block mb-1 font-semibold">Rol Asignado *</label>
-                <select
-                  value={formulario.rol}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                    const nuevoRol = e.target.value as RolUsuario;
-                    let tabsDef = obtenerPestanasPorDefecto(nuevoRol);
-                    if (nuevoRol === 'Agente') {
-                      tabsDef = tabsDef.filter(t => t !== 'usuarios');
-                    }
-                    setFormulario({ 
-                      ...formulario, 
-                      rol: nuevoRol,
-                      pestanas: tabsDef
-                    });
-                  }}
-                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-semibold cursor-pointer"
-                >
-                  {listaRoles.map(r => (
-                    <option key={r} value={r}>
-                      {r} {r === 'Agente' ? '(Recomendado: Datos, Mis Casos, Búsqueda)' : r.includes('TL') ? '(Todas las pestañas)' : '(Recomendado: Global, Datos, Búsqueda, Gestionar Usuarios)'}
-                    </option>
-                  ))}
-                </select>
+                {esSupervisor ? (
+                  <select
+                    value={formulario.rol}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                      const nuevoRol = e.target.value as RolUsuario;
+                      let tabsDef = obtenerPestanasPorDefecto(nuevoRol);
+                      if (nuevoRol === 'Agente') {
+                        tabsDef = tabsDef.filter(t => t !== 'usuarios');
+                      }
+                      setFormulario({ 
+                        ...formulario, 
+                        rol: nuevoRol,
+                        pestanas: tabsDef
+                      });
+                    }}
+                    className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-semibold cursor-pointer"
+                  >
+                    {listaRoles.map(r => (
+                      <option key={r} value={r}>
+                        {r} {r === 'Agente' ? '(Recomendado: Datos, Mis Casos, Búsqueda)' : r.includes('TL') ? '(Todas las pestañas)' : '(Recomendado: Global, Datos, Búsqueda, Gestionar Usuarios)'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="w-full bg-[#0f111a] border border-gray-800 rounded-lg p-2.5 text-gray-300 font-medium flex items-center justify-between">
+                    <span>{formulario.rol}</span>
+                    <span className="text-[10px] text-gray-500 italic">Solo modificable por Supervisor</span>
+                  </div>
+                )}
               </div>
 
               {/* Lista de Checkboxes de Pestañas Permitidas */}

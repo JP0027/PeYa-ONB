@@ -9,7 +9,8 @@ import {
   LISTA_AGENTES,
   obtenerSponsorship
 } from '../../data/catalogoOnboarding';
-import { formatearFechaHora } from '../../utils/onboardingRules';
+import { formatearFechaHora, resolverOportunidad } from '../../utils/onboardingRules';
+import SearchableSelect from '../Common/SearchableSelect';
 
 export interface CasoFormProps {
   formulario: {
@@ -34,6 +35,7 @@ export interface CasoFormProps {
   };
   onChange: (e: any) => void;
   onGuardar: () => void;
+  onLimpiar?: () => void;
   nombreUsuario?: string;
   puedeRegistrar?: boolean;
   integraciones?: string[];
@@ -49,6 +51,7 @@ export default function CasoForm({
   formulario, 
   onChange, 
   onGuardar, 
+  onLimpiar,
   nombreUsuario, 
   puedeRegistrar = true, 
   integraciones = [],
@@ -70,6 +73,11 @@ export default function CasoForm({
   }
 
   const listaIntegraciones = integraciones.length > 0 ? integraciones : [];
+  const listaIntegracionesOpciones = listaIntegraciones.map(i => ({
+    label: i,
+    value: i,
+    badge: obtenerSponsorship(i)
+  }));
   const sponsorshipActual = obtenerSponsorship(formulario.integracion || '');
 
   const intentarGuardar = () => {
@@ -84,9 +92,9 @@ export default function CasoForm({
     <div className="bg-[#161925] border border-gray-800 rounded-xl p-5 shadow-lg relative">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b border-gray-800 pb-2">
         <h3 className="text-lg font-bold text-white">Registrar Nuevo Caso</h3>
-        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-pink-950/50 border border-pink-800/60 text-pink-300 flex items-center gap-1.5">
-          <span>🔥</span>
-          <span>Sincronización dual: Firebase Firestore + Google Sheets</span>
+        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-800/60 text-emerald-300 flex items-center gap-1.5">
+          <span>📊</span>
+          <span>Google Sheets oficial</span>
         </span>
       </div>
       
@@ -125,16 +133,26 @@ export default function CasoForm({
               Sponsorship: {sponsorshipActual}
             </span>
           </div>
-          <select name="integracion" value={formulario.integracion} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500">
-            {listaIntegraciones.map(i => <option key={i} value={i}>{i}</option>)}
-          </select>
+          <SearchableSelect
+            name="integracion"
+            value={formulario.integracion || ''}
+            onChange={(val) => onChange({ target: { name: 'integracion', value: val } })}
+            options={listaIntegracionesOpciones}
+            placeholder="Buscar integración..."
+            searchPlaceholder="Escribe para buscar integración..."
+          />
         </div>
 
         <div>
           <label className="text-gray-400 block mb-1 font-medium">g. Oportunidad</label>
-          <select name="oportunidad" value={formulario.oportunidad} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500">
-            {oportunidades.map(op => <option key={op} value={op}>{op}</option>)}
-          </select>
+          <SearchableSelect
+            name="oportunidad"
+            value={resolverOportunidad(formulario.oportunidad, oportunidades)}
+            onChange={(val) => onChange({ target: { name: 'oportunidad', value: val } })}
+            options={oportunidades}
+            placeholder="Buscar oportunidad..."
+            searchPlaceholder="Filtrar oportunidad..."
+          />
         </div>
 
         <div>
@@ -247,9 +265,20 @@ export default function CasoForm({
         </div>
       </div>
 
-      <div className="mt-5 flex justify-end">
-        <button onClick={intentarGuardar} className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 px-6 rounded-lg text-sm shadow-lg shadow-pink-900/30 transition cursor-pointer">
-          💾 Guardar Caso
+      <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-800/80 pt-4">
+        {onLimpiar && (
+          <button
+            type="button"
+            onClick={onLimpiar}
+            className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white font-semibold py-2.5 px-4 rounded-lg text-xs border border-gray-700 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+            title="Limpia los campos del caso manteniendo propietario y fechas"
+          >
+            <span>🧹</span> Limpiar formulario
+          </button>
+        )}
+        <div className="flex-1" />
+        <button onClick={intentarGuardar} className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 px-6 rounded-lg text-sm shadow-lg shadow-pink-900/30 transition cursor-pointer flex items-center gap-2">
+          <span>💾</span> Guardar Caso
         </button>
       </div>
 
@@ -261,7 +290,7 @@ export default function CasoForm({
               <span className="text-2xl">📋</span>
               <div>
                 <h4 className="text-base font-bold text-white">¿Confirmar registro de caso?</h4>
-                <p className="text-[11px] text-gray-400">Se registrará en Google Sheets y Firebase</p>
+                <p className="text-[11px] text-gray-400">Se registrará directamente en Google Sheets</p>
               </div>
             </div>
 

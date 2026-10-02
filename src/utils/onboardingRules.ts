@@ -7,7 +7,8 @@ import {
   calcularFechaInicioSeguimientoOP, 
   esEstadoActivoOficial, 
   obtenerSponsorship,
-  normalizarRespuesta
+  normalizarRespuesta,
+  LISTA_OPORTUNIDADES
 } from '../data/catalogoOnboarding';
 import { analizarTiemposCaso } from './tiempoLaboral';
 
@@ -713,4 +714,18 @@ export function analizarAlertasCaso(caso: any): any {
     esAtencion,
     esEnTiempo
   };
+}
+
+/**
+ * Normaliza y resuelve el nombre oficial de la Oportunidad para evitar discrepancias de acentos o mayúsculas
+ */
+export function resolverOportunidad(val: any, lista: string[] = LISTA_OPORTUNIDADES): string {
+  if (!val) return 'Franchise Extension';
+  const str = String(val).trim();
+  if (!str) return 'Franchise Extension';
+  const norm = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const match = lista.find(op => 
+    op.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === norm
+  );
+  return match || str;
 }

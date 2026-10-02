@@ -16,8 +16,10 @@ import {
   limpiarTextoEtapa,
   normalizarRespuesta,
   formatearFechaHora,
-  esPushKamRealizado
+  esPushKamRealizado,
+  resolverOportunidad
 } from '../utils/onboardingRules';
+import SearchableSelect from './Common/SearchableSelect';
 
 export interface ModalDetalleCasoProps {
   caso: any;
@@ -31,6 +33,7 @@ export interface ModalDetalleCasoProps {
   agentes?: string[];
   paises?: string[];
   assets?: string[];
+  integraciones?: string[];
 }
 
 export default function ModalDetalleCaso({ 
@@ -44,18 +47,9 @@ export default function ModalDetalleCaso({
   oportunidades = LISTA_OPORTUNIDADES,
   agentes = LISTA_AGENTES,
   paises = LISTA_PAISES,
-  assets = LISTA_ASSETS
+  assets = LISTA_ASSETS,
+  integraciones = []
 }: ModalDetalleCasoProps) {
-  const resolverOportunidad = (val: any): string => {
-    if (!val) return '';
-    const norm = String(val).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-    const base = Array.isArray(oportunidades) && oportunidades.length > 0 ? oportunidades : LISTA_OPORTUNIDADES;
-    const match = base.find(op => 
-      op.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === norm
-    );
-    return match || String(val).trim();
-  };
-
   const casoOpLimpio = useMemo(() => {
     const raw = String(caso?.casoOp || '').trim();
     if (!raw || raw === '-' || raw.toLowerCase() === 'sin caso op' || raw.toLowerCase() === 'null' || raw.startsWith('TEMP_') || raw.startsWith('SIN_OP_') || raw.includes('_r')) {
@@ -63,6 +57,8 @@ export default function ModalDetalleCaso({
     }
     return raw;
   }, [caso]);
+
+  const integracionInicial = String(caso?.integracion || '').trim() || 'Datalive';
 
   const [form, setForm] = useState(() => ({
     id: caso?.id || caso?.casoOp || '',
@@ -72,10 +68,10 @@ export default function ModalDetalleCaso({
     tienda: caso?.tienda || '',
     pais: caso?.pais || 'Argentina',
     kam: caso?.kam || '',
-    integracion: caso?.integracion || 'Datalive',
-    sponsorship: caso?.sponsorship || obtenerSponsorship(caso?.integracion || 'Datalive'),
-    descuentosBajoEstructuraSponsorship: caso?.descuentosBajoEstructuraSponsorship || obtenerSponsorship(caso?.integracion || 'Datalive'),
-    oportunidad: resolverOportunidad(caso?.oportunidad),
+    integracion: integracionInicial,
+    sponsorship: caso?.sponsorship || obtenerSponsorship(integracionInicial),
+    descuentosBajoEstructuraSponsorship: caso?.descuentosBajoEstructuraSponsorship || obtenerSponsorship(integracionInicial),
+    oportunidad: resolverOportunidad(caso?.oportunidad, oportunidades),
     asset: caso?.asset || 'Integración',
     propietarioOportunidad: caso?.propietarioOportunidad || nombreUsuarioAutenticado || '',
     propietarioTicket: caso?.propietarioTicket || caso?.agente || nombreUsuarioAutenticado || '',
@@ -112,6 +108,8 @@ export default function ModalDetalleCaso({
 
   useEffect(() => {
     if (caso) {
+      const intLimpia = String(caso.integracion || '').trim();
+      const opLimpia = resolverOportunidad(caso.oportunidad, oportunidades);
       setForm(prev => ({
         ...prev,
         ...caso,
@@ -120,13 +118,29 @@ export default function ModalDetalleCaso({
         casoOp: casoOpLimpio === 'Sin caso OP' ? '' : casoOpLimpio,
         vendorId: caso.vendor_id || caso.vendorId || '',
         tienda: caso.tienda || '',
+        integracion: intLimpia || prev.integracion || 'Datalive',
+        sponsorship: caso.sponsorship || obtenerSponsorship(intLimpia || prev.integracion || 'Datalive'),
+        descuentosBajoEstructuraSponsorship: caso.descuentosBajoEstructuraSponsorship || obtenerSponsorship(intLimpia || prev.integracion || 'Datalive'),
+        oportunidad: opLimpia,
         pushKamPos: esPushKamRealizado(caso.pushKamPos),
         pushKamCat: esPushKamRealizado(caso.pushKamCat),
         respuestaPos: normalizarRespuesta(caso.respuestaPos),
         respuestaCat: normalizarRespuesta(caso.respuestaCat)
       }));
     }
-  }, [caso, casoOpLimpio]);
+  }, [caso, casoOpLimpio, oportunidades]);
+
+  const listaIntegracionesFinal = useMemo(() => {
+    const base = Array.isArray(integraciones) && integraciones.length > 0 
+      ? integraciones 
+      : LISTA_INTEGRACIONES_OFICIALES;
+    const lista = [...base];
+    const actual = String(form.integracion || caso?.integracion || '').trim();
+    if (actual && !lista.some(i => i.toLowerCase().trim() === actual.toLowerCase().trim())) {
+      lista.unshift(actual);
+    }
+    return Array.from(new Set(lista));
+  }, [integraciones, form.integracion, caso]);
 
   // Análisis de alertas de Push y SLA para badge compacto
   const alertas = analizarAlertasCaso(form);
@@ -212,7 +226,9 @@ export default function ModalDetalleCaso({
       tienda: form.tienda,
       pais: form.pais,
       kam: form.kam,
-      integracion: form.integracion
+      integracion: form.integracion,
+      oportunidad: form.oportunidad,
+      asset: form.asset
     });
     alCerrar();
   };
@@ -386,28 +402,49 @@ export default function ModalDetalleCaso({
                     Sponsorship: {form.sponsorship || 'NO'}
                   </span>
                 </div>
-                <select 
-                  name="integracion" 
-                  value={form.integracion} 
-                  onChange={manejarCambio}
-                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
-                >
-                  <option value="">Seleccione integración...</option>
-                  {LISTA_INTEGRACIONES_OFICIALES.map(i => <option key={i} value={i}>{i}</option>)}
-                </select>
+                <SearchableSelect
+                  name="integracion"
+                  value={form.integracion}
+                  onChange={(val) => {
+                    const spon = obtenerSponsorship(val);
+                    setForm(prev => {
+                      const cambios = { 
+                        integracion: val, 
+                        sponsorship: spon, 
+                        descuentosBajoEstructuraSponsorship: spon 
+                      };
+                      const procesado = procesarActualizacionCaso(prev, cambios);
+                      return { ...prev, ...procesado, ...cambios, integracion: val };
+                    });
+                    setCambioDetectado(true);
+                  }}
+                  options={listaIntegracionesFinal.map(i => ({
+                    label: i,
+                    value: i,
+                    badge: obtenerSponsorship(i)
+                  }))}
+                  placeholder="Buscar integración..."
+                  searchPlaceholder="Escribe para buscar integración..."
+                />
               </div>
 
               <div>
                 <label className="text-gray-400 block mb-1 font-medium">Oportunidad</label>
-                <select 
-                  name="oportunidad" 
-                  value={form.oportunidad} 
-                  onChange={manejarCambio}
-                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
-                >
-                  <option value="">Seleccione oportunidad...</option>
-                  {listaOportunidadesDisponibles.map(op => <option key={op} value={op}>{op}</option>)}
-                </select>
+                <SearchableSelect
+                  name="oportunidad"
+                  value={resolverOportunidad(form.oportunidad, listaOportunidadesDisponibles)}
+                  onChange={(val) => {
+                    setForm(prev => {
+                      const cambios = { oportunidad: val };
+                      const procesado = procesarActualizacionCaso(prev, cambios);
+                      return { ...prev, ...procesado, ...cambios, oportunidad: val };
+                    });
+                    setCambioDetectado(true);
+                  }}
+                  options={listaOportunidadesDisponibles}
+                  placeholder="Buscar oportunidad..."
+                  searchPlaceholder="Filtrar oportunidad..."
+                />
               </div>
 
               <div>

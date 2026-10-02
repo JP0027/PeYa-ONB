@@ -67,14 +67,16 @@ export default function TLDashboard({
       const tieneInicioPos = Boolean(c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-');
       const tienePushPos = Boolean(c.fechaPushPos && c.fechaPushPos !== 'S/V' && c.fechaPushPos !== '-');
       const respNoPos = normalizarRespuesta(c.respuestaPos) === 'No';
-      const kamPosHecho = esPushKamRealizado(c.pushKamPos);
-      const faltaKamPos = esActivo && tieneInicioPos && tienePushPos && respNoPos && !kamPosHecho;
+      const kamPosHecho = tieneInicioPos && tienePushPos && esPushKamRealizado(c.pushKamPos);
+      const faltaKamPos = esActivo && tieneInicioPos && tienePushPos && respNoPos && !esPushKamRealizado(c.pushKamPos);
 
       const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
       const tienePushCat = Boolean(c.fechaPushCat && c.fechaPushCat !== 'S/V' && c.fechaPushCat !== '-');
       const respNoCat = normalizarRespuesta(c.respuestaCat) === 'No';
-      const kamCatHecho = esPushKamRealizado(c.pushKamCat);
-      const faltaKamCat = esActivo && tieneInicioCat && tienePushCat && respNoCat && !kamCatHecho;
+      const kamCatHecho = tieneInicioCat && tienePushCat && esPushKamRealizado(c.pushKamCat);
+      const faltaKamCat = esActivo && tieneInicioCat && tienePushCat && respNoCat && !esPushKamRealizado(c.pushKamCat);
+
+      const tieneSeguimientoAplicable = tieneInicioPos || tieneInicioCat;
 
       const horas = alertas.horasTranscurridas || c.horasSLA || 0;
       const rangoStr = String(alertas.rangoSla || c.rangoSlaOp || '').toLowerCase();
@@ -98,6 +100,7 @@ export default function TLDashboard({
         agenteACargo: normalizedAgent,
         colorClass: alertas.colorClass || 'bg-gray-800',
         esActivo,
+        tieneSeguimientoAplicable,
         faltaKamPos,
         faltaKamCat,
         kamPosHecho,
@@ -198,17 +201,9 @@ export default function TLDashboard({
 
   const ejecutarPushSegunSeguimientoActivo = (c: any) => {
     if (!onRegistrarPush) return;
-    if (c.faltaKamPos) {
+    if (c.faltaKamPos || c.alertas?.requierePushKamPos) {
       onRegistrarPush(c, 'kam_pos');
-    } else if (c.faltaKamCat) {
-      onRegistrarPush(c, 'kam_cat');
-    } else if (c.alertas?.requierePushPos) {
-      onRegistrarPush(c, 'pos');
-    } else if (c.alertas?.requierePushCat) {
-      onRegistrarPush(c, 'cat');
-    } else if (c.alertas?.requierePushKamPos) {
-      onRegistrarPush(c, 'kam_pos');
-    } else if (c.alertas?.requierePushKamCat) {
+    } else if (c.faltaKamCat || c.alertas?.requierePushKamCat) {
       onRegistrarPush(c, 'kam_cat');
     }
   };
@@ -393,7 +388,7 @@ export default function TLDashboard({
                     <th className="py-2.5 px-3">Agente</th>
                     <th className="py-2.5 px-3">Etapa</th>
                     <th className="py-2.5 px-3">SLA (Rango OP)</th>
-                    <th className="py-2.5 px-3">Push / Seguimiento</th>
+                    <th className="py-2.5 px-3">Push KAM</th>
                     <th className="py-2.5 px-3 text-center">Acciones</th>
                   </tr>
                 </thead>
@@ -408,9 +403,7 @@ export default function TLDashboard({
                       String(c.vendorId || c.vendor_id) === String(casoResaltadoId)
                     );
 
-                    const tieneAccionPush = Boolean(
-                      c.faltaKamPos || c.faltaKamCat || c.alertas?.requierePushPos || c.alertas?.requierePushCat
-                    );
+                    const tieneAccionPush = Boolean(c.faltaKamPos || c.faltaKamCat);
 
                     return (
                       <tr 
@@ -463,51 +456,48 @@ export default function TLDashboard({
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="flex flex-col gap-1 items-start">
-                            {/* Push KAM Estado */}
-                            {c.faltaKamPos ? (
-                              <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1">
-                                <span>⚠️</span> Falta KAM POS
-                              </span>
-                            ) : c.kamPosHecho && esPushKamRealizado(c.pushKamPos) ? (
-                              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM POS registrado">
-                                <span>✅</span> KAM POS
-                              </span>
-                            ) : null}
+                            {!c.tieneSeguimientoAplicable ? (
+                              <span className="text-[10px] text-gray-500 font-mono" title="Etapa sin seguimiento de Push POS/Catálogo (S/V)">No aplica (S/V)</span>
+                            ) : (
+                              <>
+                                {/* Push KAM Estado */}
+                                {c.faltaKamPos ? (
+                                  <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1" title="Requiere Push KAM POS (>24h y respuesta NO)">
+                                    <span>⚠️</span> Falta KAM POS
+                                  </span>
+                                ) : c.kamPosHecho ? (
+                                  <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM POS registrado">
+                                    <span>✅</span> KAM POS
+                                  </span>
+                                ) : null}
 
-                            {c.faltaKamCat ? (
-                              <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1">
-                                <span>⚠️</span> Falta KAM Cat
-                              </span>
-                            ) : c.kamCatHecho && esPushKamRealizado(c.pushKamCat) ? (
-                              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM Catálogo registrado">
-                                <span>✅</span> KAM Cat
-                              </span>
-                            ) : null}
+                                {c.faltaKamCat ? (
+                                  <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1" title="Requiere Push KAM Catálogo (>24h y respuesta NO)">
+                                    <span>⚠️</span> Falta KAM Cat
+                                  </span>
+                                ) : c.kamCatHecho ? (
+                                  <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM Catálogo registrado">
+                                    <span>✅</span> KAM Cat
+                                  </span>
+                                ) : null}
 
-                            {/* Push Operativo Estado */}
-                            {c.alertas?.requierePushPos ? (
-                              <span className="text-[10px] text-amber-400">🔔 Push POS req.</span>
-                            ) : c.fechaPushPos && c.fechaPushPos !== '-' && c.fechaPushPos !== 'S/V' && (
-                              <span className="text-[10px] text-gray-400 font-mono">POS: {c.fechaPushPos.split(' ')[0]}</span>
-                            )}
-
-                            {c.alertas?.requierePushCat ? (
-                              <span className="text-[10px] text-pink-400">📦 Push Cat req.</span>
-                            ) : c.fechaPushCat && c.fechaPushCat !== '-' && c.fechaPushCat !== 'S/V' && (
-                              <span className="text-[10px] text-gray-400 font-mono">Cat: {c.fechaPushCat.split(' ')[0]}</span>
-                            )}
-
-                            {!c.faltaKamPos && !c.faltaKamCat && !c.alertas?.requierePushPos && !c.alertas?.requierePushCat && (
-                              <span className="text-[10px] text-emerald-400 font-medium">✅ Al día</span>
+                                {!c.faltaKamPos && !c.faltaKamCat && (
+                                  (c.kamPosHecho || c.kamCatHecho) ? (
+                                    <span className="text-[10px] text-emerald-400 font-medium">✅ Al día</span>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-500 font-medium">Sin req. KAM</span>
+                                  )
+                                )}
+                              </>
                             )}
                           </div>
                         </td>
 
-                        {/* Columna Acciones con botón independiente por seguimiento que requiera push */}
+                        {/* Columna Acciones con botón exclusivo Push KAM para TL / Supervisor */}
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-1.5 justify-center flex-wrap">
-                            {/* Botón Push POS API */}
-                            {c.faltaKamPos ? (
+                            {/* Botón Push KAM POS API (exclusivo TL / Supervisor) */}
+                            {c.faltaKamPos && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -520,23 +510,10 @@ export default function TLDashboard({
                                 <span>⚡</span>
                                 <span>Push KAM POS</span>
                               </button>
-                            ) : c.alertas?.requierePushPos ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (onRegistrarPush) onRegistrarPush(c, 'pos');
-                                }}
-                                className="bg-amber-600/90 hover:bg-amber-500 text-white font-semibold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
-                                title="Hacer Push de seguimiento para POS API"
-                              >
-                                <span>🔔</span>
-                                <span>Push POS</span>
-                              </button>
-                            ) : null}
+                            )}
 
-                            {/* Botón Push Catálogo */}
-                            {c.faltaKamCat ? (
+                            {/* Botón Push KAM Catálogo (exclusivo TL / Supervisor) */}
+                            {c.faltaKamCat && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -549,23 +526,10 @@ export default function TLDashboard({
                                 <span>⚡</span>
                                 <span>Push KAM Cat</span>
                               </button>
-                            ) : c.alertas?.requierePushCat ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (onRegistrarPush) onRegistrarPush(c, 'cat');
-                                }}
-                                className="bg-pink-600/90 hover:bg-pink-500 text-white font-semibold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
-                                title="Hacer Push de seguimiento para Catálogo"
-                              >
-                                <span>📦</span>
-                                <span>Push Cat</span>
-                              </button>
-                            ) : null}
+                            )}
 
-                            {/* Si no requiere ningún push, botón Ver */}
-                            {!c.faltaKamPos && !c.faltaKamCat && !c.alertas?.requierePushPos && !c.alertas?.requierePushCat && (
+                            {/* Si no requiere Push KAM, botón Ver */}
+                            {!c.faltaKamPos && !c.faltaKamCat && (
                               <button
                                 type="button"
                                 onClick={(e) => {

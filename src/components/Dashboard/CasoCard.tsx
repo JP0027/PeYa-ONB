@@ -168,7 +168,14 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
         {caso.propietarioTicket || caso.agente}
       </td>
       <td className="p-3">
-        <button className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-700 transition">
+        <button 
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(caso);
+          }}
+          className="text-[10px] bg-pink-950/40 hover:bg-pink-900/60 text-pink-300 hover:text-white px-2.5 py-1 rounded border border-pink-700/60 transition cursor-pointer font-medium"
+        >
           Gestionar
         </button>
       </td>

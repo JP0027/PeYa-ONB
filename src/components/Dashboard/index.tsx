@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from "firebase/firestore";
-import { db } from '../../firebase';
 import { isAgentMatch, identificarMiembro } from '../../utils/agentMatching';
 import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA } from '../../utils/userPermissions';
-import { procesarActualizacionCaso, analizarAlertasCaso, limpiarTextoEtapa, formatearFechaHora, esPushKamRealizado, normalizarRespuesta } from '../../utils/onboardingRules';
+import { 
+  procesarActualizacionCaso, 
+  analizarAlertasCaso, 
+  limpiarTextoEtapa, 
+  formatearFechaHora, 
+  esPushKamRealizado, 
+  normalizarRespuesta,
+  resolverOportunidad 
+} from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
 
 import { consultarCasosGoogleSheets, actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
-import { eliminarCasoFirestore, guardarCasosEnFirestore } from '../../services/firebaseCasosService';
 
 import SearchBar from './SearchBar';
 import CasoForm from './CasoForm';
@@ -22,6 +27,8 @@ import AdminCatalogoView from '../Admin/AdminCatalogoView';
 import GestionUsuariosView from '../Admin/GestionUsuariosView';
 import PushAlertContainer, { AlertaPush } from './PushAlertToast';
 import { suscribirCatalogos, CATALOGOS_POR_DEFECTO, consultarCatalogosGoogleSheets, guardarCatalogosEnFirestore } from '../../services/catalogoService';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export interface DashboardProps {
   role?: string;
@@ -267,7 +274,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   useEffect(() => {
     if (!email) return;
     const correoLimpio = String(email).trim().toLowerCase();
-    const unsubscribe = onSnapshot(doc(db, 'usuarios_permitidos', correoLimpio), (docSnap) => {
+    const unsubscribe = onSnapshot(doc(db, 'usuarios_permitidos', correoLimpio), (docSnap: any) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         let tabs = Array.isArray(data.pestanas) && data.pestanas.length > 0 
@@ -283,7 +290,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         const porDefecto = obtenerPestanasPorDefecto(role);
         setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
       }
-    }, (error) => {
+    }, (error: any) => {
       console.warn("No se pudo obtener permisos específicos de usuario desde Firestore:", error);
       const porDefecto = obtenerPestanasPorDefecto(role);
       setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
@@ -302,7 +309,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, [pestanasPermitidas, activeTab, puedeVerTab, setActiveTab]);
 
-  const [casosFirestore, setCasosFirestore] = useState<any[]>([]);
   const [casosSheets, setCasosSheets] = useState<any[]>(() => {
     try {
       const local = localStorage.getItem('PEDA_CASOS_LOCAL');
@@ -397,7 +403,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     const ahora = formatearFechaHora(new Date());
     return {
       casoOp: '', vendorId: '', tienda: '', pais: 'Argentina', kam: '',
-      integracion: 'Datalive', oportunidad: 'Franchise Extensión', asset: 'Integración',
+      integracion: 'Datalive', oportunidad: 'Franchise Extension', asset: 'Integración',
       propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
       casoSeguimiento: '', tieneCasoInicio: 'Si', comentarios: '', estado: 'En progreso',
       etapa: 'Sin integración confirmada', 
@@ -452,14 +458,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         setCasosSheets(dataCasos);
         setUltimaSync(new Date());
         try { localStorage.setItem('PEDA_ULTIMA_SYNC', new Date().toISOString()); } catch (_) {}
-
-        // Sincronizar casos activos en Firestore para que Firebase siempre tenga la data real de Sheets
-        const casosActivosParaSync = dataCasos.filter((c: any) => c.esActivo);
-        if (casosActivosParaSync.length > 0) {
-          guardarCasosEnFirestore(casosActivosParaSync).catch(errSync => {
-            console.warn('[Dashboard] Sincronización silenciosa con Firestore:', errSync);
-          });
-        }
       }
 
       const dataCatalogos = await consultarCatalogosGoogleSheets();
@@ -493,92 +491,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     cargarCasosGoogleSheets(true);
   }, []);
 
-  useEffect(() => {
-    const casosRef = collection(db, "casos");
-    const unsubscribe = onSnapshot(casosRef, (snapshot) => {
-      const nuevosCasos = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-      casosCountRef.current = nuevosCasos.length;
-      setCasosFirestore(nuevosCasos);
-      setUltimaSync(new Date());
-      try { localStorage.setItem('PEDA_ULTIMA_SYNC', new Date().toISOString()); } catch (_) {}
-    }, (err) => {
-      console.warn("Firestore subscription warning:", err);
-    });
-    return () => unsubscribe();
-  }, []);
-
+  // La única fuente de verdad oficial de casos es Google Sheets
   const casosTotales = useMemo(() => {
-    if (!casosSheets || casosSheets.length === 0) return casosFirestore;
-    if (!casosFirestore || casosFirestore.length === 0) return casosSheets;
-
-    const firestoreMap = new Map<string, any>();
-    casosFirestore.forEach(c => {
-      const docId = String(c.id || '').trim();
-      const op = String(c.casoOp || '').trim();
-      if (docId) firestoreMap.set(docId, c);
-      if (op && !firestoreMap.has(op)) firestoreMap.set(op, c);
-    });
-
-    return casosSheets.map(s => {
-      const idKey = String(s.id || '').trim();
-      const opKey = String(s.casoOp || '').trim();
-      const filaKey = s.filaNumero ? `${opKey || 'caso'}_${s.filaNumero}` : '';
-      
-      const fCaso = (idKey && firestoreMap.get(idKey)) || 
-                    (filaKey && firestoreMap.get(filaKey)) || 
-                    (opKey && firestoreMap.get(opKey));
-
-      if (!fCaso) return s;
-
-      const sheetsCerrado = !s.esActivo || String(s.estado || '').toLowerCase().match(/cerrad|fallid|cancel/);
-      const sheetsSinOp = String(s.estado || '').toLowerCase().includes('sin oportunidad');
-
-      const pushKamPosFinal = (s.pushKamPos !== undefined && s.pushKamPos !== '') 
-        ? s.pushKamPos 
-        : (fCaso.pushKamPos !== undefined ? fCaso.pushKamPos : 'FALSE');
-
-      const pushKamCatFinal = (s.pushKamCat !== undefined && s.pushKamCat !== '') 
-        ? s.pushKamCat 
-        : (fCaso.pushKamCat !== undefined ? fCaso.pushKamCat : 'FALSE');
-
-      let respuestaPosFinal = (s.respuestaPos !== undefined && s.respuestaPos !== '') 
-        ? s.respuestaPos 
-        : (fCaso.respuestaPos || '');
-
-      let respuestaCatFinal = (s.respuestaCat !== undefined && s.respuestaCat !== '') 
-        ? s.respuestaCat 
-        : (fCaso.respuestaCat || '');
-
-      // Sanear: si no hay fecha de push y la etapa está en espera, respuesta no puede ser 'No'
-      const etapaMergeLower = String(s.etapa || fCaso.etapa || '').toLowerCase();
-      const esEsperaPos = etapaMergeLower.includes('sin integración confirmada') || etapaMergeLower.includes('sin integracion confirmada') || etapaMergeLower.includes('en proceso de seteo');
-      const tienePushPos = Boolean((s.fechaPushPos && s.fechaPushPos !== 'S/V' && s.fechaPushPos !== '-') || (fCaso.fechaPushPos && fCaso.fechaPushPos !== 'S/V' && fCaso.fechaPushPos !== '-'));
-      if (esEsperaPos && !tienePushPos && respuestaPosFinal === 'No') {
-        respuestaPosFinal = '';
-      }
-
-      const esEsperaCat = etapaMergeLower.includes('verificación de catálogo') || etapaMergeLower.includes('verificacion de catalogo') || etapaMergeLower.includes('carga de catálogo') || etapaMergeLower.includes('carga de catalogo');
-      const tienePushCat = Boolean((s.fechaPushCat && s.fechaPushCat !== 'S/V' && s.fechaPushCat !== '-') || (fCaso.fechaPushCat && fCaso.fechaPushCat !== 'S/V' && fCaso.fechaPushCat !== '-'));
-      if (esEsperaCat && !tienePushCat && respuestaCatFinal === 'No') {
-        respuestaCatFinal = '';
-      }
-
-      return {
-        ...s,
-        comentarios: fCaso.comentarios || s.comentarios,
-        fechaPushPos: (s.fechaPushPos && s.fechaPushPos !== 'S/V' && s.fechaPushPos !== '-') ? s.fechaPushPos : (fCaso.fechaPushPos || s.fechaPushPos),
-        fechaPushCat: (s.fechaPushCat && s.fechaPushCat !== 'S/V' && s.fechaPushCat !== '-') ? s.fechaPushCat : (fCaso.fechaPushCat || s.fechaPushCat),
-        pushKamPos: pushKamPosFinal,
-        pushKamCat: pushKamCatFinal,
-        respuestaPos: respuestaPosFinal,
-        respuestaCat: respuestaCatFinal,
-        freezePos: (s.freezePos && s.freezePos !== '-') ? s.freezePos : (fCaso.freezePos || s.freezePos),
-        freezeCat: (s.freezeCat && s.freezeCat !== '-') ? s.freezeCat : (fCaso.freezeCat || s.freezeCat),
-        estado: sheetsCerrado ? s.estado : (sheetsSinOp ? s.estado : (fCaso.estado || s.estado)),
-        esActivo: sheetsCerrado ? false : s.esActivo
-      };
-    });
-  }, [casosFirestore, casosSheets]);
+    return casosSheets;
+  }, [casosSheets]);
 
   const sesionUsuarioKey = useMemo(() => `${email || ''}_${nombreUsuarioAutenticado || ''}`, [email, nombreUsuarioAutenticado]);
   const alertaLoginEjecutadaRef = useRef<boolean>(false);
@@ -750,7 +666,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         pais: d.pais || 'Argentina', 
         kam: d.kam || prev.kam, 
         integracion: d.integracion || 'Datalive',
-        oportunidad: d.oportunidad || prev.oportunidad,
+        oportunidad: resolverOportunidad(d.oportunidad, catalogosDinamicos.oportunidades),
         asset: d.asset || prev.asset,
         sla_inicio: d.sla_inicio || d.fechaInicioSeguimientoOP || '',
         etapa: d.etapa ? limpiarTextoEtapa(d.etapa, d.comentarios, d.integracion) : 'Sin integración confirmada'
@@ -761,6 +677,30 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       mostrarNotificacion(`Sin antecedentes previos.`, "info");
     }
     setCargandoBusqueda(false);
+  };
+
+  const limpiarFormularioNuevoCaso = () => {
+    const ahora = formatearFechaHora(new Date());
+    setFormulario({
+      casoOp: '',
+      vendorId: '',
+      tienda: '',
+      pais: 'Argentina',
+      kam: '',
+      integracion: 'Datalive',
+      oportunidad: 'Franchise Extension',
+      asset: 'Integración',
+      propietarioOportunidad: nombreUsuarioAutenticado,
+      propietarioTicket: nombreUsuarioAutenticado,
+      casoSeguimiento: '',
+      tieneCasoInicio: 'Si',
+      comentarios: '',
+      estado: 'En progreso',
+      etapa: 'Sin integración confirmada',
+      fechaCreacion: ahora,
+      sla_inicio: ahora
+    });
+    mostrarNotificacion('Formulario restablecido.', 'info');
   };
 
   const manejarCambioForm = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -799,16 +739,16 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       }
 
       if (!proximaFila) {
-        // En la hoja: Fila 1 y 2 encabezados. Última fila ocupada = recuentoCasos + 2.
-        // La nueva fila a insertar = recuentoCasos + 3
         const recuentoCasos = casosSheets.length;
         proximaFila = recuentoCasos + 3;
       }
 
       const docId = esOpValido ? opInput : `SIN_OP_${formulario.vendorId || 'caso'}_r${proximaFila}`;
+      const opResuelta = resolverOportunidad(formulario.oportunidad, catalogosDinamicos.oportunidades);
 
       const casoProcesado = procesarActualizacionCaso({}, {
         ...formulario, 
+        oportunidad: opResuelta,
         id: docId, 
         casoOp: casoOpFinal,
         vendor_id: formulario.vendorId, 
@@ -821,7 +761,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         actualizadoEn: new Date().toISOString()
       });
 
-      // 2. Guardar y sincronizar con Google Sheets
+      // 2. Guardar y sincronizar directamente con Google Sheets
       const sheetsRes = await actualizarCasoEnSheets({ ...casoProcesado, esNuevo: true }).catch(err => {
         console.warn('Sheets sync notice:', err);
         return null;
@@ -835,26 +775,30 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       // 3. Actualizar estado local
       setCasosSheets(prev => [casoFinalConFila, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
-      setCasosFirestore(prev => [casoFinalConFila, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
-
-      // 4. Respaldar en Firestore en segundo plano
-      try {
-        const casoRef = doc(db, "casos", docId);
-        setDoc(casoRef, casoFinalConFila, { merge: true }).catch(() => {});
-      } catch (_) {}
 
       mostrarNotificacion(`Caso registrado exitosamente en fila #${filaConfirmada}`, "success");
+      
+      // Limpiar formulario completo manteniendo propietario y fechas actualizadas
       const nuevoAhora = formatearFechaHora(new Date());
-      setFormulario(prev => ({ 
-        ...prev, 
+      setFormulario({
         casoOp: '', 
         vendorId: '', 
         tienda: '', 
+        pais: 'Argentina', 
+        kam: '',
+        integracion: 'Datalive', 
+        oportunidad: 'Franchise Extension', 
+        asset: 'Integración',
+        propietarioOportunidad: nombreUsuarioAutenticado, 
+        propietarioTicket: nombreUsuarioAutenticado,
+        casoSeguimiento: '', 
+        tieneCasoInicio: 'Si', 
         comentarios: '', 
-        casoSeguimiento: '',
+        estado: 'En progreso',
+        etapa: 'Sin integración confirmada', 
         fechaCreacion: nuevoAhora,
         sla_inicio: nuevoAhora
-      }));
+      });
     } catch (err: any) {
       console.error("Error al registrar caso:", err);
       mostrarNotificacion(`❌ Error al registrar caso: ${err.message}`, "error");
@@ -864,7 +808,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   };
 
   const actualizarCasoExistente = async (casoActualizado: any) => {
-    setCargandoOperacion('Guardando cambios en Google Sheets y Firebase...');
+    setCargandoOperacion('Guardando cambios en Google Sheets...');
     try {
       const opInput = String(casoActualizado.casoOp || '').trim();
       const esOpValido = opInput && 
@@ -885,8 +829,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         (esOpValido && String(c.casoOp).trim() === opInput)
       ) || {};
 
+      const opResuelta = resolverOportunidad(casoActualizado.oportunidad, catalogosDinamicos.oportunidades);
+
       const casoFinal = procesarActualizacionCaso(casoPrevio, {
         ...casoActualizado,
+        oportunidad: opResuelta,
         esNuevo: false,
         casoOp: casoOpFinal
       });
@@ -902,7 +849,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         casoFinal.filaNumero = filaNum;
       }
 
-      // Si tiene OP real usarlo como ID de Firestore, sino conservar el id previo o generar id SIN_OP
       const nuevoDocId = esOpValido ? opInput : (idPrevio || `SIN_OP_${casoFinal.vendorId || 'caso'}_r${filaNum || 'edit'}`);
       casoFinal.id = nuevoDocId;
 
@@ -913,26 +859,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         (nuevoDocId && String(c.id).trim() === nuevoDocId) ||
         (esOpValido && String(c.casoOp).trim() === opInput);
 
-      setCasosFirestore(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoFinal } : c));
       setCasosSheets(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoFinal } : c));
 
-      // 2. Guardar y sincronizar con Google Sheets
+      // 2. Guardar y sincronizar directamente con Google Sheets
       await actualizarCasoEnSheets({ ...casoFinal, esNuevo: false }).catch(err => {
         console.warn('Sheets sync notice:', err);
       });
-
-      // 3. Respaldar en Firestore en segundo plano
-      try {
-        const casoRef = doc(db, "casos", nuevoDocId);
-        setDoc(casoRef, { ...casoFinal, id: nuevoDocId, actualizadoEn: new Date().toISOString() }, { merge: true }).catch(() => {});
-        
-        // Si antes tenía un docId temporal y ahora tiene OP real, limpiar el doc temporal viejo
-        if (idPrevio && idPrevio !== nuevoDocId) {
-          try {
-            await deleteDoc(doc(db, "casos", idPrevio));
-          } catch (_) {}
-        }
-      } catch (_) {}
 
       setCasoSeleccionadoModal(casoFinal);
       mostrarNotificacion('Actualizado', "success");
@@ -958,18 +890,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         console.warn('Error llamando eliminarCasoGoogleSheets:', sheetsErr);
       }
 
-      // 2. Eliminar en Firebase Firestore
-      await eliminarCasoFirestore(targetId);
-      if (caso.casoOp && String(caso.casoOp).trim() !== targetId) {
-        await eliminarCasoFirestore(String(caso.casoOp).trim());
-      }
-      if (caso.vendorId && String(caso.vendorId).trim() !== targetId && String(caso.vendorId).trim() !== String(caso.casoOp || '').trim()) {
-        await eliminarCasoFirestore(String(caso.vendorId).trim());
-      }
-
-      // 3. Actualizar estados locales de casos
+      // 2. Actualizar estado local de casos
       setCasosSheets(prev => prev.filter(c => String(c.id).trim() !== targetId && String(c.casoOp || '').trim() !== String(caso.casoOp || '').trim()));
-      setCasosFirestore(prev => prev.filter(c => String(c.id).trim() !== targetId && String(c.casoOp || '').trim() !== String(caso.casoOp || '').trim()));
 
       mostrarNotificacion('Actualizado', 'success');
       return true;
@@ -1010,21 +932,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           ? { ...c, ...cambios }
           : c
       ));
-      setCasosFirestore(prev => prev.map(c => 
-        (String(c.id).trim() === idBuscado || String(c.casoOp).trim() === idBuscado || (caso.casoOp && String(c.casoOp).trim() === String(caso.casoOp).trim()))
-          ? { ...c, ...cambios }
-          : c
-      ));
-      
-      // 2. Guardar en Firebase Firestore
-      const casoRef = doc(db, "casos", idBuscado);
-      await setDoc(casoRef, { 
-        ...casoActualizado, 
-        id: idBuscado, 
-        actualizadoEn: new Date().toISOString() 
-      }, { merge: true });
 
-      // 3. Sincronizar con Backend y Google Sheets (actualiza solo la celda específica por casoOp)
+      // 2. Sincronizar directamente con Backend y Google Sheets
       try {
         const resPush = await fetch('/api/sheets/registrar-push', {
           method: 'POST',
@@ -1061,6 +970,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   };
 
   const onReplicarTienda = (datosTienda: any) => {
+    const opResuelta = resolverOportunidad(datosTienda.oportunidad, catalogosDinamicos.oportunidades);
     setFormulario(prev => ({
       ...prev, 
       casoOp: '', 
@@ -1069,7 +979,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       pais: datosTienda.pais || prev.pais,
       kam: datosTienda.kam || prev.kam, 
       integracion: datosTienda.integracion || prev.integracion,
-      oportunidad: datosTienda.oportunidad || prev.oportunidad,
+      oportunidad: opResuelta,
       asset: datosTienda.asset || prev.asset
     }));
     setActiveTab('nuevo');
@@ -1341,6 +1251,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   formulario={formulario} 
                   onChange={manejarCambioForm} 
                   onGuardar={guardarNuevoCaso} 
+                  onLimpiar={limpiarFormularioNuevoCaso}
                   nombreUsuario={nombreUsuarioAutenticado} 
                   puedeRegistrar={puedeRegistrar} 
                   integraciones={listaIntegracionesNombres}
@@ -1524,6 +1435,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               nombreUsuarioAutenticado={nombreUsuarioAutenticado}
               mostrarNotificacion={mostrarNotificacion}
               rolesDisponibles={catalogosDinamicos?.roles}
+              rolUsuario={role}
             />
           )}
         </div>
@@ -1552,6 +1464,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           agentes={catalogosDinamicos.agentes}
           paises={catalogosDinamicos.paises}
           assets={catalogosDinamicos.assets}
+          integraciones={listaIntegracionesNombres}
         />
       )}
     </div>
