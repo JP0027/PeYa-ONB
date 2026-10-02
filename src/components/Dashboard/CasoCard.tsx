@@ -1,4 +1,5 @@
 import React from 'react';
+import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
 
 export interface CasoAlertas {
   requierePushPos?: boolean;
@@ -52,15 +53,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
     >
       <td className="p-3 text-xs">
         {(() => {
-          const opRaw = String(caso.casoOp || '').trim();
-          const esOpValido = opRaw && 
-            opRaw !== '-' && 
-            opRaw !== 'S/OP' && 
-            opRaw.toLowerCase() !== 'sin caso op' && 
-            !opRaw.startsWith('TEMP_') && 
-            !opRaw.startsWith('SIN_OP_') && 
-            !opRaw.includes('_r');
-          const textoOp = esOpValido ? opRaw : 'Sin caso OP';
+          const textoOp = obtenerTextoCasoOp(caso);
           return (
             <span className={`font-mono font-semibold ${textoOp === 'Sin caso OP' ? 'text-gray-500 italic' : 'text-pink-400'}`}>
               {textoOp}

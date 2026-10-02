@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { esEstadoActivoOficial } from '../data/catalogoOnboarding';
-import { analizarAlertasCaso, limpiarTextoEtapa } from '../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa, obtenerTextoCasoOp } from '../utils/onboardingRules';
 
 export interface HeroCareTLViewProps {
   casos?: any[];
@@ -125,7 +125,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
 
     const headers = ["N° Caso OP", "ID Local (Vendor)", "Tienda", "País", "Estado", "Etapa", "Horas SLA", "Agente a Cargo", "KAM"];
     const rows = criticos.map(c => [
-      `"${c.casoOp || c.id}"`,
+      `"${obtenerTextoCasoOp(c)}"`,
       `"${c.vendorId || ''}"`,
       `"${(c.tienda || '').replace(/"/g, '""')}"`,
       `"${c.pais || ''}"`,

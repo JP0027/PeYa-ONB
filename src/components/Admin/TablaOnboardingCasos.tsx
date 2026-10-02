@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
+import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
 
 export interface TablaOnboardingCasosProps {
   casos?: any[];
@@ -307,7 +308,7 @@ export default function TablaOnboardingCasos({
 
     const data = casosFiltrados.map((c, idx) => ({
       "N° Fila": c.filaNumero || idx + 1,
-      "Caso OP": c.casoOp || '',
+      "Caso OP": obtenerTextoCasoOp(c),
       "Vendor ID": c.vendorId || c.vendor_id || '',
       "Tienda": c.tienda || '',
       "País": c.pais || '',
@@ -569,15 +570,7 @@ export default function TablaOnboardingCasos({
                   const estLower = String(c.estado || '').toLowerCase();
                   const esCerrado = estLower.includes('cerrad') || estLower.includes('fallid') || estLower.includes('cancel');
                   const filaNumeroVisual = c.filaNumero || ((paginaSegura - 1) * casosPorPagina + idx + 1);
-                  const opRaw = String(c.casoOp || '').trim();
-                  const esOpValido = opRaw && 
-                    opRaw !== '-' && 
-                    opRaw !== 'S/OP' && 
-                    opRaw.toLowerCase() !== 'sin caso op' && 
-                    !opRaw.startsWith('TEMP_') && 
-                    !opRaw.startsWith('SIN_OP_') && 
-                    !opRaw.includes('_r');
-                  const textoOp = esOpValido ? opRaw : 'Sin caso OP';
+                  const textoOp = obtenerTextoCasoOp(c);
 
                   return (
                     <tr

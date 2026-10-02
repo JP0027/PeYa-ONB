@@ -21,6 +21,33 @@ export function esPushKamRealizado(valor: any): boolean {
 }
 
 /**
+ * Valida si un string de Caso OP corresponde a un número real generado en Salesforce
+ */
+export function esOpValido(opRaw?: string | null): boolean {
+  if (!opRaw) return false;
+  const str = String(opRaw).trim();
+  return Boolean(
+    str && 
+    str !== '-' && 
+    str !== 'S/OP' && 
+    str.toLowerCase() !== 'sin caso op' && 
+    str.toLowerCase() !== 'null' && 
+    !str.startsWith('TEMP_') && 
+    !str.startsWith('SIN_OP_') && 
+    !str.includes('_r')
+  );
+}
+
+/**
+ * Devuelve el N° Caso OP si es válido, o "Sin caso OP" para visualización y descarga de reportes
+ */
+export function obtenerTextoCasoOp(caso: any): string {
+  const opRaw = String(caso?.casoOp || '').trim();
+  if (esOpValido(opRaw)) return opRaw;
+  return 'Sin caso OP';
+}
+
+/**
  * Normaliza y formatea asegurando SIEMPRE Fecha y Hora en formato oficial: dd/mm/aaaa hh:mm
  */
 export function formatearFechaHora(fecha?: Date | string | number | null): string {

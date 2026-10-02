@@ -1,5 +1,6 @@
 import React from 'react';
 import * as XLSX from 'xlsx';
+import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
 
 export interface ReportDownloaderProps {
   casos: any[];
@@ -18,9 +19,9 @@ export default function ReportDownloader({ casos }: ReportDownloaderProps) {
     });
 
     const data = criticos.map(c => ({
-      "N° Caso OP": c.casoOp || c.id || '',
+      "N° Caso OP": obtenerTextoCasoOp(c),
       "Tienda": c.tienda || '',
-      "ID": c.vendorId || '',
+      "ID": c.vendorId || c.vendor_id || '',
       "KAM": c.kam || '',
       "Etapa del Onboarding": c.etapa || '',
       "Propietario de Oportunidad": c.propietarioOportunidad || '',

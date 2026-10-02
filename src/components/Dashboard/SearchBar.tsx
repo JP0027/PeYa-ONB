@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
 
 export interface SearchBarProps {
   onBuscar: (query: string) => void;
@@ -168,19 +169,11 @@ export default function SearchBar({
                     {/* PRIMER DATO: CASO OP PROMINENTE */}
                     <div className="flex flex-wrap items-center gap-2">
                       {(() => {
-                        const opRaw = String(r.casoOp || '').trim();
-                        const esOpValido = opRaw && 
-                          opRaw !== '-' && 
-                          opRaw !== 'S/OP' && 
-                          opRaw.toLowerCase() !== 'sin caso op' && 
-                          !opRaw.startsWith('TEMP_') && 
-                          !opRaw.startsWith('SIN_OP_') && 
-                          !opRaw.includes('_r');
-
-                        return esOpValido ? (
+                        const textoOp = obtenerTextoCasoOp(r);
+                        return textoOp !== 'Sin caso OP' ? (
                           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cyan-950/80 border border-cyan-600/80 text-cyan-300 font-mono font-black text-sm shadow-sm">
                             <span className="text-cyan-400 text-xs font-semibold">Caso OP:</span>
-                            <span>{opRaw}</span>
+                            <span>{textoOp}</span>
                           </div>
                         ) : (
                           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gray-900 border border-gray-700/80 text-gray-400 font-sans text-xs shadow-sm">
