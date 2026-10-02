@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut, User } from "firebase/auth";
-import { collection, query, where, getDocs } from "firebase/firestore"; 
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore"; 
 import { auth, provider, db } from './firebase';
 import Dashboard from './components/Dashboard/index';
 import { obtenerPerfilPorCorreo, RolUsuario } from './utils/userPermissions';
@@ -56,16 +56,29 @@ export default function App() {
       if (currentUser) {
         const emailLower = (currentUser.email || '').toLowerCase().trim();
 
-        // 1. Validar primero contra Firestore (usuarios_permitidos) para reflejar cambios dinámicos de los supervisores
+        // 1. Validar primero contra Firestore (usuarios_permitidos) buscando por ID directo o por campo correo
         try {
+          // Intento A: Documento directo por ID (correoLimpio)
+          const docRef = doc(db, "usuarios_permitidos", emailLower);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const userData: UserSession = {
+              email: currentUser.email,
+              displayName: data.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+            };
+            guardarSesion(userData, data.rol || 'Agente');
+            return;
+          }
+
+          // Intento B: Query por campo 'correo'
           const q = query(collection(db, "usuarios_permitidos"), where("correo", "==", emailLower));
           const querySnapshot = await getDocs(q);
-
           if (!querySnapshot.empty) {
             const data = querySnapshot.docs[0].data();
             const userData: UserSession = {
               email: currentUser.email,
-              displayName: currentUser.displayName || data.nombre || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+              displayName: data.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
             };
             guardarSesion(userData, data.rol || 'Agente');
             return;
@@ -74,24 +87,33 @@ export default function App() {
           console.warn("Consulta Firestore usuarios_permitidos falló:", err);
         }
 
-        // 2. Fallback a la lista blanca estática de PedidosYa
+        // 2. Fallback a la lista blanca oficial de PedidosYa
         if (currentUser.email) {
           const perfil = obtenerPerfilPorCorreo(currentUser.email);
           if (perfil) {
             const userData: UserSession = {
               email: currentUser.email,
-              displayName: currentUser.displayName || perfil.nombre
+              displayName: perfil.nombre || currentUser.displayName || currentUser.email.split('@')[0]
             };
+            // Guardar automáticamente en Firestore para persistencia
+            try {
+              await setDoc(doc(db, "usuarios_permitidos", emailLower), {
+                correo: emailLower,
+                nombre: perfil.nombre,
+                rol: perfil.rol,
+                pestanas: ['admin', 'inicio', 'nuevo', ...(perfil.rol.includes('Supervisor') ? ['tl', 'usuarios'] : [])],
+                actualizadoEn: new Date().toISOString()
+              }, { merge: true });
+            } catch (_) {}
+
             guardarSesion(userData, perfil.rol);
             return;
           }
         }
 
-        const sesionActiva = localStorage.getItem(LOCAL_SESSION_KEY);
-        if (!sesionActiva) {
-          await signOut(auth);
-          setError(`Acceso denegado. El correo ${currentUser.email} no está en la lista de usuarios permitidos.`);
-        }
+        await signOut(auth);
+        guardarSesion(null, null);
+        setError(`Acceso denegado. El correo ${currentUser.email} no se encuentra registrado en la base de usuarios de Firebase. Solicita a un supervisor que te dé de alta.`);
       } else {
         // Si no hay sesión en Firebase Auth, verificar si el usuario tiene sesión manual local activa
         try {
@@ -119,13 +141,26 @@ export default function App() {
 
         // 1. Validar primero contra Firestore (usuarios_permitidos)
         try {
+          // Intento A: Documento directo por ID
+          const docRef = doc(db, "usuarios_permitidos", emailLower);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            guardarSesion({
+              email,
+              displayName: data.nombre || result.user.displayName || email.split('@')[0]
+            }, data.rol || 'Agente');
+            return;
+          }
+
+          // Intento B: Query por campo 'correo'
           const q = query(collection(db, "usuarios_permitidos"), where("correo", "==", emailLower));
           const querySnapshot = await getDocs(q);
           if (!querySnapshot.empty) {
             const data = querySnapshot.docs[0].data();
             guardarSesion({
               email,
-              displayName: result.user.displayName || data.nombre || email.split('@')[0]
+              displayName: data.nombre || result.user.displayName || email.split('@')[0]
             }, data.rol || 'Agente');
             return;
           }
@@ -136,15 +171,26 @@ export default function App() {
         // 2. Fallback a la lista blanca oficial
         const perfil = obtenerPerfilPorCorreo(email);
         if (perfil) {
+          try {
+            await setDoc(doc(db, "usuarios_permitidos", emailLower), {
+              correo: emailLower,
+              nombre: perfil.nombre,
+              rol: perfil.rol,
+              pestanas: ['admin', 'inicio', 'nuevo', ...(perfil.rol.includes('Supervisor') ? ['tl', 'usuarios'] : [])],
+              actualizadoEn: new Date().toISOString()
+            }, { merge: true });
+          } catch (_) {}
+
           guardarSesion({
             email,
-            displayName: result.user.displayName || perfil.nombre
+            displayName: perfil.nombre || result.user.displayName || email.split('@')[0]
           }, perfil.rol);
           return;
         }
 
         await signOut(auth);
-        setError(`Acceso denegado. El correo ${email} no está en la lista de usuarios permitidos.`);
+        guardarSesion(null, null);
+        setError(`Acceso denegado. El correo ${email} no se encuentra registrado en la base de usuarios de Firebase. Solicita a un supervisor que te dé de alta.`);
       }
     } catch (err: any) {
       console.error("[Login Google]", err);

@@ -34,6 +34,7 @@ export interface CatalogosPorDefecto {
   etapas: string[];
   integraciones: IntegracionSponsorship[];
   agentes?: string[];
+  roles?: string[];
 }
 
 export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
@@ -42,6 +43,7 @@ export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
   assets: CATALOGOS_CACHE?.assets || [...LISTA_ASSETS],
   estados: CATALOGOS_CACHE?.estados || [...LISTA_ESTADOS],
   etapas: CATALOGOS_CACHE?.etapas || [...LISTA_ETAPAS],
+  roles: ['Agente', 'Supervisor', 'Supervisor / TL'],
   agentes: (CATALOGOS_CACHE?.agentes && CATALOGOS_CACHE.agentes.length > 0) ? CATALOGOS_CACHE.agentes : [
     'Prisila Leon',
     'Joel Tocas',
@@ -78,7 +80,8 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
         estados: parsed.estados?.length ? parsed.estados : CATALOGOS_POR_DEFECTO.estados,
         etapas: parsed.etapas?.length ? parsed.etapas : CATALOGOS_POR_DEFECTO.etapas,
         integraciones: integracionesLocales,
-        agentes: (Array.isArray(parsed.agentes) && parsed.agentes.length > 0) ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || [])
+        agentes: (Array.isArray(parsed.agentes) && parsed.agentes.length > 0) ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
+        roles: (Array.isArray(parsed.roles) && parsed.roles.length > 0) ? parsed.roles : (CATALOGOS_POR_DEFECTO.roles || [])
       };
     }
   } catch (err) {
@@ -211,6 +214,7 @@ export function suscribirCatalogos(callback: (catalogos: CatalogosPorDefecto) =>
           agentes: Array.isArray(data.agentes) && data.agentes.length ? data.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
           estados: Array.isArray(data.estados) && data.estados.length ? data.estados : CATALOGOS_POR_DEFECTO.estados,
           etapas: Array.isArray(data.etapas) && data.etapas.length ? data.etapas : CATALOGOS_POR_DEFECTO.etapas,
+          roles: Array.isArray(data.roles) && data.roles.length ? data.roles : (CATALOGOS_POR_DEFECTO.roles || []),
           integraciones: Array.isArray(data.integraciones) && data.integraciones.length ? data.integraciones : CATALOGOS_POR_DEFECTO.integraciones
         };
         try {

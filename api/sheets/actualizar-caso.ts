@@ -28,72 +28,67 @@ function formatearFechaHoraSheet(val: any): string {
   // 1. DD/MM/YYYY o DD-MM-YYYY con hora
   const matchDDMMTime = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (matchDDMMTime) {
-    const dia = parseInt(matchDDMMTime[1], 10);
-    const mes = parseInt(matchDDMMTime[2], 10);
+    const dia = String(parseInt(matchDDMMTime[1], 10)).padStart(2, '0');
+    const mes = String(parseInt(matchDDMMTime[2], 10)).padStart(2, '0');
     let anio = parseInt(matchDDMMTime[3], 10);
     if (anio < 100) anio += 2000;
     const hora = String(matchDDMMTime[4]).padStart(2, '0');
     const min = String(matchDDMMTime[5]).padStart(2, '0');
-    const seg = matchDDMMTime[6] !== undefined ? String(matchDDMMTime[6]).padStart(2, '0') : '00';
-    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
   // 2. YYYY-MM-DD o YYYY/MM/DD con hora
   const matchISOTime = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (matchISOTime) {
     const anio = parseInt(matchISOTime[1], 10);
-    const mes = parseInt(matchISOTime[2], 10);
-    const dia = parseInt(matchISOTime[3], 10);
+    const mes = String(parseInt(matchISOTime[2], 10)).padStart(2, '0');
+    const dia = String(parseInt(matchISOTime[3], 10)).padStart(2, '0');
     const hora = String(matchISOTime[4]).padStart(2, '0');
     const min = String(matchISOTime[5]).padStart(2, '0');
-    const seg = matchISOTime[6] !== undefined ? String(matchISOTime[6]).padStart(2, '0') : '00';
-    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
-  // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual para completar formato
+  // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual para completar formato dd/mm/aaaa hh:mm
   const matchDDMM = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (matchDDMM) {
-    const dia = parseInt(matchDDMM[1], 10);
-    const mes = parseInt(matchDDMM[2], 10);
+    const dia = String(parseInt(matchDDMM[1], 10)).padStart(2, '0');
+    const mes = String(parseInt(matchDDMM[2], 10)).padStart(2, '0');
     let anio = parseInt(matchDDMM[3], 10);
     if (anio < 100) anio += 2000;
     const now = new Date();
     const hora = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
-    const seg = String(now.getSeconds()).padStart(2, '0');
-    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
-  // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual para completar formato
+  // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual para completar formato dd/mm/aaaa hh:mm
   const matchISO = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
   if (matchISO) {
     const anio = parseInt(matchISO[1], 10);
-    const mes = parseInt(matchISO[2], 10);
-    const dia = parseInt(matchISO[3], 10);
+    const mes = String(parseInt(matchISO[2], 10)).padStart(2, '0');
+    const dia = String(parseInt(matchISO[3], 10)).padStart(2, '0');
     const now = new Date();
     const hora = String(now.getHours()).padStart(2, '0');
     const min = String(now.getMinutes()).padStart(2, '0');
-    const seg = String(now.getSeconds()).padStart(2, '0');
-    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
   const d = new Date(str);
   if (!isNaN(d.getTime())) {
-    const dia = d.getDate();
-    const mes = d.getMonth() + 1;
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
     const anio = d.getFullYear();
     const hora = String(d.getHours()).padStart(2, '0');
     const min = String(d.getMinutes()).padStart(2, '0');
-    const seg = String(d.getSeconds()).padStart(2, '0');
-    return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+    return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
   return str;
 }
 
 function mapearCasoAColumnasSheet(c: any): any[] {
-  const pushKamPosStr = c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE' ? 'TRUE' : (c.pushKamPos === false || String(c.pushKamPos).toUpperCase() === 'FALSE' ? 'FALSE' : '');
-  const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' ? 'FALSE' : '');
+  const pushKamPosStr = c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE' || String(c.pushKamPos).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamPos === false || String(c.pushKamPos).toUpperCase() === 'FALSE' || String(c.pushKamPos).toUpperCase() === 'FALSO' ? 'FALSE' : '');
+  const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' || String(c.pushKamCat).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' || String(c.pushKamCat).toUpperCase() === 'FALSO' ? 'FALSE' : '');
   const sponsorship = c.sponsorship || c.descuentosBajoEstructuraSponsorship || 'NO';
 
   const fechaCreacionStr = formatearFechaHoraSheet(c.fechaCreacion || new Date());
@@ -104,8 +99,17 @@ function mapearCasoAColumnasSheet(c: any): any[] {
   const fechaInicioCatStr = c.fechaInicioCat && c.fechaInicioCat !== 'S/V' ? formatearFechaHoraSheet(c.fechaInicioCat) : (c.fechaInicioCat || '');
   const fechaPushCatStr = c.fechaPushCat && c.fechaPushCat !== 'S/V' ? formatearFechaHoraSheet(c.fechaPushCat) : (c.fechaPushCat || '');
 
+  const opRaw = String(c.casoOp || '').trim();
+  const esOpValido = opRaw && 
+    opRaw !== '-' && 
+    opRaw.toLowerCase() !== 'sin caso op' && 
+    !opRaw.startsWith('TEMP_') && 
+    !opRaw.startsWith('SIN_OP_') && 
+    !opRaw.includes('_r');
+  const opVal = esOpValido ? opRaw : '';
+
   return [
-    c.casoOp || '',                                                      // A: N° Caso OP
+    opVal,                                                               // A: N° Caso OP (vacío "" si no tiene OP aún)
     c.vendorId || c.vendor_id || '',                                     // B: ID
     c.tienda || '',                                                      // C: Tienda
     c.pais || '',                                                        // D: País
@@ -156,25 +160,57 @@ export default async function handler(req: any, res: any) {
 
     const token = await getToken();
     const idBusqueda = String(casoData.casoOp || casoData.id || casoData.vendorId || '').trim();
-    let filaTarget = typeof casoData.filaNumero === 'number' && casoData.filaNumero >= 3 ? casoData.filaNumero : 0;
+    const esNuevo = Boolean(casoData.esNuevo);
+    let filaTarget = 0;
+    let totalFilasHoja = 0;
 
-    // 1. Si no tiene filaNumero, o para verificar, buscar en 'Onboarding_New'!A2:B
-    if (!filaTarget || filaTarget < 3) {
-      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
-      const resCols = await fetch(urlCols, {
-        headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-      });
-      if (resCols.ok) {
-        const dataCols = await resCols.json();
-        const rows = dataCols.values || [];
-        for (let i = 0; i < rows.length; i++) {
+    // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
+    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
+    const resCols = await fetch(urlCols, {
+      headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+    });
+    if (resCols.ok) {
+      const dataCols = await resCols.json();
+      const rows = dataCols.values || [];
+      totalFilasHoja = rows.length;
+
+      const filaHint = Number(casoData.filaNumero);
+      const venBuscado = String(casoData.vendorId || casoData.vendor_id || '').trim();
+      const opBuscado = String(casoData.casoOp || '').trim();
+      const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+
+      // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
+      if (filaHint >= 3 && filaHint <= rows.length) {
+        const rowAtHint = rows[filaHint - 1] || [];
+        const opAtHint = String(rowAtHint[0] || '').trim();
+        const venAtHint = String(rowAtHint[1] || '').trim();
+        if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+          filaTarget = filaHint;
+        }
+      }
+
+      // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba tomando el último registrado si se repite casoOp
+      if (!filaTarget && esOpValido) {
+        for (let i = rows.length - 1; i >= 0; i--) {
+          const op = String(rows[i]?.[0] || '').trim();
+          if (op === opBuscado) {
+            filaTarget = i + 1; // En A:B, rows[0] es fila 1, por tanto es i + 1
+            break;
+          }
+        }
+      }
+
+      // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba
+      if (!filaTarget && !esNuevo) {
+        for (let i = rows.length - 1; i >= 0; i--) {
           const op = String(rows[i]?.[0] || '').trim();
           const ven = String(rows[i]?.[1] || '').trim();
           if (
+            (venBuscado && ven === venBuscado) ||
             (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
             (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
           ) {
-            filaTarget = i + 2;
+            filaTarget = i + 1;
             break;
           }
         }
@@ -182,20 +218,41 @@ export default async function handler(req: any, res: any) {
     }
 
     const filaValores = mapearCasoAColumnasSheet(casoData);
+    const valoresAF = filaValores.slice(0, 6);   // Columnas A:F
+    const valoresHAA = filaValores.slice(7, 27); // Columnas H:AA (Columna G Sponsorship omitida)
+    const valFreezePos = casoData.fechaFreezePos || casoData.freezePos || '';
+    const valFreezeCat = casoData.fechaFreezeCat || casoData.freezeCat || '';
 
     if (filaTarget >= 3) {
-      // ACTUALIZAR fila existente
-      const rango = `'Onboarding_New'!A${filaTarget}:AA${filaTarget}`;
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(rango)}?valueInputOption=USER_ENTERED`;
-      const apiRes = await fetch(url, {
-        method: 'PUT',
+      // ACTUALIZAR fila existente (última registrada) omitiendo Columna G
+      const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+      const dataUpdates: any[] = [
+        {
+          range: `'Onboarding_New'!A${filaTarget}:F${filaTarget}`,
+          values: [valoresAF]
+        },
+        {
+          range: `'Onboarding_New'!H${filaTarget}:AA${filaTarget}`,
+          values: [valoresHAA]
+        }
+      ];
+
+      if (valFreezePos || valFreezeCat) {
+        dataUpdates.push({
+          range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
+          values: [[valFreezePos, valFreezeCat]]
+        });
+      }
+
+      const apiRes = await fetch(urlBatch, {
+        method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          range: rango,
-          values: [filaValores]
+          valueInputOption: 'USER_ENTERED',
+          data: dataUpdates
         })
       });
 
@@ -208,39 +265,105 @@ export default async function handler(req: any, res: any) {
         success: true,
         updated: true,
         filaNumero: filaTarget,
-        message: `Caso actualizado en Google Sheets (Fila #${filaTarget})`
+        message: `Caso actualizado en Google Sheets (Fila #${filaTarget}, Columna G omitida)`
       });
     } else {
-      // INSERTAR nuevo caso al final
-      const urlAppend = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Onboarding_New'!A:AA")}:append?valueInputOption=USER_ENTERED`;
-      const apiRes = await fetch(urlAppend, {
+      // INSERTAR nuevo caso detectando exactamente la última fila de la base omitiendo Columna G
+      const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 1878;
+
+      // Asegurar capacidad de cuadrícula antes de insertar (expandir exactamente 1 fila)
+      try {
+        const sheetIdOnboardingNew = 104076048;
+        const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
+        const resMeta = await fetch(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
+        if (resMeta.ok) {
+          const dataMeta = await resMeta.json();
+          const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
+          const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
+          if (nuevaFila > rowCountActual) {
+            const nuevoRowCount = nuevaFila;
+            await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                requests: [{
+                  updateSheetProperties: {
+                    properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevoRowCount } },
+                    fields: 'gridProperties.rowCount'
+                  }
+                }]
+              })
+            });
+          }
+        }
+      } catch (eMeta) {
+        console.warn('Error verificando gridProperties:', eMeta);
+      }
+
+      const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+      const dataUpdatesNuevo: any[] = [
+        {
+          range: `'Onboarding_New'!A${nuevaFila}:F${nuevaFila}`,
+          values: [valoresAF]
+        },
+        {
+          range: `'Onboarding_New'!H${nuevaFila}:AA${nuevaFila}`,
+          values: [valoresHAA]
+        }
+      ];
+
+      if (valFreezePos || valFreezeCat) {
+        dataUpdatesNuevo.push({
+          range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
+          values: [[valFreezePos, valFreezeCat]]
+        });
+      }
+
+      let apiRes = await fetch(urlBatchNuevo, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          values: [filaValores]
+          valueInputOption: 'USER_ENTERED',
+          data: dataUpdatesNuevo
         })
       });
 
       if (!apiRes.ok) {
         const errText = await apiRes.text();
-        return res.status(apiRes.status).json({ success: false, error: errText });
-      }
-
-      const appendData = await apiRes.json();
-      let nuevaFila = 0;
-      if (appendData?.updates?.updatedRange) {
-        const match = appendData.updates.updatedRange.match(/A(\d+):/);
-        if (match) nuevaFila = parseInt(match[1], 10);
+        if (errText.includes('exceeds grid limits')) {
+          const sheetIdOnboardingNew = 104076048;
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              requests: [{
+                updateSheetProperties: {
+                  properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevaFila + 200 } },
+                  fields: 'gridProperties.rowCount'
+                }
+              }]
+            })
+          });
+          apiRes = await fetch(urlBatchNuevo, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataUpdatesNuevo })
+          });
+        }
+        if (!apiRes.ok) {
+          const finalErr = await apiRes.text();
+          return res.status(apiRes.status).json({ success: false, error: finalErr });
+        }
       }
 
       return res.status(200).json({
         success: true,
         created: true,
         filaNumero: nuevaFila,
-        message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila})`
+        message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila}, Columna G omitida)`
       });
     }
   } catch (err: any) {

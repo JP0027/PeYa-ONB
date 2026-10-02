@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
-import { analizarAlertasCaso, limpiarTextoEtapa } from '../../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta } from '../../utils/onboardingRules';
 import { esEstadoActivoOficial } from '../../data/catalogoOnboarding';
 
 const AGENTES_OFICIALES = [
@@ -43,14 +43,15 @@ export default function TLDashboard({
   const [filtroPais, setFiltroPais] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todos');
+  const [filtroKamPush, setFiltroKamPush] = useState<boolean>(false);
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
-  // Procesar casos
+  // Procesar casos con análisis detallado de Push KAM
   const casosProcesados = useMemo(() => {
     return casos.map(c => {
       const alertas = analizarAlertasCaso(c);
       const agenteACargo = c.propietarioTicket || c.propietarioOportunidad || c.agente || 'Sin Asignar';
       
-      // Normalizar nombre de agente
       let normalizedAgent = agenteACargo;
       AGENTES_OFICIALES.forEach(ao => {
         if (agenteACargo.toLowerCase().includes(ao.split(' ')[0].toLowerCase())) {
@@ -58,16 +59,50 @@ export default function TLDashboard({
         }
       });
 
+      const estadoLower = String(c.estado || '').toLowerCase().trim();
+      const esActivo = !estadoLower.match(/cerrad|fallid|cancel/) && (estadoLower.includes('progreso') || c.esActivo);
+
+      // Evaluación estricta de seguimiento POS API y Catálogo según regla oficial
+      // ¿A cuál le falta el push?: Si tiene fecha de inicio y fecha de push y en existe respuesta dice NO y Push KAM no está hecho
+      const tieneInicioPos = Boolean(c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-');
+      const tienePushPos = Boolean(c.fechaPushPos && c.fechaPushPos !== 'S/V' && c.fechaPushPos !== '-');
+      const respNoPos = normalizarRespuesta(c.respuestaPos) === 'No';
+      const kamPosHecho = esPushKamRealizado(c.pushKamPos);
+      const faltaKamPos = esActivo && tieneInicioPos && tienePushPos && respNoPos && !kamPosHecho;
+
+      const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
+      const tienePushCat = Boolean(c.fechaPushCat && c.fechaPushCat !== 'S/V' && c.fechaPushCat !== '-');
+      const respNoCat = normalizarRespuesta(c.respuestaCat) === 'No';
+      const kamCatHecho = esPushKamRealizado(c.pushKamCat);
+      const faltaKamCat = esActivo && tieneInicioCat && tienePushCat && respNoCat && !kamCatHecho;
+
+      const horas = alertas.horasTranscurridas || c.horasSLA || 0;
+      const rangoStr = String(alertas.rangoSla || c.rangoSlaOp || '').toLowerCase();
+      const esMasDe24 = horas >= 24 || 
+        rangoStr.includes('24') || 
+        rangoStr.includes('72') || 
+        rangoStr.includes('96') || 
+        rangoStr.includes('≥') || 
+        rangoStr.includes('>');
+
+      const requiereKamPush = esActivo && esMasDe24 && (faltaKamPos || faltaKamCat);
+
       return {
         ...c,
         alertas,
-        horasSLA: alertas.horasTranscurridas || c.horasSLA || 0,
+        horasSLA: horas,
         rangoSlaOp: c.rangoSlaOp || alertas.rangoSla || '',
         tiempoTranscurridoOp: c.tiempoTranscurridoOp || alertas.tiempoTexto || '',
-        esCritico: alertas.esCritico,
-        esProximoVencer: alertas.esProximoVencer,
+        esCritico: alertas.esCritico || horas >= 96,
+        esProximoVencer: alertas.esProximoVencer || (horas >= 72 && horas < 96),
         agenteACargo: normalizedAgent,
-        colorClass: alertas.colorClass || 'bg-gray-800'
+        colorClass: alertas.colorClass || 'bg-gray-800',
+        esActivo,
+        faltaKamPos,
+        faltaKamCat,
+        kamPosHecho,
+        kamCatHecho,
+        requiereKamPush
       };
     });
   }, [casos]);
@@ -75,6 +110,7 @@ export default function TLDashboard({
   // Aplicar filtros
   const casosFiltrados = useMemo(() => {
     return casosProcesados.filter(c => {
+      if (filtroKamPush && !c.requiereKamPush) return false;
       if (filtroAgente !== 'todos' && c.agenteACargo !== filtroAgente) return false;
       if (filtroPais !== 'todos') {
         if (filtroPais === 'Otros') {
@@ -87,15 +123,15 @@ export default function TLDashboard({
       if (filtroEtapa !== 'todos' && c.etapa !== filtroEtapa) return false;
       return true;
     });
-  }, [casosProcesados, filtroAgente, filtroPais, filtroEstado, filtroEtapa]);
+  }, [casosProcesados, filtroKamPush, filtroAgente, filtroPais, filtroEstado, filtroEtapa]);
 
   const casosActivos = useMemo(() => {
-    return casosProcesados.filter(c => esEstadoActivoOficial(c.estado) || (c.esActivo && !String(c.estado).toLowerCase().includes('cerrad') && !String(c.estado).toLowerCase().includes('fallid')));
+    return casosProcesados.filter(c => c.esActivo);
   }, [casosProcesados]);
 
   // Ordenar casos activos: Críticos (≥96h) arriba de todo, luego próximos a vencer (72-96h), luego orden descendente por horasSLA
   const casosActivosOrdenados = useMemo(() => {
-    return [...casosFiltrados.filter(c => esEstadoActivoOficial(c.estado) || (c.esActivo && !String(c.estado).toLowerCase().includes('cerrad') && !String(c.estado).toLowerCase().includes('fallid')))].sort((a, b) => {
+    return [...casosFiltrados.filter(c => c.esActivo)].sort((a, b) => {
       // 1. Críticos fuera de SLA (≥96h)
       const critA = (a.esCritico || a.horasSLA >= 96) ? 1 : 0;
       const critB = (b.esCritico || b.horasSLA >= 96) ? 1 : 0;
@@ -117,29 +153,65 @@ export default function TLDashboard({
   let inProgressSinOp = 0;
   let closedSat = 0;
   let closedFail = 0;
-  let kamPush = 0;
+  let kamPushTotal = 0;
   let fueraDeSla = 0;
   let proximosVencer = 0;
 
   casosProcesados.forEach(c => {
     const estado = String(c.estado || '').toLowerCase().trim();
-    const esActivo = !estado.match(/cerrad|fallid|cancel/) && (estado.includes('progreso') || c.esActivo);
 
     if (estado.includes('satisfactori')) closedSat++;
     else if (estado.includes('fallid')) closedFail++;
-    else if (estado.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '') inProgressSinOp++;
+    else if (estado.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '' || String(c.casoOp).toLowerCase() === 'sin caso op') inProgressSinOp++;
     else if (estado === 'en progreso' || estado.includes('progreso')) inProgressNormal++;
 
-    if (esActivo) {
+    if (c.esActivo) {
       if (c.esCritico || c.horasSLA >= 96) {
         fueraDeSla++;
       } else if (c.esProximoVencer || (c.horasSLA >= 72 && c.horasSLA < 96)) {
         proximosVencer++;
       }
 
-      if (c.horasSLA >= 24 && c.horasSLA < 96) kamPush++;
+      if (c.requiereKamPush) {
+        kamPushTotal++;
+      }
     }
   });
+
+  const copiarTextoPush = (c: any) => {
+    const nombreLocal = c.tienda || 'Sin tienda';
+    const idLocal = c.vendorId || c.vendor_id || 'N/A';
+    const pais = c.pais || 'Sin país';
+    const numCasoOnb = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : 'Sin caso OP';
+
+    const texto = `Nombre de local: ${nombreLocal}\nId de local: ${idLocal}\nPais: ${pais}\nNumero de caso onb: ${numCasoOnb}`;
+    navigator.clipboard.writeText(texto);
+    
+    setCopiadoId(c.id || c.casoOp);
+    if (mostrarNotificacion) {
+      mostrarNotificacion('Datos copiados al portapapeles', 'success');
+    }
+    setTimeout(() => {
+      setCopiadoId(null);
+    }, 2500);
+  };
+
+  const ejecutarPushSegunSeguimientoActivo = (c: any) => {
+    if (!onRegistrarPush) return;
+    if (c.faltaKamPos) {
+      onRegistrarPush(c, 'kam_pos');
+    } else if (c.faltaKamCat) {
+      onRegistrarPush(c, 'kam_cat');
+    } else if (c.alertas?.requierePushPos) {
+      onRegistrarPush(c, 'pos');
+    } else if (c.alertas?.requierePushCat) {
+      onRegistrarPush(c, 'cat');
+    } else if (c.alertas?.requierePushKamPos) {
+      onRegistrarPush(c, 'kam_pos');
+    } else if (c.alertas?.requierePushKamCat) {
+      onRegistrarPush(c, 'kam_cat');
+    }
+  };
 
   const mesActual = new Date().toLocaleString('es-ES', { month: 'long' });
 
@@ -152,7 +224,7 @@ export default function TLDashboard({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800 pb-4">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-wide">Dashboard TL</h1>
+          <h1 className="text-2xl font-black text-white tracking-wide">Casos en progreso global</h1>
           <p className="text-xs text-gray-400">Supervisión de SLAs, Rendimiento y Escalamientos KAM</p>
         </div>
         <div className="flex items-center gap-3">
@@ -197,9 +269,24 @@ export default function TLDashboard({
           <div className="text-amber-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>⚠️</span> Próximos (72-96h)</div>
           <div className="text-2xl font-black text-amber-400">{proximosVencer}</div>
         </div>
-        <div className="bg-[#151824] p-3.5 rounded-xl border border-amber-900 text-center">
-          <div className="text-amber-300 text-xs mb-1">Req. KAM Push</div>
-          <div className="text-2xl font-bold text-amber-300">{kamPush}</div>
+        
+        {/* Card Req. KAM Push con filtro interactivo */}
+        <div 
+          onClick={() => setFiltroKamPush(prev => !prev)}
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+            filtroKamPush 
+              ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500 shadow-lg shadow-amber-950/50' 
+              : 'bg-[#151824] border-amber-900 hover:border-amber-700'
+          }`}
+          title="Clic para filtrar la tabla por casos que requieren KAM Push (24h a 96h)"
+        >
+          <div className="text-amber-300 text-xs mb-1 font-bold flex items-center justify-center gap-1">
+            <span>⚠️</span> Req. KAM Push
+          </div>
+          <div className="text-2xl font-black text-amber-300">{kamPushTotal}</div>
+          <div className="text-[10px] text-amber-400/80 mt-0.5">
+            {filtroKamPush ? '● Filtro activo (Quitar)' : 'Clic para filtrar'}
+          </div>
         </div>
       </div>
 
@@ -221,6 +308,20 @@ export default function TLDashboard({
           {/* Filters */}
           <div className="bg-[#151824] p-4 rounded-xl border border-gray-800 flex flex-wrap gap-3 items-center">
             <span className="text-xs text-gray-400 font-bold uppercase">Filtros:</span>
+            
+            <button
+              type="button"
+              onClick={() => setFiltroKamPush(prev => !prev)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                filtroKamPush
+                  ? 'bg-amber-600 text-white border-amber-500 shadow-md'
+                  : 'bg-[#0f111a] text-amber-400 border-amber-900/60 hover:bg-amber-950/40'
+              }`}
+            >
+              <span>⚠️</span>
+              <span>Solo Requieren KAM Push ({kamPushTotal})</span>
+            </button>
+
             <select value={filtroAgente} onChange={e => setFiltroAgente(e.target.value)} className="bg-[#0f111a] border border-gray-700 text-xs text-white rounded px-2 py-1">
               <option value="todos">Todos los Agentes</option>
               {AGENTES_OFICIALES.map(a => <option key={a} value={a}>{a}</option>)}
@@ -237,12 +338,23 @@ export default function TLDashboard({
               <option value="todos">Todas las Etapas</option>
               {etapasUnicas.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            {(filtroAgente !== 'todos' || filtroPais !== 'todos' || filtroEstado !== 'todos' || filtroEtapa !== 'todos') && (
-              <button onClick={() => { setFiltroAgente('todos'); setFiltroPais('todos'); setFiltroEstado('todos'); setFiltroEtapa('todos'); }} className="text-xs text-pink-500 hover:underline">Limpiar</button>
+            {(filtroKamPush || filtroAgente !== 'todos' || filtroPais !== 'todos' || filtroEstado !== 'todos' || filtroEtapa !== 'todos') && (
+              <button 
+                onClick={() => { 
+                  setFiltroKamPush(false);
+                  setFiltroAgente('todos'); 
+                  setFiltroPais('todos'); 
+                  setFiltroEstado('todos'); 
+                  setFiltroEtapa('todos'); 
+                }} 
+                className="text-xs text-pink-500 hover:underline cursor-pointer"
+              >
+                Limpiar
+              </button>
             )}
           </div>
 
-          {/* Active Cases Table (Ordenados por SLA crítico arriba) */}
+          {/* Active Cases Table (Ordenados por SLA crítico arriba y con acciones de Push y Copiar) */}
           <div className="bg-[#151824] rounded-xl border border-gray-800 overflow-hidden shadow-xl">
             <div className="p-4 border-b border-gray-800 bg-[#1a1d27] flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -250,6 +362,11 @@ export default function TLDashboard({
                 <span className="text-[11px] text-gray-400 bg-gray-800/80 px-2 py-0.5 rounded-full">
                   Ordenados por SLA Crítico arriba
                 </span>
+                {filtroKamPush && (
+                  <span className="text-[11px] bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full font-bold">
+                    Filtrado por Requiere KAM Push
+                  </span>
+                )}
               </div>
               {fueraDeSla > 0 && (
                 <span className="text-[11px] text-rose-300 font-bold bg-rose-950/80 border border-rose-800/80 px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
@@ -266,7 +383,7 @@ export default function TLDashboard({
                 <span className="text-[11px] text-emerald-400 font-mono">Actualizando tabla...</span>
               </div>
             )}
-            <div className="overflow-x-auto max-h-[460px]">
+            <div className="overflow-x-auto max-h-[560px]">
               <table className="w-full text-left text-xs text-gray-300">
                 <thead className="bg-[#0f111a] text-gray-400 uppercase sticky top-0 z-10 shadow">
                   <tr>
@@ -277,16 +394,22 @@ export default function TLDashboard({
                     <th className="py-2.5 px-3">Etapa</th>
                     <th className="py-2.5 px-3">SLA (Rango OP)</th>
                     <th className="py-2.5 px-3">Push / Seguimiento</th>
+                    <th className="py-2.5 px-3 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
                   {casosActivosOrdenados.map(c => {
                     const esCritico = c.esCritico || c.horasSLA >= 96;
                     const esProximo = !esCritico && (c.esProximoVencer || (c.horasSLA >= 72 && c.horasSLA < 96));
+                    const opMostrada = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : 'Sin caso OP';
                     const estaResaltado = casoResaltadoId && (
                       String(c.id) === String(casoResaltadoId) ||
                       String(c.casoOp) === String(casoResaltadoId) ||
                       String(c.vendorId || c.vendor_id) === String(casoResaltadoId)
+                    );
+
+                    const tieneAccionPush = Boolean(
+                      c.faltaKamPos || c.faltaKamCat || c.alertas?.requierePushPos || c.alertas?.requierePushCat
                     );
 
                     return (
@@ -303,7 +426,7 @@ export default function TLDashboard({
                           <div className="flex items-center gap-1.5">
                             {esCritico && <span title="SLA Vencido (≥96h)">🚨</span>}
                             {esProximo && <span title="Próximo a Vencer (>72h)">⚠️</span>}
-                            <span>{c.casoOp}</span>
+                            <span className={opMostrada === 'Sin caso OP' ? 'text-gray-400 italic font-sans' : ''}>{opMostrada}</span>
                           </div>
                         </td>
                         <td className="py-2.5 px-3 truncate max-w-[150px]" title={c.tienda}>{c.tienda}</td>
@@ -340,151 +463,153 @@ export default function TLDashboard({
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="flex flex-col gap-1 items-start">
-                            {/* Push POS */}
+                            {/* Push KAM Estado */}
+                            {c.faltaKamPos ? (
+                              <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1">
+                                <span>⚠️</span> Falta KAM POS
+                              </span>
+                            ) : c.kamPosHecho && esPushKamRealizado(c.pushKamPos) ? (
+                              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM POS registrado">
+                                <span>✅</span> KAM POS
+                              </span>
+                            ) : null}
+
+                            {c.faltaKamCat ? (
+                              <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1">
+                                <span>⚠️</span> Falta KAM Cat
+                              </span>
+                            ) : c.kamCatHecho && esPushKamRealizado(c.pushKamCat) ? (
+                              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM Catálogo registrado">
+                                <span>✅</span> KAM Cat
+                              </span>
+                            ) : null}
+
+                            {/* Push Operativo Estado */}
                             {c.alertas?.requierePushPos ? (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); onRegistrarPush && onRegistrarPush(c, 'pos'); }}
-                                className="text-[10px] bg-amber-600 hover:bg-amber-500 text-white font-bold px-2 py-0.5 rounded shadow transition flex items-center gap-1 cursor-pointer"
-                                title="Registrar Push POS API con 1 solo clic"
-                              >
-                                <span>🔔</span> Push POS
-                              </button>
-                            ) : c.fechaPushPos && c.fechaPushPos !== '-' && c.fechaPushPos !== '' ? (
-                              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title={`Push POS: ${c.fechaPushPos}`}>
-                                <span>✅</span> POS: {c.fechaPushPos.split(' ')[0]}
-                              </span>
-                            ) : null}
-
-                            {/* Push Catálogo */}
-                            {c.alertas?.requierePushCat ? (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); onRegistrarPush && onRegistrarPush(c, 'cat'); }}
-                                className="text-[10px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2 py-0.5 rounded shadow transition flex items-center gap-1 cursor-pointer"
-                                title="Registrar Push Catálogo con 1 solo clic"
-                              >
-                                <span>📦</span> Push Cat
-                              </button>
-                            ) : c.fechaPushCat && c.fechaPushCat !== '-' && c.fechaPushCat !== '' ? (
-                              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title={`Push Catálogo: ${c.fechaPushCat}`}>
-                                <span>✅</span> Cat: {c.fechaPushCat.split(' ')[0]}
-                              </span>
-                            ) : null}
-
-                            {/* Push KAM si aplica */}
-                            {c.alertas?.requierePushKamPos ? (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); onRegistrarPush && onRegistrarPush(c, 'kam_pos'); }}
-                                className="text-[10px] bg-amber-700 hover:bg-amber-600 text-white font-bold px-2 py-0.5 rounded shadow transition flex items-center gap-1 cursor-pointer"
-                                title="Registrar Push KAM (POS) con 1 clic"
-                              >
-                                <span>⚡</span> KAM POS
-                              </button>
-                            ) : null}
-
-                            {c.alertas?.requierePushKamCat ? (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); onRegistrarPush && onRegistrarPush(c, 'kam_cat'); }}
-                                className="text-[10px] bg-amber-700 hover:bg-amber-600 text-white font-bold px-2 py-0.5 rounded shadow transition flex items-center gap-1 cursor-pointer"
-                                title="Registrar Push KAM (Catálogo) con 1 clic"
-                              >
-                                <span>⚡</span> KAM Cat
-                              </button>
-                            ) : null}
-
-                            {!c.alertas?.requierePushPos && !c.alertas?.requierePushCat && !c.alertas?.requierePushKamPos && !c.alertas?.requierePushKamCat && !c.fechaPushPos && !c.fechaPushCat && (
-                              <span className="text-[10px] text-gray-500">-</span>
+                              <span className="text-[10px] text-amber-400">🔔 Push POS req.</span>
+                            ) : c.fechaPushPos && c.fechaPushPos !== '-' && c.fechaPushPos !== 'S/V' && (
+                              <span className="text-[10px] text-gray-400 font-mono">POS: {c.fechaPushPos.split(' ')[0]}</span>
                             )}
+
+                            {c.alertas?.requierePushCat ? (
+                              <span className="text-[10px] text-pink-400">📦 Push Cat req.</span>
+                            ) : c.fechaPushCat && c.fechaPushCat !== '-' && c.fechaPushCat !== 'S/V' && (
+                              <span className="text-[10px] text-gray-400 font-mono">Cat: {c.fechaPushCat.split(' ')[0]}</span>
+                            )}
+
+                            {!c.faltaKamPos && !c.faltaKamCat && !c.alertas?.requierePushPos && !c.alertas?.requierePushCat && (
+                              <span className="text-[10px] text-emerald-400 font-medium">✅ Al día</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Columna Acciones con botón independiente por seguimiento que requiera push */}
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-1.5 justify-center flex-wrap">
+                            {/* Botón Push POS API */}
+                            {c.faltaKamPos ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onRegistrarPush) onRegistrarPush(c, 'kam_pos');
+                                }}
+                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
+                                title="Hacer Push KAM para POS API únicamente"
+                              >
+                                <span>⚡</span>
+                                <span>Push KAM POS</span>
+                              </button>
+                            ) : c.alertas?.requierePushPos ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onRegistrarPush) onRegistrarPush(c, 'pos');
+                                }}
+                                className="bg-amber-600/90 hover:bg-amber-500 text-white font-semibold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
+                                title="Hacer Push de seguimiento para POS API"
+                              >
+                                <span>🔔</span>
+                                <span>Push POS</span>
+                              </button>
+                            ) : null}
+
+                            {/* Botón Push Catálogo */}
+                            {c.faltaKamCat ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onRegistrarPush) onRegistrarPush(c, 'kam_cat');
+                                }}
+                                className="bg-pink-600 hover:bg-pink-500 text-white font-bold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
+                                title="Hacer Push KAM para Catálogo únicamente"
+                              >
+                                <span>⚡</span>
+                                <span>Push KAM Cat</span>
+                              </button>
+                            ) : c.alertas?.requierePushCat ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onRegistrarPush) onRegistrarPush(c, 'cat');
+                                }}
+                                className="bg-pink-600/90 hover:bg-pink-500 text-white font-semibold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
+                                title="Hacer Push de seguimiento para Catálogo"
+                              >
+                                <span>📦</span>
+                                <span>Push Cat</span>
+                              </button>
+                            ) : null}
+
+                            {/* Si no requiere ningún push, botón Ver */}
+                            {!c.faltaKamPos && !c.faltaKamCat && !c.alertas?.requierePushPos && !c.alertas?.requierePushCat && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onSeleccionarCaso) onSeleccionarCaso(c);
+                                }}
+                                className="bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-[10px] px-2 py-1 rounded transition cursor-pointer"
+                                title="Ver detalles del caso"
+                              >
+                                Ver
+                              </button>
+                            )}
+
+                            {/* Botón Copiar Push */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copiarTextoPush(c);
+                              }}
+                              className={`text-[10px] font-semibold px-2 py-1 rounded border transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95 ${
+                                copiadoId === (c.id || c.casoOp)
+                                  ? 'bg-emerald-600 text-white border-emerald-500 shadow'
+                                  : 'bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border-gray-700'
+                              }`}
+                              title="Copiar datos del caso (Nombre local, ID, País, Caso OP)"
+                            >
+                              <span>{copiadoId === (c.id || c.casoOp) ? '✅' : '📋'}</span>
+                              <span>{copiadoId === (c.id || c.casoOp) ? '¡Copiado!' : 'Copiar Push'}</span>
+                            </button>
                           </div>
                         </td>
                       </tr>
                     );
                   })}
                   {casosActivosOrdenados.length === 0 && (
-                    <tr><td colSpan={7} className="py-6 text-center text-gray-500">No hay casos activos que coincidan con los filtros seleccionados.</td></tr>
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-gray-500">
+                        No hay casos activos que coincidan con los filtros seleccionados.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
-          
-          {/* Needing KAM Push */}
-          <div className="bg-amber-950/20 rounded-xl border border-amber-900/40 overflow-hidden">
-            <div className="p-4 border-b border-amber-900/40 bg-amber-900/20 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-amber-400 flex items-center gap-2"><span>⚠️</span> Requieren KAM Push (24-72h)</h2>
-              <span className="text-[11px] text-amber-300 font-medium">1 clic para registrar Push KAM</span>
-            </div>
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {casosActivos.filter(c => (c.horasSLA >= 24 && c.horasSLA < 96) || c.alertas?.requierePushKamPos || c.alertas?.requierePushKamCat).slice(0, 8).map(c => {
-                const faltaKamPos = c.alertas?.requierePushKamPos;
-                const faltaKamCat = c.alertas?.requierePushKamCat;
-                const tieneAlgunPushKam = (c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE') || (c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE');
-
-                return (
-                  <div key={c.id} className="bg-[#0f111a] border border-amber-900/40 p-3 rounded-lg text-xs flex flex-col justify-between gap-2.5 hover:border-amber-500 transition">
-                    <div className="flex justify-between items-start cursor-pointer" onClick={() => onSeleccionarCaso && onSeleccionarCaso(c)}>
-                      <div>
-                        <div className="font-bold text-white flex items-center gap-1.5">
-                          <span className="font-mono text-cyan-400">{c.casoOp}</span>
-                          <span className="text-gray-300 truncate max-w-[130px]" title={c.tienda}>({c.tienda})</span>
-                        </div>
-                        <div className="text-gray-500 text-[10px] mt-0.5">{c.agenteACargo} • {c.pais}</div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-amber-400 font-bold px-1.5 py-0.5 bg-amber-950/60 rounded border border-amber-800/60">{c.rangoSlaOp || `${c.horasSLA}h`}</span>
-                      </div>
-                    </div>
-
-                    {/* Botones de acción Push KAM (SOLO SI FALTA HACER EL PUSH) */}
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-800 gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {faltaKamPos ? (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onRegistrarPush && onRegistrarPush(c, 'kam_pos'); }}
-                            className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer"
-                            title="Registrar Push KAM para POS API con 1 solo clic"
-                          >
-                            <span>🔔</span> Push KAM POS
-                          </button>
-                        ) : (c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE') ? (
-                          <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded font-medium inline-flex items-center gap-1" title="Push KAM POS registrado">
-                            <span>✅</span> KAM POS
-                          </span>
-                        ) : null}
-
-                        {faltaKamCat ? (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onRegistrarPush && onRegistrarPush(c, 'kam_cat'); }}
-                            className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer"
-                            title="Registrar Push KAM para Catálogo con 1 solo clic"
-                          >
-                            <span>📦</span> Push KAM Cat
-                          </button>
-                        ) : (c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE') ? (
-                          <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded font-medium inline-flex items-center gap-1" title="Push KAM Catálogo registrado">
-                            <span>✅</span> KAM Cat
-                          </span>
-                        ) : null}
-
-                        {!faltaKamPos && !faltaKamCat && tieneAlgunPushKam && (
-                          <span className="text-[10px] text-emerald-400 inline-flex items-center gap-1 font-semibold">
-                            <span>✅</span> Push KAM al día
-                          </span>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => onSeleccionarCaso && onSeleccionarCaso(c)}
-                        className="text-[10px] text-gray-400 hover:text-white underline cursor-pointer"
-                      >
-                        Ver caso
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              {casosActivos.filter(c => (c.horasSLA >= 24 && c.horasSLA < 96) || c.alertas?.requierePushKamPos || c.alertas?.requierePushKamCat).length === 0 && (
-                <div className="col-span-2 text-center text-xs text-gray-500 py-4">No hay casos que requieran KAM Push actualmente.</div>
-              )}
             </div>
           </div>
 

@@ -96,6 +96,44 @@ export class SheetsService {
     return this.cachedCasosMemoria.length;
   }
 
+  /**
+   * Detecta en tiempo real el total de filas en la hoja de Google Sheets (Onboarding_New)
+   * para conocer la última fila ocupada y la próxima fila libre para un nuevo caso.
+   */
+  public async detectarTotalFilasEnBase(): Promise<{ totalFilas: number; totalCasos: number; proximaFilaNueva: number }> {
+    const creds = await this.obtenerCredenciales();
+    if (creds) {
+      try {
+        const token = await this.obtenerAuthToken();
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Onboarding_New'!A:B")}?valueRenderOption=FORMATTED_VALUE`;
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const rows = json.values || [];
+          const totalFilas = rows.length;
+          const totalCasos = Math.max(0, totalFilas - 2);
+          const proximaFilaNueva = totalFilas + 1;
+          return { totalFilas, totalCasos, proximaFilaNueva };
+        }
+      } catch (e) {
+        console.warn('[SheetsService] Error consultando conteo de filas en base:', e);
+      }
+    }
+
+    // Fallback con casos en memoria o cache
+    const totalCasos = this.cachedCasosMemoria.length;
+    // Fila 1 (Categoría) + Fila 2 (Encabezado) + totalCasos = última fila ocupada (totalCasos + 2)
+    const totalFilas = totalCasos > 0 ? totalCasos + 2 : 2;
+    const proximaFilaNueva = totalFilas + 1;
+    return { totalFilas, totalCasos, proximaFilaNueva };
+  }
+
   private cargarCasosCache(): void {
     try {
       if (fs.existsSync(CACHE_FILE_PATH)) {
@@ -477,14 +515,16 @@ export class SheetsService {
       const fechaPushPos = rawPushPos && rawPushPos !== 'S/V' ? formatearFechaHora(rawPushPos) : rawPushPos;
       const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 21);
       const respuestaPos = (rawRespPos.toLowerCase() === 'si' || rawRespPos.toLowerCase() === 'sí') ? 'Si' : (rawRespPos.toLowerCase() === 'no' ? 'No' : (rawRespPos.toUpperCase() === 'S/V' || rawRespPos.toUpperCase() === 'SV' ? 'S/V' : rawRespPos));
-      const pushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
+      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
+      const pushKamPos = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamPos).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
       const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
       const fechaInicioCat = rawInicioCat && rawInicioCat !== 'S/V' ? formatearFechaHora(rawInicioCat) : rawInicioCat;
       const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
       const fechaPushCat = rawPushCat && rawPushCat !== 'S/V' ? formatearFechaHora(rawPushCat) : rawPushCat;
       const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 25);
       const respuestaCat = (rawRespCat.toLowerCase() === 'si' || rawRespCat.toLowerCase() === 'sí') ? 'Si' : (rawRespCat.toLowerCase() === 'no' ? 'No' : (rawRespCat.toUpperCase() === 'S/V' || rawRespCat.toUpperCase() === 'SV' ? 'S/V' : rawRespCat));
-      const pushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
+      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
+      const pushKamCat = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamCat).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
 
       const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
       const tiempoTranscurridoPos = getVal(colTiempoPos >= 0 ? colTiempoPos : 31);
@@ -528,7 +568,8 @@ export class SheetsService {
       const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel') || etapaLower.includes('pedido de prueba realizado');
       const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc') || estadoLower === 'abierto' || estadoLower.includes('sin oportunidad'));
 
-      const filaNum = headerRowIdx + 2 + idx;
+      // En Onboarding_New: Fila 1 = categoría, Fila 2 = encabezados. Los casos inician en la fila 3
+      const filaNum = idx + 3;
       const uniqueId = casoOp && vendorId ? `${casoOp}_${vendorId}_r${filaNum}` : (casoOp ? `${casoOp}_r${filaNum}` : (vendorId ? `${vendorId}_r${filaNum}` : `CASO-${filaNum}`));
 
       casos.push({
@@ -643,12 +684,53 @@ export class SheetsService {
    * Actualiza un caso existente en memoria y en disco sin duplicarlo
    */
   public actualizarCaso(casoActualizado: Partial<CasoSheets> & { id: string }): { success: boolean; caso?: CasoSheets; message?: string } {
+    const esNuevo = Boolean((casoActualizado as any).esNuevo);
     const idBusqueda = String(casoActualizado.id || (casoActualizado as any).casoOp || '').trim();
-    const idx = this.cachedCasosMemoria.findIndex(c => 
-      String(c.id).trim() === idBusqueda || 
-      String(c.casoOp).trim() === idBusqueda || 
-      (casoActualizado.filaNumero && c.filaNumero === casoActualizado.filaNumero)
-    );
+    const filaHint = Number(casoActualizado.filaNumero);
+
+    let idx = -1;
+
+    // 1. Si se proporciona filaNumero, buscar SIEMPRE por posición exacta en memoria
+    if (filaHint && filaHint >= 3) {
+      idx = this.cachedCasosMemoria.findIndex(c => Number(c.filaNumero) === filaHint);
+    }
+
+    // 2. Si no encontró por filaNumero, buscar por Caso OP real
+    if (idx === -1) {
+      const opBuscado = String((casoActualizado as any).casoOp || '').trim();
+      const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+      if (esOpValido) {
+        for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
+          if (String(this.cachedCasosMemoria[i].casoOp || '').trim() === opBuscado) {
+            idx = i;
+            break;
+          }
+        }
+      }
+    }
+
+    // 3. Coincidencia por ID interno
+    if (idx === -1 && idBusqueda && idBusqueda !== 'Sin caso OP') {
+      for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
+        if (String(this.cachedCasosMemoria[i].id || '').trim() === idBusqueda) {
+          idx = i;
+          break;
+        }
+      }
+    }
+
+    // 4. Coincidencia por vendorId (para casos sin OP)
+    if (idx === -1) {
+      const venBuscado = String((casoActualizado as any).vendorId || (casoActualizado as any).vendor_id || '').trim();
+      if (venBuscado) {
+        for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
+          if (String(this.cachedCasosMemoria[i].vendorId || this.cachedCasosMemoria[i].vendor_id || '').trim() === venBuscado) {
+            idx = i;
+            break;
+          }
+        }
+      }
+    }
 
     if (idx !== -1) {
       const casoExistente = this.cachedCasosMemoria[idx];
@@ -691,12 +773,18 @@ export class SheetsService {
       console.log(`[SheetsService] Caso OP ${idBusqueda} actualizado exitosamente.`);
       return { success: true, caso: casoMerged, message: `Caso ${idBusqueda} actualizado.` };
     } else {
+      const totalCasosActuales = this.cachedCasosMemoria.length;
+      // Fila 1 y 2 encabezados. Última fila ocupada = totalCasosActuales + 2. Nueva fila = totalCasosActuales + 3
+      const filaCalculada = (casoActualizado.filaNumero && casoActualizado.filaNumero > totalCasosActuales + 2)
+        ? casoActualizado.filaNumero
+        : (totalCasosActuales + 3);
+
       const nuevo: CasoSheets = {
         ...casoActualizado,
         id: idBusqueda || (casoActualizado as any).id || `OP-${Date.now()}`,
         casoOp: (casoActualizado as any).casoOp || idBusqueda,
-        vendorId: (casoActualizado as any).vendorId || '',
-        vendor_id: (casoActualizado as any).vendorId || '',
+        vendorId: (casoActualizado as any).vendorId || (casoActualizado as any).vendor_id || '',
+        vendor_id: (casoActualizado as any).vendorId || (casoActualizado as any).vendor_id || '',
         tienda: casoActualizado.tienda || '',
         pais: casoActualizado.pais || '',
         kam: casoActualizado.kam || '',
@@ -714,13 +802,13 @@ export class SheetsService {
         etapa: casoActualizado.etapa || 'Validación del Onboarding',
         sla_inicio: formatearFechaHora((casoActualizado as any).sla_inicio || casoActualizado.fechaCreacion),
         esActivo: true,
-        origen: 'Manual / Actualización',
-        filaNumero: this.cachedCasosMemoria.length + 2
+        origen: 'Manual / Nuevo',
+        filaNumero: filaCalculada
       } as CasoSheets;
 
-      this.cachedCasosMemoria.unshift(nuevo);
+      this.cachedCasosMemoria.push(nuevo);
       this.guardarCasosCache(this.cachedCasosMemoria);
-      return { success: true, caso: nuevo, message: `Caso ${idBusqueda} creado.` };
+      return { success: true, caso: nuevo, message: `Caso ${idBusqueda} creado en fila #${filaCalculada}.` };
     }
   }
 
@@ -734,7 +822,7 @@ export class SheetsService {
     }
 
     let filaTarget = 0;
-    if (filaHint && filaHint >= 3) {
+    if (filaHint && filaHint >= 2) {
       filaTarget = filaHint;
     }
 
@@ -757,7 +845,7 @@ export class SheetsService {
         const sheetIdOnboardingNew = 104076048; // GID oficial de la hoja Onboarding_New
 
         // 1. Si tenemos filaTarget, verificar rápidamente si coincide
-        if (filaTarget >= 3 && idStr) {
+        if (filaTarget >= 2 && idStr) {
           const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
           const resCheck = await fetch(urlCheck, {
             headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
@@ -774,7 +862,7 @@ export class SheetsService {
         }
 
         // 2. Si no encontramos la fila exacta en memoria o se desfasó, buscar en A2:B
-        if (!filaTarget || filaTarget < 3) {
+        if (!filaTarget || filaTarget < 2) {
           const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
           const resCols = await fetch(urlCols, {
             headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
@@ -796,7 +884,7 @@ export class SheetsService {
           }
         }
 
-        if (filaTarget >= 3) {
+        if (filaTarget >= 2) {
           const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
           const resBatch = await fetch(urlBatch, {
             method: 'POST',
@@ -854,8 +942,8 @@ export class SheetsService {
    * Convierte un objeto CasoSheets en el array de 27 valores de columnas A:AA de Onboarding_New
    */
   public mapearCasoAColumnasSheet(c: any): any[] {
-    const pushKamPosStr = c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE' ? 'TRUE' : (c.pushKamPos === false || String(c.pushKamPos).toUpperCase() === 'FALSE' ? 'FALSE' : '');
-    const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' ? 'FALSE' : '');
+    const pushKamPosStr = c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE' || String(c.pushKamPos).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamPos === false || String(c.pushKamPos).toUpperCase() === 'FALSE' || String(c.pushKamPos).toUpperCase() === 'FALSO' ? 'FALSE' : '');
+    const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' || String(c.pushKamCat).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' || String(c.pushKamCat).toUpperCase() === 'FALSO' ? 'FALSE' : '');
     const sponsorship = c.sponsorship || c.descuentosBajoEstructuraSponsorship || 'NO';
 
     const fechaCreacionStr = formatearFechaHora(c.fechaCreacion || new Date());
@@ -865,9 +953,17 @@ export class SheetsService {
     const fechaPushPosStr = c.fechaPushPos && c.fechaPushPos !== 'S/V' ? formatearFechaHora(c.fechaPushPos) : (c.fechaPushPos || '');
     const fechaInicioCatStr = c.fechaInicioCat && c.fechaInicioCat !== 'S/V' ? formatearFechaHora(c.fechaInicioCat) : (c.fechaInicioCat || '');
     const fechaPushCatStr = c.fechaPushCat && c.fechaPushCat !== 'S/V' ? formatearFechaHora(c.fechaPushCat) : (c.fechaPushCat || '');
+    const opRaw = String(c.casoOp || '').trim();
+    const esOpValido = opRaw && 
+      opRaw !== '-' && 
+      opRaw.toLowerCase() !== 'sin caso op' && 
+      !opRaw.startsWith('TEMP_') && 
+      !opRaw.startsWith('SIN_OP_') && 
+      !opRaw.includes('_r');
+    const opVal = esOpValido ? opRaw : '';
 
     return [
-      c.casoOp || '',                                                      // A: N° Caso OP
+      opVal,                                                               // A: N° Caso OP (vacío "" si no tiene OP aún)
       c.vendorId || c.vendor_id || '',                                     // B: ID
       c.tienda || '',                                                      // C: Tienda
       c.pais || '',                                                        // D: País
@@ -898,6 +994,58 @@ export class SheetsService {
   }
 
   /**
+   * Asegura que la hoja Onboarding_New tenga suficientes filas en su cuadrícula (gridProperties.rowCount)
+   * Si la fila requerida supera el límite actual de la hoja, expande la cuadrícula EXACTAMENTE al número requerido (1 sola fila para nuevo caso).
+   */
+  public async asegurarCapacidadFilas(filaRequerida: number): Promise<void> {
+    try {
+      const token = await this.obtenerAuthToken();
+      const sheetIdOnboardingNew = 104076048;
+
+      const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
+      const resMeta = await fetch(urlMeta, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!resMeta.ok) return;
+
+      const dataMeta = await resMeta.json();
+      const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
+      const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
+
+      if (filaRequerida > rowCountActual) {
+        // Expandir EXACTAMENTE la cantidad de filas requeridas (1 fila para el nuevo caso)
+        const nuevoRowCount = filaRequerida;
+        console.log(`[SheetsService] Expandiendo cuadrícula de Onboarding_New de ${rowCountActual} a ${nuevoRowCount} filas (exactamente 1 fila nueva)...`);
+        const urlUpdate = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
+        await fetch(urlUpdate, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            requests: [
+              {
+                updateSheetProperties: {
+                  properties: {
+                    sheetId: sheetIdOnboardingNew,
+                    gridProperties: {
+                      rowCount: nuevoRowCount
+                    }
+                  },
+                  fields: 'gridProperties.rowCount'
+                }
+              }
+            ]
+          })
+        });
+      }
+    } catch (e) {
+      console.warn('[SheetsService] Error asegurando capacidad de filas:', e);
+    }
+  }
+
+  /**
    * Guarda o actualiza un caso directamente en el Google Sheet oficial vía API
    */
   public async sincronizarCasoConGoogleSheets(caso: CasoSheets): Promise<{ success: boolean; filaNumero?: number; error?: string }> {
@@ -910,94 +1058,183 @@ export class SheetsService {
       const token = await this.obtenerAuthToken();
       const filaValores = this.mapearCasoAColumnasSheet(caso);
 
-      // Si el caso ya tiene un número de fila en Sheets, actualizar la fila existente (PUT)
-      if (caso.filaNumero && caso.filaNumero > 1) {
-        const rango = `'Onboarding_New'!A${caso.filaNumero}:AA${caso.filaNumero}`;
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(rango)}?valueInputOption=USER_ENTERED`;
-        const res = await fetch(url, {
-          method: 'PUT',
+      const esNuevo = Boolean((caso as any).esNuevo);
+      let filaTarget = 0;
+      let totalFilasHoja = 0;
+
+      // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
+      try {
+        const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
+        const resCols = await fetch(urlCols, {
+          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+        });
+        if (resCols.ok) {
+          const dataCols = await resCols.json();
+          const rows = dataCols.values || [];
+          totalFilasHoja = rows.length;
+
+          const filaHint = Number(caso.filaNumero);
+          const venBuscado = String(caso.vendorId || (caso as any).vendor_id || '').trim();
+          const opBuscado = String(caso.casoOp || '').trim();
+          const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+
+          // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
+          if (filaHint >= 3 && filaHint <= rows.length) {
+            const rowAtHint = rows[filaHint - 1] || [];
+            const opAtHint = String(rowAtHint[0] || '').trim();
+            const venAtHint = String(rowAtHint[1] || '').trim();
+            if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+              filaTarget = filaHint;
+            }
+          }
+
+          // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba por casoOp real
+          if (!filaTarget && esOpValido) {
+            for (let i = rows.length - 1; i >= 0; i--) {
+              const op = String(rows[i]?.[0] || '').trim();
+              if (op === opBuscado) {
+                filaTarget = i + 1; // En A:B, rows[0] es fila 1, por tanto la fila es i + 1
+                break;
+              }
+            }
+          }
+
+          // 3. Si no encontró por casoOp, buscar por vendorId o id
+          if (!filaTarget && !esNuevo) {
+            const idBusqueda = String(caso.id || '').trim();
+            for (let i = rows.length - 1; i >= 0; i--) {
+              const op = String(rows[i]?.[0] || '').trim();
+              const ven = String(rows[i]?.[1] || '').trim();
+              if (
+                (venBuscado && ven === venBuscado) ||
+                (op && idBusqueda && (op === idBusqueda || idBusqueda.startsWith(op + '_')))
+              ) {
+                filaTarget = i + 1;
+                break;
+              }
+            }
+          }
+        }
+      } catch (eCols) {
+        console.warn('[SheetsService] Error consultando A:B para detectar base:', eCols);
+      }
+
+      const valFreezePos = caso.fechaFreezePos || caso.freezePos || '';
+      const valFreezeCat = caso.fechaFreezeCat || caso.freezeCat || '';
+      const valoresAF = filaValores.slice(0, 6);   // Columnas A:F (Índices 0..5)
+      const valoresHAA = filaValores.slice(7, 27); // Columnas H:AA (Índices 7..26) - Columna G omitida
+
+      // Si se encontró la fila en Sheets (a partir de la fila 3): ACTUALIZAR IN-PLACE
+      if (filaTarget >= 3) {
+        const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+        const dataUpdates: any[] = [
+          {
+            range: `'Onboarding_New'!A${filaTarget}:F${filaTarget}`,
+            values: [valoresAF]
+          },
+          {
+            range: `'Onboarding_New'!H${filaTarget}:AA${filaTarget}`,
+            values: [valoresHAA]
+          }
+        ];
+
+        if (valFreezePos || valFreezeCat) {
+          dataUpdates.push({
+            range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
+            values: [[valFreezePos, valFreezeCat]]
+          });
+        }
+
+        const res = await fetch(urlBatch, {
+          method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            range: rango,
-            values: [filaValores]
+            valueInputOption: 'USER_ENTERED',
+            data: dataUpdates
           })
         });
 
         if (!res.ok) {
           const errText = await res.text();
-          console.warn(`[SheetsService] Error al actualizar fila ${caso.filaNumero} en Sheets:`, errText);
+          console.warn(`[SheetsService] Error al actualizar fila ${filaTarget} en Sheets:`, errText);
           return { success: false, error: errText };
         }
 
-        // Sincronizar también las columnas AN y AO (Fecha de respuesta en roadmap POS y Catálogo)
-        const rangoFreeze = `'Onboarding_New'!AN${caso.filaNumero}:AO${caso.filaNumero}`;
-        const urlFreeze = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(rangoFreeze)}?valueInputOption=USER_ENTERED`;
-        const valFreezePos = caso.fechaFreezePos || caso.freezePos || '';
-        const valFreezeCat = caso.fechaFreezeCat || caso.freezeCat || '';
-        await fetch(urlFreeze, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            range: rangoFreeze,
-            values: [[valFreezePos, valFreezeCat]]
-          })
-        }).catch(e => console.warn('[SheetsService] Error sincronizando AN:AO freeze:', e));
-
-        console.log(`[SheetsService] Fila ${caso.filaNumero} (OP ${caso.casoOp}) actualizada en Google Sheets (A:AA y AN:AO).`);
-        return { success: true, filaNumero: caso.filaNumero };
+        caso.filaNumero = filaTarget;
+        console.log(`[SheetsService] Fila ${filaTarget} (OP ${caso.casoOp}) actualizada en Google Sheets (A:F y H:AA, Columna G preservada para ARRAYFORMULA).`);
+        return { success: true, filaNumero: filaTarget };
       }
 
-      // Si es un nuevo caso o no tiene filaNumero, agregar al final de la hoja (APPEND)
-      const urlAppend = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Onboarding_New'!A:AA")}:append?valueInputOption=USER_ENTERED`;
-      const res = await fetch(urlAppend, {
+      // 2. Si es NUEVO CASO (o no se encontró en filas existentes):
+      // Se detectó la base: la última fila ocupada en la base es totalFilasHoja.
+      // La nueva fila a insertar es totalFilasHoja + 1.
+      const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : (this.cachedCasosMemoria.length + 3);
+
+      // Asegurar que la cuadrícula tenga capacidad para alojar nuevaFila
+      await this.asegurarCapacidadFilas(nuevaFila);
+
+      const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+      const dataUpdatesNuevo: any[] = [
+        {
+          range: `'Onboarding_New'!A${nuevaFila}:F${nuevaFila}`,
+          values: [valoresAF]
+        },
+        {
+          range: `'Onboarding_New'!H${nuevaFila}:AA${nuevaFila}`,
+          values: [valoresHAA]
+        }
+      ];
+
+      if (valFreezePos || valFreezeCat) {
+        dataUpdatesNuevo.push({
+          range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
+          values: [[valFreezePos, valFreezeCat]]
+        });
+      }
+
+      let resNuevo = await fetch(urlBatchNuevo, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          values: [filaValores]
+          valueInputOption: 'USER_ENTERED',
+          data: dataUpdatesNuevo
         })
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        console.warn(`[SheetsService] Error al insertar nuevo caso en Sheets:`, errText);
-        return { success: false, error: errText };
-      }
-
-      const data = await res.json();
-      let nuevaFila = caso.filaNumero || this.cachedCasosMemoria.length + 2;
-      if (data?.updates?.updatedRange) {
-        const match = data.updates.updatedRange.match(/A(\d+):/);
-        if (match) {
-          nuevaFila = parseInt(match[1], 10);
+      if (!resNuevo.ok) {
+        const errText = await resNuevo.text();
+        if (errText.includes('exceeds grid limits')) {
+          console.log(`[SheetsService] Reintentando tras expandir cuadrícula para fila ${nuevaFila}...`);
+          await this.asegurarCapacidadFilas(nuevaFila + 100);
+          resNuevo = await fetch(urlBatchNuevo, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              valueInputOption: 'USER_ENTERED',
+              data: dataUpdatesNuevo
+            })
+          });
+        }
+        if (!resNuevo.ok) {
+          const finalErrText = await resNuevo.text();
+          console.warn(`[SheetsService] Error al insertar nueva fila ${nuevaFila} vía batchUpdate:`, finalErrText);
+          return { success: false, error: finalErrText };
         }
       }
 
       caso.filaNumero = nuevaFila;
       this.guardarCasosCache(this.cachedCasosMemoria);
 
-      // Si es nueva fila y tiene fecha freeze, actualizar AN:AO
-      const valFreezePos = caso.fechaFreezePos || caso.freezePos || '';
-      const valFreezeCat = caso.fechaFreezeCat || caso.freezeCat || '';
-      if (valFreezePos || valFreezeCat) {
-        const rangoFreeze = `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`;
-        const urlFreeze = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(rangoFreeze)}?valueInputOption=USER_ENTERED`;
-        await fetch(urlFreeze, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ range: rangoFreeze, values: [[valFreezePos, valFreezeCat]] })
-        }).catch(e => console.warn('[SheetsService] Error sincronizando AN:AO freeze nueva fila:', e));
-      }
-
-      console.log(`[SheetsService] Nuevo caso OP ${caso.casoOp} insertado en Google Sheets (Fila #${nuevaFila}).`);
+      console.log(`[SheetsService] Nuevo caso OP ${caso.casoOp} insertado exitosamente en Google Sheets (Fila #${nuevaFila}, Columna G omitida para ARRAYFORMULA).`);
       return { success: true, filaNumero: nuevaFila };
     } catch (err: any) {
       console.error('[SheetsService] Error sincronizando caso con Google Sheets:', err);
@@ -1006,18 +1243,17 @@ export class SheetsService {
   }
 
   public formatearFechaSheet(d: Date = new Date()): string {
-    const dia = d.getDate();
-    const mes = d.getMonth() + 1;
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
     const anio = d.getFullYear();
     const horas = String(d.getHours()).padStart(2, '0');
     const min = String(d.getMinutes()).padStart(2, '0');
-    const seg = String(d.getSeconds()).padStart(2, '0');
-    return `${dia}/${mes}/${anio} ${horas}:${min}:${seg}`;
+    return `${dia}/${mes}/${anio} ${horas}:${min}`;
   }
 
   public async registrarPush(
     casoId: string, 
-    tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat', 
+    tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat' | string, 
     fechaHora?: string
   ): Promise<{ success: boolean; message: string; caso?: CasoSheets; sheetsActualizado?: boolean }> {
     const ahoraStr = fechaHora || this.formatearFechaSheet(new Date());
@@ -1059,31 +1295,58 @@ export class SheetsService {
     this.guardarCasosCache(this.cachedCasosMemoria);
 
     let sheetsActualizado = false;
-    if (this.tieneCredenciales() && caso.filaNumero && colLetra) {
+    if (this.tieneCredenciales() && colLetra) {
       try {
         const token = await this.obtenerAuthToken();
-        const celda = `'Onboarding_New'!${colLetra}${caso.filaNumero}`;
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(celda)}?valueInputOption=USER_ENTERED`;
-        const res = await fetch(url, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            range: celda,
-            values: [[nuevoValor]]
-          })
+        let filaTarget = (caso.filaNumero && caso.filaNumero >= 2) ? caso.filaNumero : 0;
+
+        // Buscar fila exacta en Google Sheets de abajo hacia arriba para evitar desfasajes
+        const opBuscado = String(caso.casoOp || caso.id || casoId).trim();
+        const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
+        const resCols = await fetch(urlCols, {
+          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
         });
-        if (res.ok) {
-          sheetsActualizado = true;
-          console.log(`[SheetsService] Celda ${celda} actualizada en Google Sheets con "${nuevoValor}".`);
-        } else {
-          const errText = await res.text();
-          console.warn(`[SheetsService] Advertencia al actualizar celda ${celda} en Google Sheets:`, errText);
+        if (resCols.ok) {
+          const dataCols = await resCols.json();
+          const rows = dataCols.values || [];
+          for (let i = rows.length - 1; i >= 0; i--) {
+            const op = String(rows[i]?.[0] || '').trim();
+            const ven = String(rows[i]?.[1] || '').trim();
+            if (
+              (op && op !== 'Sin caso OP' && op !== '-' && (op === opBuscado || opBuscado.startsWith(op + '_'))) ||
+              (!opBuscado && ven && ven === String(caso.vendorId))
+            ) {
+              filaTarget = i + 2;
+              break;
+            }
+          }
+        }
+
+        if (filaTarget >= 2) {
+          caso.filaNumero = filaTarget;
+          const celda = `'Onboarding_New'!${colLetra}${filaTarget}`;
+          const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(celda)}?valueInputOption=USER_ENTERED`;
+          const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              range: celda,
+              values: [[nuevoValor]]
+            })
+          });
+          if (res.ok) {
+            sheetsActualizado = true;
+            console.log(`[SheetsService] Celda ${celda} actualizada en Google Sheets con "${nuevoValor}".`);
+          } else {
+            const errText = await res.text();
+            console.warn(`[SheetsService] Advertencia al actualizar celda ${celda} en Google Sheets:`, errText);
+          }
         }
       } catch (err) {
-        console.warn(`[SheetsService] Error actualizando celda ${colLetra}${caso.filaNumero} en Google Sheets:`, err);
+        console.warn(`[SheetsService] Error actualizando celda ${colLetra} en Google Sheets:`, err);
       }
     }
 

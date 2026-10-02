@@ -13,13 +13,25 @@ import { analizarTiemposCaso } from './tiempoLaboral';
 
 export { normalizarRespuesta };
 
+export function esPushKamRealizado(valor: any): boolean {
+  if (valor === true) return true;
+  if (!valor) return false;
+  const str = String(valor).trim().toUpperCase();
+  return str === 'TRUE' || str === 'VERDADERO' || str === 'SI' || str === 'SÍ' || str === '1';
+}
+
 /**
- * Normaliza y formatea asegurando SIEMPRE Fecha y Hora (DD/MM/YYYY HH:mm:ss)
+ * Normaliza y formatea asegurando SIEMPRE Fecha y Hora en formato oficial: dd/mm/aaaa hh:mm
  */
 export function formatearFechaHora(fecha?: Date | string | number | null): string {
   if (!fecha) {
     const d = new Date();
-    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const anio = d.getFullYear();
+    const hora = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
   if (typeof fecha === 'string') {
@@ -29,64 +41,59 @@ export function formatearFechaHora(fecha?: Date | string | number | null): strin
     // 1. DD/MM/YYYY o DD-MM-YYYY con hora
     const matchDDMMTime = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (matchDDMMTime) {
-      const dia = parseInt(matchDDMMTime[1], 10);
-      const mes = parseInt(matchDDMMTime[2], 10);
+      const dia = String(parseInt(matchDDMMTime[1], 10)).padStart(2, '0');
+      const mes = String(parseInt(matchDDMMTime[2], 10)).padStart(2, '0');
       let anio = parseInt(matchDDMMTime[3], 10);
       if (anio < 100) anio += 2000;
       const hora = String(matchDDMMTime[4]).padStart(2, '0');
       const min = String(matchDDMMTime[5]).padStart(2, '0');
-      const seg = matchDDMMTime[6] !== undefined ? String(matchDDMMTime[6]).padStart(2, '0') : '00';
-      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+      return `${dia}/${mes}/${anio} ${hora}:${min}`;
     }
 
     // 2. YYYY-MM-DD o YYYY/MM/DD con hora
     const matchISOTime = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
     if (matchISOTime) {
       const anio = parseInt(matchISOTime[1], 10);
-      const mes = parseInt(matchISOTime[2], 10);
-      const dia = parseInt(matchISOTime[3], 10);
+      const mes = String(parseInt(matchISOTime[2], 10)).padStart(2, '0');
+      const dia = String(parseInt(matchISOTime[3], 10)).padStart(2, '0');
       const hora = String(matchISOTime[4]).padStart(2, '0');
       const min = String(matchISOTime[5]).padStart(2, '0');
-      const seg = matchISOTime[6] !== undefined ? String(matchISOTime[6]).padStart(2, '0') : '00';
-      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+      return `${dia}/${mes}/${anio} ${hora}:${min}`;
     }
 
-    // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual para completar fecha y hora
+    // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual para completar formato dd/mm/aaaa hh:mm
     const matchDDMM = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
     if (matchDDMM) {
-      const dia = parseInt(matchDDMM[1], 10);
-      const mes = parseInt(matchDDMM[2], 10);
+      const dia = String(parseInt(matchDDMM[1], 10)).padStart(2, '0');
+      const mes = String(parseInt(matchDDMM[2], 10)).padStart(2, '0');
       let anio = parseInt(matchDDMM[3], 10);
       if (anio < 100) anio += 2000;
       const now = new Date();
       const hora = String(now.getHours()).padStart(2, '0');
       const min = String(now.getMinutes()).padStart(2, '0');
-      const seg = String(now.getSeconds()).padStart(2, '0');
-      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+      return `${dia}/${mes}/${anio} ${hora}:${min}`;
     }
 
-    // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual para completar fecha y hora
+    // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual para completar formato dd/mm/aaaa hh:mm
     const matchISO = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
     if (matchISO) {
       const anio = parseInt(matchISO[1], 10);
-      const mes = parseInt(matchISO[2], 10);
-      const dia = parseInt(matchISO[3], 10);
+      const mes = String(parseInt(matchISO[2], 10)).padStart(2, '0');
+      const dia = String(parseInt(matchISO[3], 10)).padStart(2, '0');
       const now = new Date();
       const hora = String(now.getHours()).padStart(2, '0');
       const min = String(now.getMinutes()).padStart(2, '0');
-      const seg = String(now.getSeconds()).padStart(2, '0');
-      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+      return `${dia}/${mes}/${anio} ${hora}:${min}`;
     }
 
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
-      const dia = d.getDate();
-      const mes = d.getMonth() + 1;
+      const dia = String(d.getDate()).padStart(2, '0');
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
       const anio = d.getFullYear();
       const hora = String(d.getHours()).padStart(2, '0');
       const min = String(d.getMinutes()).padStart(2, '0');
-      const seg = String(d.getSeconds()).padStart(2, '0');
-      return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+      return `${dia}/${mes}/${anio} ${hora}:${min}`;
     }
 
     return str;
@@ -94,13 +101,12 @@ export function formatearFechaHora(fecha?: Date | string | number | null): strin
 
   const d = fecha instanceof Date ? fecha : new Date(fecha);
   if (isNaN(d.getTime())) return '';
-  const dia = d.getDate();
-  const mes = d.getMonth() + 1;
+  const dia = String(d.getDate()).padStart(2, '0');
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
   const anio = d.getFullYear();
   const hora = String(d.getHours()).padStart(2, '0');
   const min = String(d.getMinutes()).padStart(2, '0');
-  const seg = String(d.getSeconds()).padStart(2, '0');
-  return `${dia}/${mes}/${anio} ${hora}:${min}:${seg}`;
+  return `${dia}/${mes}/${anio} ${hora}:${min}`;
 }
 
 export function normalizarFecha(fechaStr: any): string {
@@ -218,48 +224,62 @@ export const ETAPAS_AVANZADAS_SIN_SEGUIMIENTO: string[] = [
 ];
 
 /**
- * 2. Casuísticas de Relleno "S/V" por Salto de Etapa (Abandono/Omisión/Bajas)
- * Solo aplica si la etapa avanza o si la etapa no contempla seguimientos (se llena con "S/V").
+ * Detecta si una etapa no contempla seguimientos lineales (fases avanzadas, directas o agregadas)
+ */
+export function esEtapaSinSeguimiento(etapa: any): boolean {
+  const e = String(etapa || '').trim().toLowerCase();
+  if (!e) return false;
+  const esEsperaPos = e.includes('sin integración confirmada') || e.includes('sin integracion confirmada') || e.includes('en proceso de seteo');
+  const esVerifCat = e.includes('verificación de catálogo') || e.includes('verificacion de catalogo') || e.includes('carga de catálogo') || e.includes('carga de catalogo');
+  return !esEsperaPos && !esVerifCat;
+}
+
+/**
+ * 2. Casuísticas de Relleno "S/V" por Salto de Etapa (Abandono/Omisión/Bajas/Nuevas etapas)
+ * Respeta el historial: solo aplica si la etapa avanza y los seguimientos nunca iniciaron (Fecha de Inicio vacía o S/V).
  */
 export function aplicarReglaSaltoEtapa(nuevaEtapa: any, casoActual: any): any {
   const cambios: any = {};
   const etapaStr = String(nuevaEtapa || '').trim().toLowerCase();
 
-  const esEtapaAvanzada = ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaStr.includes(e));
-  const esVerificacionCatalogo = etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo');
+  const esEtapaAvanzada = esEtapaSinSeguimiento(etapaStr) || ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaStr.includes(e));
+  const esVerificacionCatalogo = etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo') || etapaStr.includes('carga de catálogo') || etapaStr.includes('carga de catalogo');
 
-  // Si avanza a Validación del Onboarding, En proceso para pruebas, Bajas de integración, etc.:
+  // Si avanza a Validación del Onboarding, En proceso para pruebas, Bajas de integración, etc. (o cualquier nueva etapa sin seguimiento):
   if (esEtapaAvanzada) {
     // Para POS API: Si no hay Fecha de Inicio o está en S/V, rellena Inicio, Push y Respuesta con "S/V", y marca el Check de KAM
-    const sinInicioPos = !casoActual.fechaInicioPos || casoActual.fechaInicioPos.trim() === '' || casoActual.fechaInicioPos === 'S/V';
+    const sinInicioPos = !casoActual.fechaInicioPos || casoActual.fechaInicioPos.trim() === '' || casoActual.fechaInicioPos === 'S/V' || casoActual.fechaInicioPos === '-';
     if (sinInicioPos) {
       cambios.fechaInicioPos = 'S/V';
       cambios.fechaPushPos = 'S/V';
       cambios.respuestaPos = 'S/V';
       cambios.pushKamPos = true;
       cambios.freezePos = ''; // S/V no congela SLA
+      cambios.fechaFreezePos = '';
     }
 
     // Para Catálogo: Si no hay Fecha de Inicio o está en S/V, rellena Inicio, Push y Respuesta con "S/V", y marca el Check de KAM
-    const sinInicioCat = !casoActual.fechaInicioCat || casoActual.fechaInicioCat.trim() === '';
+    const sinInicioCat = !casoActual.fechaInicioCat || casoActual.fechaInicioCat.trim() === '' || casoActual.fechaInicioCat === 'S/V' || casoActual.fechaInicioCat === '-';
     if (sinInicioCat) {
       cambios.fechaInicioCat = 'S/V';
       cambios.fechaPushCat = 'S/V';
       cambios.respuestaCat = 'S/V';
       cambios.pushKamCat = true;
       cambios.freezeCat = '';
+      cambios.fechaFreezeCat = '';
     }
   } else if (esVerificacionCatalogo) {
     // Si la Etapa avanza a "En proceso de verificación de catálogo":
-    // Para POS API: Si no hay Fecha de Inicio, rellena Inicio, Push y Respuesta con "S/V", y marca el Check de KAM.
+    // Para POS API: Si no hay Fecha de Inicio, rellena Inicio, Push y Respuesta con "S/V", y marca el Check de KAM
     // (El catálogo aún no se toca porque recién entra a esa etapa).
-    const sinInicioPos = !casoActual.fechaInicioPos || casoActual.fechaInicioPos.trim() === '';
+    const sinInicioPos = !casoActual.fechaInicioPos || casoActual.fechaInicioPos.trim() === '' || casoActual.fechaInicioPos === 'S/V' || casoActual.fechaInicioPos === '-';
     if (sinInicioPos) {
       cambios.fechaInicioPos = 'S/V';
       cambios.fechaPushPos = 'S/V';
       cambios.respuestaPos = 'S/V';
       cambios.pushKamPos = true;
       cambios.freezePos = '';
+      cambios.fechaFreezePos = '';
     }
   }
 
@@ -268,14 +288,14 @@ export function aplicarReglaSaltoEtapa(nuevaEtapa: any, casoActual: any): any {
 
 /**
  * 3. Casuísticas de Avance Lineal (Autollenado de Respuestas)
- * Si el equipo sí inició el seguimiento (hay Fecha de Inicio real != vacío y != "S/V")
+ * Si el equipo sí inició el seguimiento (hay Fecha de Inicio real != vacío y != "S/V" y != "-")
  */
 export function aplicarReglaAvanceLineal(nuevaEtapa: any, casoActual: any, nuevaFechaPushPos?: any, nuevaFechaPushCat?: any): any {
   const cambios: any = {};
   const etapaStr = String(nuevaEtapa || '').trim().toLowerCase();
 
   // --- POS API ---
-  const tieneInicioRealPos = casoActual.fechaInicioPos && casoActual.fechaInicioPos.trim() !== '' && casoActual.fechaInicioPos !== 'S/V';
+  const tieneInicioRealPos = casoActual.fechaInicioPos && casoActual.fechaInicioPos.trim() !== '' && casoActual.fechaInicioPos !== 'S/V' && casoActual.fechaInicioPos !== '-';
   if (tieneInicioRealPos) {
     const etapasEsperaPos = ['sin integración confirmada', 'sin integracion confirmada', 'en proceso de seteo'];
     const esEsperaPos = etapasEsperaPos.some(e => etapaStr.includes(e));
@@ -286,25 +306,27 @@ export function aplicarReglaAvanceLineal(nuevaEtapa: any, casoActual: any, nueva
       cambios.respuestaPos = 'Si';
     } else if (esEsperaPos) {
       // Si se mantiene en espera y se coloca una Fecha de Push: deduce que se pidió dato pero no lo dan -> "No"
+      // Si NO hay fecha de push registrada, NO se deduce "No" (permanece vacía)
       const pushPos = nuevaFechaPushPos !== undefined ? nuevaFechaPushPos : casoActual.fechaPushPos;
-      if (pushPos && pushPos.trim() !== '' && pushPos !== 'S/V') {
+      if (pushPos && pushPos.trim() !== '' && pushPos !== 'S/V' && pushPos !== '-') {
         cambios.respuestaPos = 'No';
       }
     }
   }
 
   // --- Catálogo ---
-  const tieneInicioRealCat = casoActual.fechaInicioCat && casoActual.fechaInicioCat.trim() !== '' && casoActual.fechaInicioCat !== 'S/V';
+  const tieneInicioRealCat = casoActual.fechaInicioCat && casoActual.fechaInicioCat.trim() !== '' && casoActual.fechaInicioCat !== 'S/V' && casoActual.fechaInicioCat !== '-';
   if (tieneInicioRealCat) {
-    const esFinalCat = ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaStr.includes(e));
+    const esFinalCat = esEtapaSinSeguimiento(etapaStr) || ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaStr.includes(e));
 
     if (esFinalCat) {
       // Si la etapa avanza a fases finales: cambia automáticamente a "Si"
       cambios.respuestaCat = 'Si';
-    } else if (etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo')) {
+    } else if (etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo') || etapaStr.includes('carga de catálogo') || etapaStr.includes('carga de catalogo')) {
       // Si se mantiene en espera y se coloca una Fecha de Push: cambia Respuesta a "No"
+      // Si NO hay fecha de push registrada, NO se deduce "No" (permanece vacía)
       const pushCat = nuevaFechaPushCat !== undefined ? nuevaFechaPushCat : casoActual.fechaPushCat;
-      if (pushCat && pushCat.trim() !== '' && pushCat !== 'S/V') {
+      if (pushCat && pushCat.trim() !== '' && pushCat !== 'S/V' && pushCat !== '-') {
         cambios.respuestaCat = 'No';
       }
     }
@@ -336,9 +358,7 @@ export function aplicarReglaRespuestaDirecta(tipo: string, respuesta: any, casoA
       cambios[fechaPushKey] = 'S/V';
     }
     // Se estampa la fecha exacta en la columna oculta de Freeze (Ancla) -> formato fecha estándar para Sheets
-    const d = new Date();
-    const fechaFormateada = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-    const freezeVal = casoActual[freezeKey] || casoActual[fechaFreezeKey] || fechaFormateada;
+    const freezeVal = casoActual[freezeKey] || casoActual[fechaFreezeKey] || formatearFechaHora(new Date());
     cambios[freezeKey] = freezeVal;
     cambios[fechaFreezeKey] = freezeVal;
   } else if (resp === 'No') {
@@ -369,12 +389,76 @@ export function aplicarReglaRespuestaDirecta(tipo: string, respuesta: any, casoA
 }
 
 /**
+ * Aplica la lógica estricta de fechas según Etapa de Onboarding:
+ * - Sin integración confirmada: OP = POS API
+ * - En proceso de seteo: OP = POS API
+ * - en proceso de verificación de catálogo: OP = Catálogo solo si NO existe POS API; si existe POS API, OP se mantiene en POS API y la fecha de catálogo se imprime solo en Catálogo
+ * - Validación del Onboarding: OP única, sin fecha de seguimiento ni POS API ni de catálogo (S/V)
+ * - En proceso para pruebas: OP única, sin fecha de seguimiento ni POS API ni de catálogo (S/V)
+ * - Pedido de prueba realizado: OP única, sin fecha de seguimiento ni POS API ni de catálogo (S/V)
+ */
+export function aplicarFechasPorEtapaOnboarding(caso: any): any {
+  const c = { ...caso };
+  const etapa = String(c.etapa || '').trim().toLowerCase();
+  const fCreacion = c.fechaCreacion || formatearFechaHora(new Date());
+
+  if (etapa.includes('sin integración confirmada') || etapa.includes('sin integracion confirmada') || etapa.includes('en proceso de seteo')) {
+    if (!c.fechaInicioPos || c.fechaInicioPos === 'S/V' || c.fechaInicioPos === '-') {
+      c.fechaInicioPos = c.sla_inicio || fCreacion;
+    }
+    c.fechaInicioSeguimientoOP = c.fechaInicioPos;
+    c.sla_inicio = c.fechaInicioPos;
+  } else if (etapa.includes('verificación de catálogo') || etapa.includes('verificacion de catalogo') || etapa.includes('carga de catálogo') || etapa.includes('carga de catalogo')) {
+    const tienePos = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-';
+    if (!c.fechaInicioCat || c.fechaInicioCat === 'S/V' || c.fechaInicioCat === '-') {
+      c.fechaInicioCat = c.sla_inicio || fCreacion;
+    }
+    if (tienePos) {
+      c.fechaInicioSeguimientoOP = c.fechaInicioPos;
+      c.sla_inicio = c.fechaInicioPos;
+    } else {
+      c.fechaInicioSeguimientoOP = c.fechaInicioCat;
+      c.sla_inicio = c.fechaInicioCat;
+      if (!c.fechaInicioPos || c.fechaInicioPos === '-' || c.fechaInicioPos === 'S/V') {
+        c.fechaInicioPos = 'S/V';
+        c.fechaPushPos = 'S/V';
+        c.respuestaPos = 'S/V';
+        c.pushKamPos = true;
+      }
+    }
+  } else if (
+    esEtapaSinSeguimiento(etapa) ||
+    etapa.includes('validación') || etapa.includes('validacion') ||
+    etapa.includes('en proceso para pruebas') ||
+    etapa.includes('pedido de prueba realizado')
+  ) {
+    c.fechaInicioSeguimientoOP = c.fechaInicioSeguimientoOP || c.sla_inicio || fCreacion;
+    c.sla_inicio = c.fechaInicioSeguimientoOP;
+    // Respetar historial: solo si no había iniciado seguimiento
+    if (!c.fechaInicioPos || c.fechaInicioPos === '-' || c.fechaInicioPos === 'S/V') {
+      c.fechaInicioPos = 'S/V';
+      c.fechaPushPos = 'S/V';
+      c.respuestaPos = 'S/V';
+      c.pushKamPos = true;
+    }
+    if (!c.fechaInicioCat || c.fechaInicioCat === '-' || c.fechaInicioCat === 'S/V') {
+      c.fechaInicioCat = 'S/V';
+      c.fechaPushCat = 'S/V';
+      c.respuestaCat = 'S/V';
+      c.pushKamCat = true;
+    }
+  }
+
+  return c;
+}
+
+/**
  * Función integradora que evalúa todas las reglas al actualizar o registrar un caso
  */
 export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any): any {
   let resultado = { ...casoAnterior, ...nuevosValores };
 
-  // Normalizar fechas de entrada garantizando fecha y hora en todos los formatos
+  // Normalizar fechas de entrada garantizando fecha y hora en formato oficial: dd/mm/aaaa hh:mm
   if (resultado.fechaInicioPos && resultado.fechaInicioPos !== 'S/V') resultado.fechaInicioPos = normalizarFecha(resultado.fechaInicioPos);
   if (resultado.fechaPushPos && resultado.fechaPushPos !== 'S/V') resultado.fechaPushPos = normalizarFecha(resultado.fechaPushPos);
   if (resultado.fechaInicioCat && resultado.fechaInicioCat !== 'S/V') resultado.fechaInicioCat = normalizarFecha(resultado.fechaInicioCat);
@@ -388,7 +472,7 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
 
   // 2. Regla de Salto de Etapa y Etapas sin seguimiento (S/V automático)
   const etapaActualLower = String(resultado.etapa || '').toLowerCase();
-  const esEtapaSinSeg = ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaActualLower.includes(e));
+  const esEtapaSinSeg = esEtapaSinSeguimiento(etapaActualLower) || ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaActualLower.includes(e));
   if (esEtapaSinSeg || (nuevosValores.etapa && nuevosValores.etapa !== casoAnterior.etapa)) {
     const cambiosSalto = aplicarReglaSaltoEtapa(resultado.etapa, resultado);
     resultado = { ...resultado, ...cambiosSalto };
@@ -403,16 +487,33 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   );
   resultado = { ...resultado, ...cambiosAvance };
 
-  // 4. Reglas Directas sobre Respuestas (POS y Catálogo)
-  if (resultado.respuestaPos) {
+  // 4. Reglas Directas sobre Respuestas (POS y Catálogo) solo si la respuesta cambió o fue generada por avance lineal
+  const respPosCambio = nuevosValores.respuestaPos !== undefined && normalizarRespuesta(nuevosValores.respuestaPos) !== normalizarRespuesta(casoAnterior?.respuestaPos);
+  const respPosGenerada = cambiosAvance.respuestaPos && normalizarRespuesta(cambiosAvance.respuestaPos) !== normalizarRespuesta(casoAnterior?.respuestaPos);
+  if ((respPosCambio || respPosGenerada) && resultado.respuestaPos) {
     resultado.respuestaPos = normalizarRespuesta(resultado.respuestaPos);
     const cambiosRespPos = aplicarReglaRespuestaDirecta('pos', resultado.respuestaPos, resultado);
     resultado = { ...resultado, ...cambiosRespPos };
+  } else if (resultado.respuestaPos) {
+    resultado.respuestaPos = normalizarRespuesta(resultado.respuestaPos);
   }
-  if (resultado.respuestaCat) {
+
+  const respCatCambio = nuevosValores.respuestaCat !== undefined && normalizarRespuesta(nuevosValores.respuestaCat) !== normalizarRespuesta(casoAnterior?.respuestaCat);
+  const respCatGenerada = cambiosAvance.respuestaCat && normalizarRespuesta(cambiosAvance.respuestaCat) !== normalizarRespuesta(casoAnterior?.respuestaCat);
+  if ((respCatCambio || respCatGenerada) && resultado.respuestaCat) {
     resultado.respuestaCat = normalizarRespuesta(resultado.respuestaCat);
     const cambiosRespCat = aplicarReglaRespuestaDirecta('cat', resultado.respuestaCat, resultado);
     resultado = { ...resultado, ...cambiosRespCat };
+  } else if (resultado.respuestaCat) {
+    resultado.respuestaCat = normalizarRespuesta(resultado.respuestaCat);
+  }
+
+  // Preservar SIEMPRE la selección explícita del usuario en Push KAM
+  if (nuevosValores.pushKamPos !== undefined) {
+    resultado.pushKamPos = esPushKamRealizado(nuevosValores.pushKamPos);
+  }
+  if (nuevosValores.pushKamCat !== undefined) {
+    resultado.pushKamCat = esPushKamRealizado(nuevosValores.pushKamCat);
   }
 
   // Asignar automáticamente sponsorship según la integración
@@ -422,12 +523,8 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
     resultado.descuentosBajoEstructuraSponsorship = spon;
   }
 
-  // Asignar Fecha de inicio de seguimiento de OP según la regla de Etapa
-  const fInicioSeg = calcularFechaInicioSeguimientoOP(resultado);
-  if (fInicioSeg) {
-    resultado.fechaInicioSeguimientoOP = fInicioSeg;
-    resultado.sla_inicio = fInicioSeg;
-  }
+  // Reglas estrictas de fechas por etapa de Onboarding
+  resultado = aplicarFechasPorEtapaOnboarding(resultado);
 
   // Cálculo de indicador activo según Estado Oficial
   resultado.esActivo = esEstadoActivoOficial(resultado.estado);
@@ -527,9 +624,16 @@ export function analizarAlertasCaso(caso: any): any {
     }
   }
 
-  // 4. Push KAM (Supervisor: 24h a 72h / >=24h):
-  const esKamPosHecho = caso.pushKamPos === true || String(caso.pushKamPos).trim().toUpperCase() === 'TRUE' || esSvPos;
-  const esKamCatHecho = caso.pushKamCat === true || String(caso.pushKamCat).trim().toUpperCase() === 'TRUE' || esSvCat;
+  // 4. Push KAM (Supervisor: >=24h):
+  // Regla oficial: Requiere Push KAM si tiene fecha de inicio, fecha de push, en respuesta dice "NO" y no tiene Push KAM realizado
+  const tieneInicioRealPos = Boolean(caso.fechaInicioPos && !esSV(caso.fechaInicioPos) && caso.fechaInicioPos !== '-');
+  const respEsNoPos = respPosNorm === 'No';
+  const esKamPosHecho = esPushKamRealizado(caso.pushKamPos);
+
+  const tieneInicioRealCat = Boolean(caso.fechaInicioCat && !esSV(caso.fechaInicioCat) && caso.fechaInicioCat !== '-');
+  const respEsNoCat = respCatNorm === 'No';
+  const esKamCatHecho = esPushKamRealizado(caso.pushKamCat);
+
   const esMasDe24 = horasTranscurridas >= 24 || 
     String(rangoSla).includes('24') || 
     String(rangoSla).includes('72') || 
@@ -537,8 +641,8 @@ export function analizarAlertasCaso(caso: any): any {
     String(rangoSla).includes('≥') || 
     String(rangoSla).includes('>');
 
-  const requierePushKamPos = esActivo && tieneTrackPos && !esKamPosHecho && esMasDe24;
-  const requierePushKamCat = esActivo && tieneTrackCat && !esKamCatHecho && esMasDe24;
+  const requierePushKamPos = esActivo && tieneInicioRealPos && tienePushPos && respEsNoPos && !esKamPosHecho && esMasDe24;
+  const requierePushKamCat = esActivo && tieneInicioRealCat && tienePushCat && respEsNoCat && !esKamCatHecho && esMasDe24;
 
   // 5. Semáforos SLA: Se calculan sobre las horas acumuladas reales y rango oficial
   const rangoStr = String(rangoSla || '').trim();

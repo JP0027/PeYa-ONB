@@ -24,9 +24,65 @@ export default function TablaOnboardingCasos({
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroPais, setFiltroPais] = useState<string>('todos');
-  const [ordenTienda, setOrdenTienda] = useState<'none' | 'asc' | 'desc'>('none');
   const [paginaActual, setPaginaActual] = useState<number>(1);
-  const [casosPorPagina, setCasosPorPagina] = useState<number>(50);
+  const [casosPorPagina, setCasosPorPagina] = useState<number>(10);
+
+  // Ordenamiento global de columnas
+  type ColumnaOrden = 'num' | 'casoOp' | 'vendorId' | 'tienda' | 'pais' | 'propietarioOp' | 'integracion' | 'oportunidad' | 'estado' | 'etapa' | null;
+  type DireccionOrden = 'asc' | 'desc';
+
+  const [columnaOrden, setColumnaOrden] = useState<ColumnaOrden>(null);
+  const [direccionOrden, setDireccionOrden] = useState<DireccionOrden>('asc');
+
+  const handleOrdenar = (col: ColumnaOrden) => {
+    if (columnaOrden === col) {
+      if (direccionOrden === 'asc') {
+        setDireccionOrden('desc');
+      } else {
+        setColumnaOrden(null);
+        setDireccionOrden('asc');
+      }
+    } else {
+      setColumnaOrden(col);
+      setDireccionOrden('asc');
+    }
+    setPaginaActual(1);
+  };
+
+  // Anchos de columnas ajustables (sin columna agente y acciones reducida para ahorrar espacio)
+  const [colWidths, setColWidths] = useState<Record<string, number>>({
+    num: 50,
+    casoOp: 130,
+    vendorId: 110,
+    tienda: 230,
+    pais: 100,
+    propietarioOp: 170,
+    integracion: 140,
+    oportunidad: 150,
+    estado: 160,
+    etapa: 180,
+    acciones: 80
+  });
+
+  const iniciarRedimensionar = (colKey: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = colWidths[colKey] || 120;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const nuevoAncho = Math.max(50, startWidth + (moveEvent.clientX - startX));
+      setColWidths(prev => ({ ...prev, [colKey]: nuevoAncho }));
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
 
   // Estado para el modal de confirmación de eliminación
   const [casoAEliminar, setCasoAEliminar] = useState<any | null>(null);
@@ -153,20 +209,62 @@ export default function TablaOnboardingCasos({
       return true;
     });
 
-    // 4. Ordenamiento por nombre de Tienda / Local (A-Z o Z-A)
-    if (ordenTienda === 'asc') {
-      return [...filtrados].sort((a, b) => 
-        String(a.tienda || '').localeCompare(String(b.tienda || ''), 'es', { sensitivity: 'base' })
-      );
-    }
-    if (ordenTienda === 'desc') {
-      return [...filtrados].sort((a, b) => 
-        String(b.tienda || '').localeCompare(String(a.tienda || ''), 'es', { sensitivity: 'base' })
-      );
+    // 4. Ordenamiento global por cualquier columna
+    if (columnaOrden) {
+      filtrados.sort((a, b) => {
+        let valA: any = '';
+        let valB: any = '';
+
+        switch (columnaOrden) {
+          case 'num':
+            valA = a.filaNumero || 0;
+            valB = b.filaNumero || 0;
+            return direccionOrden === 'asc' ? valA - valB : valB - valA;
+          case 'casoOp':
+            valA = String(a.casoOp || '').trim();
+            valB = String(b.casoOp || '').trim();
+            break;
+          case 'vendorId':
+            valA = String(a.vendorId || a.vendor_id || '').trim();
+            valB = String(b.vendorId || b.vendor_id || '').trim();
+            break;
+          case 'tienda':
+            valA = String(a.tienda || '').trim();
+            valB = String(b.tienda || '').trim();
+            break;
+          case 'pais':
+            valA = String(a.pais || '').trim();
+            valB = String(b.pais || '').trim();
+            break;
+          case 'propietarioOp':
+            valA = String(a.propietarioOportunidad || '').trim();
+            valB = String(b.propietarioOportunidad || '').trim();
+            break;
+          case 'integracion':
+            valA = String(a.integracion || '').trim();
+            valB = String(b.integracion || '').trim();
+            break;
+          case 'oportunidad':
+            valA = String(a.oportunidad || '').trim();
+            valB = String(b.oportunidad || '').trim();
+            break;
+          case 'estado':
+            valA = String(a.estado || '').trim();
+            valB = String(b.estado || '').trim();
+            break;
+          case 'etapa':
+            valA = String(a.etapa || '').trim();
+            valB = String(b.etapa || '').trim();
+            break;
+        }
+
+        const cmp = String(valA).localeCompare(String(valB), 'es', { numeric: true, sensitivity: 'base' });
+        return direccionOrden === 'asc' ? cmp : -cmp;
+      });
     }
 
     return filtrados;
-  }, [casos, busqueda, filtroEstado, filtroPais, ordenTienda]);
+  }, [casos, busqueda, filtroEstado, filtroPais, columnaOrden, direccionOrden]);
 
   // Paginación
   const totalPaginas = Math.max(1, Math.ceil(casosFiltrados.length / casosPorPagina));
@@ -196,16 +294,7 @@ export default function TablaOnboardingCasos({
     setPaginaActual(1);
   };
 
-  const toggleOrdenTienda = () => {
-    setOrdenTienda(prev => {
-      if (prev === 'none') return 'asc';
-      if (prev === 'asc') return 'desc';
-      return 'none';
-    });
-    setPaginaActual(1);
-  };
-
-  // Descargar casos filtrados a Excel (.xlsx)
+  // Descargar casos filtrados a Excel (.xlsx) con N° Caso Seguimiento en columna oficial
   const descargarExcel = () => {
     if (!casosFiltrados || casosFiltrados.length === 0) {
       if (mostrarNotificacion) {
@@ -227,14 +316,13 @@ export default function TablaOnboardingCasos({
       "Integración": c.integracion || '',
       "Oportunidad": c.oportunidad || '',
       "Asset": c.asset || '',
-      "Agente / Ticket": c.propietarioTicket || c.agente || '',
+      "N° Caso Seguimiento": c.casoSeguimiento || '',
       "Estado": c.estado || '',
       "Etapa": c.etapa || '',
       "Fecha Creación": c.fechaCreacion || '',
       "SLA Inicio": c.sla_inicio || '',
       "Horas SLA": c.horasSLA !== undefined && c.horasSLA !== null ? c.horasSLA : '',
       "Rango SLA": c.rangoSla || c.rangoSlaOp || '',
-      "Caso Seguimiento": c.casoSeguimiento || '',
       "Comentarios": c.comentarios || ''
     }));
 
@@ -252,14 +340,13 @@ export default function TablaOnboardingCasos({
       { wch: 22 }, // Integración
       { wch: 22 }, // Oportunidad
       { wch: 16 }, // Asset
-      { wch: 25 }, // Agente / Ticket
+      { wch: 36 }, // N° Caso Seguimiento
       { wch: 22 }, // Estado
       { wch: 28 }, // Etapa
       { wch: 18 }, // Fecha Creación
       { wch: 18 }, // SLA Inicio
       { wch: 12 }, // Horas SLA
       { wch: 16 }, // Rango SLA
-      { wch: 25 }, // Caso Seguimiento
       { wch: 45 }  // Comentarios
     ];
 
@@ -277,147 +364,33 @@ export default function TablaOnboardingCasos({
     }
   };
 
+  const renderHeader = (colKey: ColumnaOrden, titulo: string, anchoKey: string, alinear: 'left' | 'center' = 'left') => {
+    const activo = columnaOrden === colKey;
+    return (
+      <th 
+        onClick={() => handleOrdenar(colKey)}
+        style={{ width: colWidths[anchoKey], minWidth: colWidths[anchoKey] }} 
+        className={`py-3 px-3 relative select-none cursor-pointer hover:text-pink-400 transition ${alinear === 'center' ? 'text-center' : 'text-left'} ${activo ? 'text-pink-400 font-bold' : ''}`}
+        title={`Clic para ordenar por ${titulo}`}
+      >
+        <div className={`flex items-center gap-1 ${alinear === 'center' ? 'justify-center' : 'justify-start'}`}>
+          <span>{titulo}</span>
+          <span className="text-[10px] opacity-80 font-sans">
+            {activo ? (direccionOrden === 'asc' ? '▲' : '▼') : '⇅'}
+          </span>
+        </div>
+        <div 
+          onMouseDown={(e) => iniciarRedimensionar(anchoKey, e)} 
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500/60 select-none" 
+        />
+      </th>
+    );
+  };
+
   return (
     <div className="w-full space-y-4">
-      {/* 1. Barra de Filtros por Estado (Píldoras idénticas a "Mis casos") */}
-      <div className="flex flex-wrap gap-2 items-center">
-        {/* Todos */}
-        <button
-          onClick={() => cambiarFiltroEstado('todos')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'todos'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 border border-blue-500'
-              : 'bg-[#151824] border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          <span>📁 Todos los Casos</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'todos' ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-400'}`}>
-            {conteos.todos}
-          </span>
-        </button>
-
-        {/* Todos los Activos */}
-        <button
-          onClick={() => cambiarFiltroEstado('activos')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'activos'
-              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40 border border-emerald-500'
-              : 'bg-[#151824] border border-emerald-900/50 text-emerald-400 hover:bg-emerald-950/40'
-          }`}
-        >
-          <span>🟢 Todos los Activos</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'activos' ? 'bg-white/20 text-white' : 'bg-emerald-950 text-emerald-400 border border-emerald-800/60'}`}>
-            {conteos.activos}
-          </span>
-        </button>
-
-        {/* En Progreso */}
-        <button
-          onClick={() => cambiarFiltroEstado('enProgreso')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'enProgreso'
-              ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/40 border border-cyan-500'
-              : 'bg-[#151824] border border-cyan-900/50 text-cyan-400 hover:bg-cyan-950/40'
-          }`}
-        >
-          <span>💼 En Progreso</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'enProgreso' ? 'bg-white/20 text-white' : 'bg-cyan-950 text-cyan-400 border border-cyan-800/60'}`}>
-            {conteos.enProgreso}
-          </span>
-        </button>
-
-        {/* Sin Oportunidad */}
-        <button
-          onClick={() => cambiarFiltroEstado('sinOportunidad')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'sinOportunidad'
-              ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40 border border-purple-500'
-              : 'bg-[#151824] border border-purple-900/50 text-purple-400 hover:bg-purple-950/40'
-          }`}
-        >
-          <span>⚡ Sin Oportunidad</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'sinOportunidad' ? 'bg-white/20 text-white' : 'bg-purple-950 text-purple-400 border border-purple-800/60'}`}>
-            {conteos.sinOportunidad}
-          </span>
-        </button>
-
-        {/* ONB Satisfactorio */}
-        <button
-          onClick={() => cambiarFiltroEstado('onbSat')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'onbSat'
-              ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-900/40 border border-fuchsia-500'
-              : 'bg-[#151824] border border-fuchsia-900/40 text-fuchsia-400 hover:bg-fuchsia-950/30'
-          }`}
-        >
-          <span>🟣 ONB (Satisfactorio)</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'onbSat' ? 'bg-white/20 text-white' : 'bg-fuchsia-950 text-fuchsia-400 border border-fuchsia-800/60'}`}>
-            {conteos.onbSat}
-          </span>
-        </button>
-
-        {/* ONB Fallido */}
-        <button
-          onClick={() => cambiarFiltroEstado('onbFall')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'onbFall'
-              ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/40 border border-rose-500'
-              : 'bg-[#151824] border border-rose-900/40 text-rose-400 hover:bg-rose-950/30'
-          }`}
-        >
-          <span>🔴 ONB (Fallido)</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'onbFall' ? 'bg-white/20 text-white' : 'bg-rose-950 text-rose-400 border border-rose-800/60'}`}>
-            {conteos.onbFall}
-          </span>
-        </button>
-
-        {/* KAM Satisfactorio */}
-        <button
-          onClick={() => cambiarFiltroEstado('kamSat')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'kamSat'
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40 border border-indigo-500'
-              : 'bg-[#151824] border border-indigo-900/40 text-indigo-400 hover:bg-indigo-950/30'
-          }`}
-        >
-          <span>🔵 KAM (Satisfactorio)</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'kamSat' ? 'bg-white/20 text-white' : 'bg-indigo-950 text-indigo-400 border border-indigo-800/60'}`}>
-            {conteos.kamSat}
-          </span>
-        </button>
-
-        {/* KAM Fallido */}
-        <button
-          onClick={() => cambiarFiltroEstado('kamFall')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'kamFall'
-              ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40 border border-amber-500'
-              : 'bg-[#151824] border border-amber-900/40 text-amber-400 hover:bg-amber-950/30'
-          }`}
-        >
-          <span>🟠 KAM (Fallido)</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'kamFall' ? 'bg-white/20 text-white' : 'bg-amber-950 text-amber-400 border border-amber-800/60'}`}>
-            {conteos.kamFall}
-          </span>
-        </button>
-
-        {/* API Vendor */}
-        <button
-          onClick={() => cambiarFiltroEstado('apiVendor')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-            filtroEstado === 'apiVendor'
-              ? 'bg-sky-600 text-white shadow-lg shadow-sky-900/40 border border-sky-500'
-              : 'bg-[#151824] border border-sky-900/40 text-sky-400 hover:bg-sky-950/30'
-          }`}
-        >
-          <span>💻 API Vendor</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${filtroEstado === 'apiVendor' ? 'bg-white/20 text-white' : 'bg-sky-950 text-sky-400 border border-sky-800/60'}`}>
-            {conteos.apiVendor}
-          </span>
-        </button>
-      </div>
-
-      {/* 2. Barra de Búsqueda y Selector de País / Paginación */}
+      {/* Barra de Búsqueda y Selectores de Estado, País y Paginación */}
       <div className="bg-[#151824] border border-gray-800 rounded-2xl p-4 shadow-lg space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
           {/* Input de Búsqueda */}
@@ -445,8 +418,31 @@ export default function TablaOnboardingCasos({
             )}
           </div>
 
-          {/* Filtros Complementarios */}
+          {/* Filtros Complementarios en Selectores */}
           <div className="flex flex-wrap gap-2.5 items-center w-full md:w-auto">
+            {/* Filtro Estado del Caso */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">Estado:</span>
+              <select
+                value={filtroEstado}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  setFiltroEstado(e.target.value);
+                  setPaginaActual(1);
+                }}
+                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-pink-500 font-semibold cursor-pointer"
+              >
+                <option value="todos">Todos los Estados ({conteos.todos})</option>
+                <option value="activos">Todos los Activos ({conteos.activos})</option>
+                <option value="enProgreso">En Progreso ({conteos.enProgreso})</option>
+                <option value="sinOportunidad">Sin Oportunidad ({conteos.sinOportunidad})</option>
+                <option value="onbSat">ONB (Satisfactorio) ({conteos.onbSat})</option>
+                <option value="onbFall">ONB (Fallido) ({conteos.onbFall})</option>
+                <option value="kamSat">KAM (Satisfactorio) ({conteos.kamSat})</option>
+                <option value="kamFall">KAM (Fallido) ({conteos.kamFall})</option>
+                <option value="apiVendor">API Vendor ({conteos.apiVendor})</option>
+              </select>
+            </div>
+
             {/* Filtro País */}
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-gray-400">País:</span>
@@ -456,7 +452,7 @@ export default function TablaOnboardingCasos({
                   setFiltroPais(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-pink-500"
+                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-pink-500 cursor-pointer"
               >
                 <option value="todos">Todos los Países ({listaPaises.length})</option>
                 {listaPaises.map(p => (
@@ -465,7 +461,7 @@ export default function TablaOnboardingCasos({
               </select>
             </div>
 
-            {/* Cantidad por página */}
+            {/* Cantidad por página: 10, 15, 20 */}
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-gray-400">Mostrar:</span>
               <select
@@ -474,26 +470,30 @@ export default function TablaOnboardingCasos({
                   setCasosPorPagina(Number(e.target.value));
                   setPaginaActual(1);
                 }}
-                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-pink-500"
+                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-pink-500 cursor-pointer"
               >
-                <option value={25}>25 por pág.</option>
-                <option value={50}>50 por pág.</option>
-                <option value={100}>100 por pág.</option>
+                <option value={10}>10 por pág.</option>
+                <option value={15}>15 por pág.</option>
+                <option value={20}>20 por pág.</option>
               </select>
             </div>
 
             {/* Botón Ordenar Locales A-Z / Z-A */}
             <button
-              onClick={toggleOrdenTienda}
+              onClick={() => handleOrdenar('tienda')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
-                ordenTienda !== 'none'
+                columnaOrden === 'tienda'
                   ? 'bg-pink-600/30 text-pink-300 border-pink-500 shadow-sm'
                   : 'bg-[#0f111a] border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800'
               }`}
               title="Ordenar locales alfabéticamente A-Z o Z-A"
             >
               <span>🔤</span>
-              <span>{ordenTienda === 'asc' ? 'Tienda: A - Z 🔼' : ordenTienda === 'desc' ? 'Tienda: Z - A 🔽' : 'Ordenar A - Z'}</span>
+              <span>
+                {columnaOrden === 'tienda'
+                  ? (direccionOrden === 'asc' ? 'Tienda: A - Z 🔼' : 'Tienda: Z - A 🔽')
+                  : 'Ordenar A - Z'}
+              </span>
             </button>
 
             {/* Botón Descargar Excel según filtros actuales */}
@@ -509,6 +509,7 @@ export default function TablaOnboardingCasos({
             </button>
           </div>
         </div>
+
 
         {/* Resumen de resultados */}
         <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-800/80">
@@ -536,35 +537,30 @@ export default function TablaOnboardingCasos({
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-gray-900/80 border-b border-gray-800 text-gray-400 uppercase font-mono text-[10px] tracking-wider whitespace-nowrap">
-                <th className="py-3 px-3 w-12 text-center">#</th>
-                <th className="py-3 px-3 min-w-[110px]">Caso OP</th>
-                <th className="py-3 px-3 min-w-[100px]">Vendor ID</th>
-                <th 
-                  onClick={toggleOrdenTienda}
-                  className="py-3 px-4 min-w-[200px] cursor-pointer hover:text-pink-400 select-none transition"
-                  title="Clic para ordenar locales de A-Z o Z-A"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>Tienda</span>
-                    <span className="text-xs">
-                      {ordenTienda === 'asc' ? '🔼 (A-Z)' : ordenTienda === 'desc' ? '🔽 (Z-A)' : '↕️'}
-                    </span>
-                  </div>
+                {renderHeader('num', '#', 'num', 'center')}
+                {renderHeader('casoOp', 'Caso OP', 'casoOp')}
+                {renderHeader('vendorId', 'Vendor ID', 'vendorId')}
+                {renderHeader('tienda', 'Tienda', 'tienda')}
+                {renderHeader('pais', 'País', 'pais')}
+                {renderHeader('propietarioOp', 'Propietario Oportunidad', 'propietarioOp')}
+                {renderHeader('integracion', 'Integración', 'integracion')}
+                {renderHeader('oportunidad', 'Oportunidad', 'oportunidad')}
+                {renderHeader('estado', 'Estado', 'estado')}
+                {renderHeader('etapa', 'Etapa', 'etapa')}
+                <th style={{ width: colWidths.acciones, minWidth: colWidths.acciones }} className="py-3 px-2 text-center relative select-none">
+                  Acciones
+                  <div 
+                    onMouseDown={(e) => iniciarRedimensionar('acciones', e)} 
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500/60 select-none" 
+                  />
                 </th>
-                <th className="py-3 px-3 min-w-[90px]">País</th>
-                <th className="py-3 px-3 min-w-[150px]">Propietario Oportunidad</th>
-                <th className="py-3 px-3 min-w-[130px]">Integración</th>
-                <th className="py-3 px-3 min-w-[140px]">Oportunidad</th>
-                <th className="py-3 px-3 min-w-[140px]">Agente / Ticket</th>
-                <th className="py-3 px-3 min-w-[150px]">Estado</th>
-                <th className="py-3 px-3 min-w-[150px]">Etapa</th>
-                <th className="py-3 px-4 min-w-[160px] text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/80">
               {casosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-gray-500">
+                  <td colSpan={11} className="py-12 text-center text-gray-500">
                     No se encontraron casos con los filtros aplicados.
                   </td>
                 </tr>
@@ -573,6 +569,15 @@ export default function TablaOnboardingCasos({
                   const estLower = String(c.estado || '').toLowerCase();
                   const esCerrado = estLower.includes('cerrad') || estLower.includes('fallid') || estLower.includes('cancel');
                   const filaNumeroVisual = c.filaNumero || ((paginaSegura - 1) * casosPorPagina + idx + 1);
+                  const opRaw = String(c.casoOp || '').trim();
+                  const esOpValido = opRaw && 
+                    opRaw !== '-' && 
+                    opRaw !== 'S/OP' && 
+                    opRaw.toLowerCase() !== 'sin caso op' && 
+                    !opRaw.startsWith('TEMP_') && 
+                    !opRaw.startsWith('SIN_OP_') && 
+                    !opRaw.includes('_r');
+                  const textoOp = esOpValido ? opRaw : 'Sin caso OP';
 
                   return (
                     <tr
@@ -585,13 +590,17 @@ export default function TablaOnboardingCasos({
                       </td>
 
                       {/* Caso OP */}
-                      <td className="py-2.5 px-3 font-mono font-bold text-cyan-400">
+                      <td className="py-2.5 px-3 font-mono font-bold">
                         <button
                           onClick={() => onEditarCaso && onEditarCaso(c)}
-                          className="hover:underline hover:text-cyan-300 text-left cursor-pointer"
+                          className={`hover:underline text-left cursor-pointer ${
+                            textoOp === 'Sin caso OP'
+                              ? 'text-gray-500 italic'
+                              : 'text-cyan-400 hover:text-cyan-300'
+                          }`}
                           title="Clic para ampliar y ver todos los datos del caso"
                         >
-                          {c.casoOp || 'S/OP'}
+                          {textoOp}
                         </button>
                       </td>
 
@@ -627,11 +636,6 @@ export default function TablaOnboardingCasos({
                         {c.oportunidad || '-'}
                       </td>
 
-                      {/* Agente / Ticket */}
-                      <td className="py-2.5 px-3 text-gray-300 max-w-[150px] truncate" title={c.propietarioTicket || c.agente}>
-                        {c.propietarioTicket || c.agente || '-'}
-                      </td>
-
                       {/* Estado */}
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         <span
@@ -654,27 +658,27 @@ export default function TablaOnboardingCasos({
                         {c.etapa || '-'}
                       </td>
 
-                      {/* Acciones: Editar (Ampliar) y Eliminar */}
-                      <td className="py-2.5 px-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-2">
-                          {/* Botón Editar / Ampliar */}
+                      {/* Acciones: Solo iconos para ahorrar espacio */}
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* Botón Editar / Ampliar (Solo icono) */}
                           <button
                             onClick={() => onEditarCaso && onEditarCaso(c)}
-                            className="bg-pink-600/20 hover:bg-pink-600 text-pink-300 hover:text-white border border-pink-500/40 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
-                            title="Ampliar y editar datos completos del caso"
+                            className="p-1.5 bg-pink-600/20 hover:bg-pink-600 text-pink-300 hover:text-white border border-pink-500/40 rounded-lg transition flex items-center justify-center cursor-pointer shadow-sm hover:scale-110"
+                            title="Editar / Ampliar datos del caso"
+                            aria-label="Editar caso"
                           >
-                            <span>✏️</span>
-                            <span>Editar</span>
+                            <span className="text-xs">✏️</span>
                           </button>
 
-                          {/* Botón Eliminar */}
+                          {/* Botón Eliminar (Solo icono) */}
                           <button
                             onClick={() => setCasoAEliminar(c)}
-                            className="bg-rose-950/60 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-800/60 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                            className="p-1.5 bg-rose-950/60 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-800/60 rounded-lg transition flex items-center justify-center cursor-pointer shadow-sm hover:scale-110"
                             title="Eliminar caso en Sheets y Firebase"
+                            aria-label="Eliminar caso"
                           >
-                            <span>🗑️</span>
-                            <span>Eliminar</span>
+                            <span className="text-xs">🗑️</span>
                           </button>
                         </div>
                       </td>

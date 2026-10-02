@@ -146,10 +146,14 @@ export default async function handler(req: any, res: any) {
     const colFechaCierre = findCol(h => h.includes('cierre de op') || h.includes('cierre op'));
     const colFechaInicioPos = findCol(h => h.includes('inicio') && h.includes('pos'));
     const colFechaPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
+    const colRespPos = findCol(h => (h.includes('respuesta') || h.includes('resp')) && h.includes('pos'));
     const colPushKamPos = findCol(h => h.includes('push kam') && h.includes('pos'));
     const colFechaInicioCat = findCol(h => h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo')));
     const colFechaPushCat = findCol(h => h.includes('push') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('push kam'));
+    const colRespCat = findCol(h => (h.includes('respuesta') || h.includes('resp')) && (h.includes('catálogo') || h.includes('catalogo')));
     const colPushKamCat = findCol(h => h.includes('push kam') && (h.includes('catálogo') || h.includes('catalogo')));
+    const colFreezePos = findCol(h => (h.includes('freeze') || h.includes('congelado')) && h.includes('pos'));
+    const colFreezeCat = findCol(h => (h.includes('freeze') || h.includes('congelado')) && (h.includes('catálogo') || h.includes('catalogo')));
     const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')));
     const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) || h === 'rango sla op');
 
@@ -192,12 +196,20 @@ export default async function handler(req: any, res: any) {
       const fechaInicioPos = rawInicioPos && rawInicioPos !== 'S/V' ? formatearFechaHoraSheet(rawInicioPos) : rawInicioPos;
       const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
       const fechaPushPos = rawPushPos && rawPushPos !== 'S/V' ? formatearFechaHoraSheet(rawPushPos) : rawPushPos;
-      const pushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
+      const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 21, 'No');
+      const respuestaPos = (rawRespPos.toLowerCase() === 'si' || rawRespPos.toLowerCase() === 'sí') ? 'Si' : (rawRespPos.toLowerCase() === 'no' ? 'No' : (rawRespPos.toUpperCase() === 'S/V' ? 'S/V' : rawRespPos));
+      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
+      const pushKamPos = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamPos).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
       const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
       const fechaInicioCat = rawInicioCat && rawInicioCat !== 'S/V' ? formatearFechaHoraSheet(rawInicioCat) : rawInicioCat;
       const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
       const fechaPushCat = rawPushCat && rawPushCat !== 'S/V' ? formatearFechaHoraSheet(rawPushCat) : rawPushCat;
-      const pushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
+      const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 25, 'No');
+      const respuestaCat = (rawRespCat.toLowerCase() === 'si' || rawRespCat.toLowerCase() === 'sí') ? 'Si' : (rawRespCat.toLowerCase() === 'no' ? 'No' : (rawRespCat.toUpperCase() === 'S/V' ? 'S/V' : rawRespCat));
+      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
+      const pushKamCat = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamCat).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
+      const freezePos = getVal(colFreezePos >= 0 ? colFreezePos : 39);
+      const freezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 40);
       const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
       const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 34);
 
@@ -245,10 +257,16 @@ export default async function handler(req: any, res: any) {
         fechaCierre,
         fechaInicioPos,
         fechaPushPos,
+        respuestaPos,
         pushKamPos,
         fechaInicioCat,
         fechaPushCat,
+        respuestaCat,
         pushKamCat,
+        freezePos,
+        freezeCat,
+        fechaFreezePos: freezePos,
+        fechaFreezeCat: freezeCat,
         tiempoTranscurridoOp,
         tiempoTranscurridoLV: tiempoTranscurridoOp,
         rangoSlaOp,

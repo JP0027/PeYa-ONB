@@ -838,11 +838,18 @@ export async function actualizarCasoEnSheets(casoActualizado: any): Promise<any>
     const local = localStorage.getItem('PEDA_CASOS_LOCAL');
     if (local) {
       const lista = JSON.parse(local);
-      const idx = lista.findIndex((c: any) => String(c.casoOp || c.id) === String(casoActualizado.casoOp || casoActualizado.id));
+      const esNuevo = Boolean(casoActualizado.esNuevo);
+      const fn = Number(casoActualizado.filaNumero);
+      const idx = esNuevo ? -1 : lista.findIndex((c: any) => 
+        (fn && Number(c.filaNumero) === fn) ||
+        (c.id && casoActualizado.id && String(c.id) === String(casoActualizado.id)) ||
+        (c.casoOp && casoActualizado.casoOp && String(c.casoOp) === String(casoActualizado.casoOp))
+      );
       if (idx !== -1) {
         lista[idx] = { ...lista[idx], ...casoActualizado };
       } else {
-        lista.push({ ...casoActualizado, filaNumero: lista.length + 6 });
+        const filaNum = casoActualizado.filaNumero || (lista.length + 3);
+        lista.push({ ...casoActualizado, filaNumero: filaNum });
       }
       localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(lista));
     }

@@ -1,6 +1,6 @@
 import { collection, writeBatch, doc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { limpiarTextoEtapa, formatearFechaHora } from '../utils/onboardingRules';
+import { limpiarTextoEtapa, formatearFechaHora, esPushKamRealizado } from '../utils/onboardingRules';
 
 export interface Caso {
   id?: string;
@@ -119,11 +119,11 @@ export async function guardarCasosEnFirestore(casos: Caso[], onProgreso: ((proce
         fechaInicioPos: caso.fechaInicioPos || '',
         fechaPushPos: caso.fechaPushPos || '',
         respuestaPos: caso.respuestaPos || '',
-        pushKamPos: Boolean(caso.pushKamPos),
+        pushKamPos: esPushKamRealizado(caso.pushKamPos),
         fechaInicioCat: caso.fechaInicioCat || '',
         fechaPushCat: caso.fechaPushCat || '',
         respuestaCat: caso.respuestaCat || '',
-        pushKamCat: Boolean(caso.pushKamCat),
+        pushKamCat: esPushKamRealizado(caso.pushKamCat),
         freezePos: caso.fechaFreezePos || caso.freezePos || '',
         freezeCat: caso.fechaFreezeCat || caso.freezeCat || '',
         fechaFreezePos: caso.fechaFreezePos || caso.freezePos || '',
@@ -447,11 +447,11 @@ function parsearFilaCaso(row, filaNumero) {
   const fechaInicioPos = formatearFechaStr(row[19]); // T: Inicio POS
   const fechaPushPos = formatearFechaStr(row[20]);   // U: Push POS
   const respPos = texto(row[21]);    // V: Resp POS
-  const checkPos = Boolean(row[22]); // W: Push KAM POS
+  const checkPos = esPushKamRealizado(row[22]); // W: Push KAM POS
   const fechaInicioCat = formatearFechaStr(row[23]); // X: Inicio Cat
   const fechaPushCat = formatearFechaStr(row[24]);   // Y: Push Cat
   const respCat = texto(row[25]);    // Z: Resp Cat
-  const checkCat = Boolean(row[26]); // AA: Push KAM Cat
+  const checkCat = esPushKamRealizado(row[26]); // AA: Push KAM Cat
   const tiempoTranscurridoOp = texto(row[30]); // AE: Tiempo Transcurrido L-V OP
   const tiempoTranscurridoPos = texto(row[31]); // AF: Tiempo Transcurrido L-V POS
   const tiempoTranscurridoCat = texto(row[32]); // AG: Tiempo Transcurrido L-V Catálogo

@@ -1,4 +1,4 @@
-export type RolUsuario = 'Agente' | 'Supervisor' | 'Agente / Supervisor' | 'Supervisor / TL';
+export type RolUsuario = 'Agente' | 'Supervisor' | 'Supervisor / TL';
 
 export interface PerfilUsuario {
   correo: string;
@@ -10,7 +10,7 @@ export const LISTA_BLANCA_OFICIAL: Record<string, PerfilUsuario> = {
   'jean.palomino_dyn.ext@pedidosya.com': {
     correo: 'jean.palomino_dyn.ext@pedidosya.com',
     nombre: 'Jean Palomino',
-    rol: 'Agente / Supervisor'
+    rol: 'Supervisor'
   },
   'joel.tocas_dyn.ext@pedidosya.com': {
     correo: 'joel.tocas_dyn.ext@pedidosya.com',
@@ -25,7 +25,7 @@ export const LISTA_BLANCA_OFICIAL: Record<string, PerfilUsuario> = {
   'yadira.flores_dyn.ext@pedidosya.com': {
     correo: 'yadira.flores_dyn.ext@pedidosya.com',
     nombre: 'Yadira Flores',
-    rol: 'Agente / Supervisor'
+    rol: 'Supervisor'
   },
   'henry.serrato_dyn.ext@pedidosya.com': {
     correo: 'henry.serrato_dyn.ext@pedidosya.com',
@@ -59,12 +59,12 @@ export function obtenerPerfilPorCorreo(correo?: string | null): PerfilUsuario | 
 }
 
 /**
- * Determina si el usuario tiene permiso para crear / registrar casos (Agente o Agente / Supervisor)
+ * Determina si el usuario tiene permiso para crear / registrar casos
  */
 export function puedeRegistrarCasos(rol?: string | null): boolean {
   if (!rol) return false;
   const r = rol.toLowerCase();
-  return r.includes('agente') || r.includes('admin');
+  return r.includes('agente') || r.includes('supervisor') || r.includes('admin');
 }
 
 /**
@@ -97,13 +97,10 @@ export const LISTA_PESTANAS_SISTEMA: PestanaInfo[] = [
  */
 export function obtenerPestanasPorDefecto(rol?: string | null): string[] {
   const r = (rol || '').toLowerCase();
-  if (r.includes('agente') && r.includes('supervisor')) {
+  if (r.includes('supervisor')) {
     return ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
   }
-  if (r.includes('supervisor')) {
-    return ['tl', 'admin', 'nuevo', 'usuarios'];
-  }
-  // Rol Agente estándar: NUNCA incluye 'usuarios' ni 'tl'
+  // Rol Agente: NUNCA incluye 'usuarios' ni 'tl'
   return ['admin', 'inicio', 'nuevo'];
 }
 

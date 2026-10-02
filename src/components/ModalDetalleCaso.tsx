@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   LISTA_PAISES,
   LISTA_OPORTUNIDADES,
@@ -13,9 +13,10 @@ import {
 import { 
   procesarActualizacionCaso, 
   analizarAlertasCaso,
-  normalizarFecha,
   limpiarTextoEtapa,
-  normalizarRespuesta
+  normalizarRespuesta,
+  formatearFechaHora,
+  esPushKamRealizado
 } from '../utils/onboardingRules';
 
 export interface ModalDetalleCasoProps {
@@ -55,9 +56,18 @@ export default function ModalDetalleCaso({
     return match || String(val).trim();
   };
 
+  const casoOpLimpio = useMemo(() => {
+    const raw = String(caso?.casoOp || '').trim();
+    if (!raw || raw === '-' || raw.toLowerCase() === 'sin caso op' || raw.toLowerCase() === 'null' || raw.startsWith('TEMP_') || raw.startsWith('SIN_OP_') || raw.includes('_r')) {
+      return 'Sin caso OP';
+    }
+    return raw;
+  }, [caso]);
+
   const [form, setForm] = useState(() => ({
     id: caso?.id || caso?.casoOp || '',
-    casoOp: caso?.casoOp || caso?.id || '',
+    filaNumero: caso?.filaNumero,
+    casoOp: casoOpLimpio === 'Sin caso OP' ? '' : casoOpLimpio,
     vendorId: caso?.vendor_id || caso?.vendorId || '',
     tienda: caso?.tienda || '',
     pais: caso?.pais || 'Argentina',
@@ -74,37 +84,53 @@ export default function ModalDetalleCaso({
     comentarios: caso?.comentarios || '',
     estado: caso?.estado || 'En progreso',
     etapa: limpiarTextoEtapa(caso?.etapa, caso?.comentarios, caso?.integracion),
-    fechaCreacion: normalizarFecha(caso?.fechaCreacion || ''),
-    fechaCierre: normalizarFecha(caso?.fechaCierre || ''),
+    fechaCreacion: formatearFechaHora(caso?.fechaCreacion || ''),
+    fechaCierre: formatearFechaHora(caso?.fechaCierre || ''),
     
     // Seguimiento POS API
-    fechaInicioPos: normalizarFecha(caso?.fechaInicioPos || ''),
-    fechaPushPos: caso?.fechaPushPos || '',
+    fechaInicioPos: formatearFechaHora(caso?.fechaInicioPos || ''),
+    fechaPushPos: formatearFechaHora(caso?.fechaPushPos || ''),
     respuestaPos: normalizarRespuesta(caso?.respuestaPos),
-    pushKamPos: caso?.pushKamPos === true || String(caso?.pushKamPos).trim().toUpperCase() === 'TRUE',
+    pushKamPos: esPushKamRealizado(caso?.pushKamPos),
     freezePos: caso?.fechaFreezePos || caso?.freezePos || '',
     fechaFreezePos: caso?.fechaFreezePos || caso?.freezePos || '',
     
     // Seguimiento Catálogo
-    fechaInicioCat: normalizarFecha(caso?.fechaInicioCat || ''),
-    fechaPushCat: caso?.fechaPushCat || '',
+    fechaInicioCat: formatearFechaHora(caso?.fechaInicioCat || ''),
+    fechaPushCat: formatearFechaHora(caso?.fechaPushCat || ''),
     respuestaCat: normalizarRespuesta(caso?.respuestaCat),
-    pushKamCat: caso?.pushKamCat === true || String(caso?.pushKamCat).trim().toUpperCase() === 'TRUE',
+    pushKamCat: esPushKamRealizado(caso?.pushKamCat),
     freezeCat: caso?.fechaFreezeCat || caso?.freezeCat || '',
     fechaFreezeCat: caso?.fechaFreezeCat || caso?.freezeCat || '',
 
-    sla_inicio: caso?.sla_inicio || new Date().toISOString()
+    sla_inicio: caso?.sla_inicio || formatearFechaHora(new Date())
   }));
 
   const [guardando, setGuardando] = useState<boolean>(false);
-  const [tabActiva, setTabActiva] = useState<'general' | 'seguimiento'>('general');
+  const [tabActiva, setTabActiva] = useState<'datos' | 'seguimiento'>('datos');
   const [cambioDetectado, setCambioDetectado] = useState<boolean>(false);
-  const [copiadoFila, setCopiadoFila] = useState<boolean>(false);
 
-  // Análisis de alertas de Push y SLA
+  useEffect(() => {
+    if (caso) {
+      setForm(prev => ({
+        ...prev,
+        ...caso,
+        id: caso.id || caso.casoOp || '',
+        filaNumero: caso.filaNumero || prev.filaNumero,
+        casoOp: casoOpLimpio === 'Sin caso OP' ? '' : casoOpLimpio,
+        vendorId: caso.vendor_id || caso.vendorId || '',
+        tienda: caso.tienda || '',
+        pushKamPos: esPushKamRealizado(caso.pushKamPos),
+        pushKamCat: esPushKamRealizado(caso.pushKamCat),
+        respuestaPos: normalizarRespuesta(caso.respuestaPos),
+        respuestaCat: normalizarRespuesta(caso.respuestaCat)
+      }));
+    }
+  }, [caso, casoOpLimpio]);
+
+  // Análisis de alertas de Push y SLA para badge compacto
   const alertas = analizarAlertasCaso(form);
 
-  // Opciones disponibles de Oportunidad asegurando que la del caso actual esté siempre incluida y seleccionada
   const listaOportunidadesDisponibles = useMemo(() => {
     const base = Array.isArray(oportunidades) && oportunidades.length > 0 ? oportunidades : LISTA_OPORTUNIDADES;
     const lista = [...base];
@@ -123,32 +149,6 @@ export default function ModalDetalleCaso({
 
   if (!caso) return null;
 
-  const copiarFilaParaSheets = () => {
-    // Generar formato tabulado para pegar directamente en las celdas de Google Sheets
-    const columnas = [
-      form.casoOp,
-      form.vendorId,
-      form.tienda,
-      form.pais,
-      form.kam,
-      form.integracion,
-      form.oportunidad,
-      form.asset,
-      form.casoSeguimiento,
-      form.propietarioOportunidad,
-      form.propietarioTicket,
-      form.tieneCasoInicio,
-      form.comentarios,
-      form.fechaCreacion,
-      form.estado,
-      form.etapa,
-      form.sla_inicio
-    ];
-    navigator.clipboard.writeText(columnas.join('\t'));
-    setCopiadoFila(true);
-    setTimeout(() => setCopiadoFila(false), 4000);
-  };
-
   const manejarCambio = (e: any) => {
     const { name, value, type, checked } = e.target;
     let nuevoValor = type === 'checkbox' ? checked : value;
@@ -165,10 +165,9 @@ export default function ModalDetalleCaso({
           descuentosBajoEstructuraSponsorship: spon
         };
       }
-      const actualizados = { ...prev, [name]: nuevoValor, ...extra };
-      // Evaluamos las reglas reactivas de negocio inmediatamente
-      const procesado = procesarActualizacionCaso(prev, { [name]: nuevoValor, ...extra });
-      return { ...actualizados, ...procesado };
+      const cambios = { [name]: nuevoValor, ...extra };
+      const procesado = procesarActualizacionCaso(prev, cambios);
+      return { ...prev, ...procesado, ...cambios, [name]: nuevoValor };
     });
     setCambioDetectado(true);
   };
@@ -176,8 +175,14 @@ export default function ModalDetalleCaso({
   const guardarCambios = async () => {
     setGuardando(true);
     try {
-      // Ejecutamos la validación integral de reglas de negocio
       const casoFinal = procesarActualizacionCaso(caso, form);
+      casoFinal.esNuevo = false;
+      if (form.filaNumero || caso?.filaNumero) {
+        casoFinal.filaNumero = form.filaNumero || caso?.filaNumero;
+      }
+      if (form.id || caso?.id) {
+        casoFinal.id = form.id || caso?.id;
+      }
       if (form.freezePos || form.fechaFreezePos) {
         casoFinal.fechaFreezePos = form.fechaFreezePos || form.freezePos;
         casoFinal.freezePos = casoFinal.fechaFreezePos;
@@ -185,6 +190,12 @@ export default function ModalDetalleCaso({
       if (form.freezeCat || form.fechaFreezeCat) {
         casoFinal.fechaFreezeCat = form.fechaFreezeCat || form.freezeCat;
         casoFinal.freezeCat = casoFinal.fechaFreezeCat;
+      }
+      if (form.pushKamPos !== undefined) {
+        casoFinal.pushKamPos = Boolean(form.pushKamPos);
+      }
+      if (form.pushKamCat !== undefined) {
+        casoFinal.pushKamCat = Boolean(form.pushKamCat);
       }
       await alActualizar(casoFinal);
       setCambioDetectado(false);
@@ -206,22 +217,24 @@ export default function ModalDetalleCaso({
     alCerrar();
   };
 
+  const tituloCasoOp = form.casoOp && form.casoOp !== '-' ? form.casoOp : 'Sin caso OP';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-      <div className="bg-[#161925] border border-gray-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
+      <div className="bg-[#161925] border border-gray-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
         
-        {/* HEADER MODAL */}
-        <div className="p-5 border-b border-gray-800 bg-[#12141e] flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-10 h-10 rounded-xl bg-pink-600/20 border border-pink-500/40 flex items-center justify-center text-pink-400 font-bold">
+        {/* HEADER MODAL - Simple y elegante */}
+        <div className="p-4 sm:p-5 border-b border-gray-800 bg-[#12141e] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-pink-600/20 border border-pink-500/40 flex items-center justify-center text-pink-400 font-bold text-sm">
               OP
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-bold text-white font-mono">
-                  Caso OP: {form.casoOp || form.id}
+                <h3 className="text-base sm:text-lg font-bold text-white font-mono">
+                  Caso OP: <span className={tituloCasoOp === 'Sin caso OP' ? 'text-gray-400 italic font-sans' : 'text-pink-400'}>{tituloCasoOp}</span>
                 </h3>
-                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium border ${
+                <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium border ${
                   form.estado.toLowerCase().includes('cerrado') 
                     ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800' 
                     : form.estado.toLowerCase().includes('fallido')
@@ -230,17 +243,9 @@ export default function ModalDetalleCaso({
                 }`}>
                   {form.estado}
                 </span>
-
-                {/* SLA Real L-V acumulado */}
-                <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border inline-flex items-center gap-1 ${alertas.colorClass}`}>
-                  {alertas.estaCongelado && <span>❄️</span>}
-                  <span>SLA: {alertas.horasTranscurridas}h</span>
-                  <span className="font-normal opacity-90">• {alertas.rangoSla || '0h a <4h'}</span>
-                </span>
-
-                {alertas.estaCongelado && (
-                  <span className="text-[11px] bg-indigo-950/80 text-indigo-300 border border-indigo-700 px-2 py-0.5 rounded-full font-medium">
-                    Pausado ({alertas.congeladoTrack || 'Freeze'})
+                {alertas.horasTranscurridas !== undefined && (
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium border ${alertas.colorClass}`}>
+                    SLA: {alertas.horasTranscurridas}h
                   </span>
                 )}
               </div>
@@ -252,93 +257,84 @@ export default function ModalDetalleCaso({
 
           <div className="flex items-center gap-2">
             <button 
+              type="button"
               onClick={usarDatosParaNuevaOp}
-              title="Cargar tienda, ID y país en el formulario de la derecha para registrar una nueva OP"
-              className="hidden sm:flex items-center gap-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-pink-400 border border-pink-500/30 px-3 py-1.5 rounded-lg transition"
+              title="Replicar tienda y datos en el formulario para una nueva OP"
+              className="hidden sm:flex items-center gap-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-pink-400 border border-pink-500/30 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer"
             >
               <span>➕</span>
               <span>Replicar Tienda</span>
             </button>
             <button 
+              type="button"
               onClick={alCerrar} 
-              className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 text-lg transition"
+              className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 text-lg transition cursor-pointer"
             >
               ✕
             </button>
           </div>
         </div>
 
-        {/* ALERT BAR STATUS */}
-        <div className="bg-[#0f111a] px-5 py-2.5 border-b border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-gray-400">Estado de Seguimiento:</span>
-            <span className="text-gray-300 font-mono bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
-              ⏱️ Tiempo OP: {alertas.tiempoTexto} ({alertas.horasTranscurridas}h)
-            </span>
-
-            {alertas.requierePushPos ? (
-              <span className="bg-amber-950/80 text-amber-300 border border-amber-800 px-2 py-0.5 rounded flex items-center gap-1">
-                <span>⚠️</span> Push POS Requerido ({alertas.motivoPushPos})
-              </span>
-            ) : (
-              <span className="text-gray-400 bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
-                POS: {form.fechaPushPos ? `Push: ${form.fechaPushPos}` : (form.respuestaPos || 'Al día')}
-              </span>
-            )}
-
-            {alertas.requierePushCat ? (
-              <span className="bg-pink-950/80 text-pink-300 border border-pink-800 px-2 py-0.5 rounded flex items-center gap-1">
-                <span>📦</span> Push Catálogo Requerido ({alertas.motivoPushCat})
-              </span>
-            ) : (
-              <span className="text-gray-400 bg-gray-900 border border-gray-800 px-2 py-0.5 rounded">
-                Catálogo: {form.fechaPushCat ? `Push: ${form.fechaPushCat}` : (form.respuestaCat || 'Al día')}
-              </span>
-            )}
-
-            {alertas.esCritico && (
-              <span className="bg-rose-950/80 text-rose-300 border border-rose-800 px-2 py-0.5 rounded animate-pulse font-bold">
-                🚨 SLA Crítico (≥96h / {alertas.horasTranscurridas}h)
-              </span>
-            )}
-          </div>
-
+        {/* TABS SIMPLES: Exactamente 2 pestañas */}
+        <div className="bg-[#0f111a] px-5 pt-2 border-b border-gray-800 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setTabActiva('general')}
-              className={`px-3 py-1 rounded-md transition ${tabActiva === 'general' ? 'bg-pink-600 text-white font-medium' : 'text-gray-400 hover:text-white'}`}
+              type="button"
+              onClick={() => setTabActiva('datos')}
+              className={`px-4 py-2 text-xs font-bold rounded-t-lg transition border-b-2 cursor-pointer ${
+                tabActiva === 'datos' 
+                  ? 'border-pink-500 text-pink-400 bg-[#161925]' 
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
             >
-              Datos del Caso (a - p)
+              📝 Datos del caso
             </button>
             <button
+              type="button"
               onClick={() => setTabActiva('seguimiento')}
-              className={`px-3 py-1 rounded-md transition ${tabActiva === 'seguimiento' ? 'bg-pink-600 text-white font-medium' : 'text-gray-400 hover:text-white'}`}
+              className={`px-4 py-2 text-xs font-bold rounded-t-lg transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                tabActiva === 'seguimiento' 
+                  ? 'border-pink-500 text-pink-400 bg-[#161925]' 
+                  : 'border-transparent text-gray-400 hover:text-gray-200'
+              }`}
             >
-              Seguimiento POS & Catálogo
+              <span>⏱️ Seguimiento</span>
+              {(alertas.requierePushPos || alertas.requierePushCat) && (
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              )}
             </button>
           </div>
+
+          <button 
+            type="button"
+            onClick={usarDatosParaNuevaOp}
+            className="sm:hidden text-[11px] text-pink-400 hover:underline py-1"
+          >
+            ➕ Replicar
+          </button>
         </div>
 
         {/* CUERPO DEL MODAL */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+        <div className="p-5 overflow-y-auto flex-1 space-y-4">
 
-          {tabActiva === 'general' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          {/* PESTAÑA 1: DATOS DEL CASO */}
+          {tabActiva === 'datos' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
               
-              {/* a. N° Caso OP */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">a. N° Caso OP (Identificador)</label>
+                <label className="text-gray-400 block mb-1 font-medium">N° Caso OP</label>
                 <input 
                   type="text" 
+                  name="casoOp"
                   value={form.casoOp} 
-                  disabled
-                  className="w-full bg-[#0f111a] border border-gray-800 rounded-lg p-2.5 text-pink-400 font-mono cursor-not-allowed"
+                  onChange={manejarCambio}
+                  placeholder="Pendiente (vacío si no tiene OP)..."
+                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-pink-400 font-mono focus:border-pink-500 placeholder-gray-600"
                 />
               </div>
 
-              {/* b. ID */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">b. ID (Vendor ID)</label>
+                <label className="text-gray-400 block mb-1 font-medium">Vendor ID</label>
                 <input 
                   type="text" 
                   name="vendorId" 
@@ -348,9 +344,8 @@ export default function ModalDetalleCaso({
                 />
               </div>
 
-              {/* c. Tienda */}
               <div className="sm:col-span-2">
-                <label className="text-gray-400 block mb-1 font-medium">c. Tienda</label>
+                <label className="text-gray-400 block mb-1 font-medium">Nombre de Tienda</label>
                 <input 
                   type="text" 
                   name="tienda" 
@@ -360,9 +355,8 @@ export default function ModalDetalleCaso({
                 />
               </div>
 
-              {/* d. País */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">d. País *</label>
+                <label className="text-gray-400 block mb-1 font-medium">País</label>
                 <select 
                   name="pais" 
                   value={form.pais} 
@@ -374,9 +368,8 @@ export default function ModalDetalleCaso({
                 </select>
               </div>
 
-              {/* e. Kam */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">e. KAM</label>
+                <label className="text-gray-400 block mb-1 font-medium">KAM</label>
                 <input 
                   type="text" 
                   name="kam" 
@@ -386,11 +379,10 @@ export default function ModalDetalleCaso({
                 />
               </div>
 
-              {/* f. Integración y Sponsorship */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-gray-400 font-medium">f. Integración *</label>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${form.sponsorship === 'SI' ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300' : 'bg-gray-800/80 border-gray-700 text-gray-400'}`}>
+                  <label className="text-gray-400 font-medium">Integración</label>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${form.sponsorship === 'SI' ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300' : 'bg-gray-800/80 border-gray-700 text-gray-400'}`}>
                     Sponsorship: {form.sponsorship || 'NO'}
                   </span>
                 </div>
@@ -405,9 +397,8 @@ export default function ModalDetalleCaso({
                 </select>
               </div>
 
-              {/* g. Oportunidad */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">g. Oportunidad</label>
+                <label className="text-gray-400 block mb-1 font-medium">Oportunidad</label>
                 <select 
                   name="oportunidad" 
                   value={form.oportunidad} 
@@ -419,9 +410,8 @@ export default function ModalDetalleCaso({
                 </select>
               </div>
 
-              {/* h. Asset */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">h. Asset *</label>
+                <label className="text-gray-400 block mb-1 font-medium">Asset</label>
                 <select 
                   name="asset" 
                   value={form.asset} 
@@ -432,17 +422,13 @@ export default function ModalDetalleCaso({
                 </select>
               </div>
 
-              {/* i. Propietario Oportunidad */}
               <div>
-                <label className="text-pink-400 block mb-1 font-semibold flex items-center justify-between">
-                  <span>i. Propietario Oportunidad (Automático)</span>
-                  <span className="text-[10px] text-gray-400 font-normal">Asignado con cuenta logueada</span>
-                </label>
+                <label className="text-gray-400 block mb-1 font-medium">Propietario Oportunidad</label>
                 <select 
                   name="propietarioOportunidad" 
                   value={form.propietarioOportunidad} 
                   onChange={manejarCambio}
-                  className="w-full bg-[#0f111a] border border-pink-700/60 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium"
+                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
                 >
                   {agentes.map(ag => <option key={ag} value={ag}>{ag}</option>)}
                   {form.propietarioOportunidad && !agentes.includes(form.propietarioOportunidad) && (
@@ -451,14 +437,13 @@ export default function ModalDetalleCaso({
                 </select>
               </div>
 
-              {/* j. Propietario Ticket HeroCare */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">j. Propietario Ticket HeroCare (Editable)</label>
+                <label className="text-gray-400 block mb-1 font-medium">Propietario Ticket</label>
                 <select 
                   name="propietarioTicket" 
                   value={form.propietarioTicket} 
                   onChange={manejarCambio}
-                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium"
+                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
                 >
                   {agentes.map(ag => <option key={ag} value={ag}>{ag}</option>)}
                   {form.propietarioTicket && !agentes.includes(form.propietarioTicket) && (
@@ -467,9 +452,8 @@ export default function ModalDetalleCaso({
                 </select>
               </div>
 
-              {/* k. N° Caso Seguimiento */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">k. N° Caso Seguimiento</label>
+                <label className="text-gray-400 block mb-1 font-medium">N° Caso Seguimiento</label>
                 <input 
                   type="text" 
                   name="casoSeguimiento" 
@@ -479,9 +463,8 @@ export default function ModalDetalleCaso({
                 />
               </div>
 
-              {/* l. ¿Tiene caso de onboarding en el inicio? */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">l. ¿Tiene caso de onboarding en inicio?</label>
+                <label className="text-gray-400 block mb-1 font-medium">¿Tiene caso en inicio?</label>
                 <select 
                   name="tieneCasoInicio" 
                   value={form.tieneCasoInicio} 
@@ -492,22 +475,8 @@ export default function ModalDetalleCaso({
                 </select>
               </div>
 
-              {/* p. Fecha Creación OP */}
               <div>
-                <label className="text-gray-400 block mb-1 font-medium">p. Fecha de creación de la OP</label>
-                <input 
-                  type="text" 
-                  name="fechaCreacion" 
-                  value={form.fechaCreacion} 
-                  onChange={manejarCambio}
-                  placeholder="DD/MM/YYYY HH:mm:ss"
-                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono"
-                />
-              </div>
-
-              {/* n. Estado del caso */}
-              <div>
-                <label className="text-cyan-400 block mb-1 font-semibold">n. Estado del caso</label>
+                <label className="text-cyan-400 block mb-1 font-semibold">Estado del caso</label>
                 <select 
                   name="estado" 
                   value={form.estado} 
@@ -516,14 +485,10 @@ export default function ModalDetalleCaso({
                 >
                   {estados.map(e => <option key={e} value={e}>{e}</option>)}
                 </select>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  En progreso / En progreso (Sin oportunidad): SLA activo. Cerrado: Imprime Fecha de Cierre y detiene SLA.
-                </p>
               </div>
 
-              {/* o. Etapa del onboarding */}
               <div>
-                <label className="text-cyan-400 block mb-1 font-semibold">o. Etapa del onboarding</label>
+                <label className="text-cyan-400 block mb-1 font-semibold">Etapa del onboarding</label>
                 <select 
                   name="etapa" 
                   value={form.etapa} 
@@ -532,53 +497,68 @@ export default function ModalDetalleCaso({
                 >
                   {etapas.map(et => <option key={et} value={et}>{et}</option>)}
                 </select>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  Controla la Fecha de inicio de seguimiento de OP según POS API, Catálogo o inicio único.
-                </p>
               </div>
 
-              {/* Fecha de Cierre */}
+              <div>
+                <label className="text-gray-400 block mb-1 font-medium">Fecha Creación OP</label>
+                <input 
+                  type="text" 
+                  name="fechaCreacion" 
+                  value={form.fechaCreacion} 
+                  onChange={manejarCambio}
+                  placeholder="DD/MM/YYYY HH:mm"
+                  className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono"
+                />
+              </div>
+
               {form.fechaCierre && (
-                <div className="sm:col-span-2 bg-emerald-950/30 border border-emerald-800 p-2.5 rounded-lg text-[11px] text-emerald-300 flex items-center justify-between">
-                  <span>🏁 Fecha de Cierre Registrada:</span>
-                  <span className="font-mono font-semibold">{form.fechaCierre}</span>
+                <div>
+                  <label className="text-emerald-400 block mb-1 font-medium">Fecha de Cierre</label>
+                  <input 
+                    type="text" 
+                    name="fechaCierre" 
+                    value={form.fechaCierre} 
+                    onChange={manejarCambio}
+                    placeholder="DD/MM/YYYY HH:mm"
+                    className="w-full bg-[#0f111a] border border-emerald-700/60 rounded-lg p-2.5 text-emerald-300 font-mono"
+                  />
                 </div>
               )}
 
-              {/* m. Comentarios del Onboarding */}
               <div className="sm:col-span-2">
-                <label className="text-gray-400 block mb-1 font-medium">m. Comentarios del Onboarding</label>
+                <label className="text-gray-400 block mb-1 font-medium">Comentarios del Onboarding</label>
                 <textarea 
                   name="comentarios" 
                   value={form.comentarios} 
                   onChange={manejarCambio}
-                  rows={3} 
+                  rows={2} 
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 text-xs"
-                  placeholder="Escriba aquí los avances y notas de seguimiento..."
+                  placeholder="Notas y avances del caso..."
                 ></textarea>
               </div>
 
             </div>
           )}
 
+          {/* PESTAÑA 2: SEGUIMIENTO */}
           {tabActiva === 'seguimiento' && (
-            <div className="space-y-6 text-xs">
+            <div className="space-y-4 text-xs">
               
-              {/* TRACK 1: SEGUIMIENTO POS API */}
-              <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-4">
+              {/* POS API */}
+              <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-3.5 sm:p-4">
                 <div className="flex items-center justify-between border-b border-gray-800 pb-2 mb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🖥️</span>
                     <h4 className="font-bold text-white text-sm">Seguimiento POS API</h4>
                     {alertas.tiempoTranscurridoPos && alertas.tiempoTranscurridoPos !== '-' && (
-                      <span className="bg-gray-800 text-cyan-300 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-700">
-                        ⏱️ {alertas.tiempoTranscurridoPos} {alertas.rangoSlaPos ? `• ${alertas.rangoSlaPos}` : ''}
+                      <span className="bg-gray-800 text-cyan-300 font-mono text-[10px] px-2 py-0.5 rounded border border-gray-700">
+                        {alertas.tiempoTranscurridoPos}
                       </span>
                     )}
                   </div>
                   {alertas.requierePushPos && (
-                    <span className="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[11px]">
-                      ⚠️ Alerta: Requiere Push
+                    <span className="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px]">
+                      ⚠️ Push Requerido
                     </span>
                   )}
                 </div>
@@ -591,46 +571,43 @@ export default function ModalDetalleCaso({
                       name="fechaInicioPos" 
                       value={form.fechaInicioPos} 
                       onChange={manejarCambio}
-                      placeholder="DD/MM/YYYY HH:mm:ss o S/V"
-                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono"
+                      placeholder="DD/MM/YYYY HH:mm o S/V"
+                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono text-xs"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-gray-400">Fecha de Push POS API</label>
-                      {!form.fechaPushPos && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const d = new Date();
-                            const fechaNow = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-                            manejarCambio({ target: { name: 'fechaPushPos', value: fechaNow } });
-                          }}
-                          className="text-[10px] bg-amber-600 hover:bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded cursor-pointer shadow"
-                          title="Estampar fecha y hora actual con 1 clic"
-                        >
-                          ⚡ Registrar Push
-                        </button>
-                      )}
+                      <label className="text-gray-400">Fecha Push POS API</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fechaNow = formatearFechaHora(new Date());
+                          manejarCambio({ target: { name: 'fechaPushPos', value: fechaNow } });
+                        }}
+                        className="text-[10px] bg-amber-600 hover:bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded cursor-pointer"
+                        title="Estampar fecha y hora actual (DD/MM/YYYY HH:mm)"
+                      >
+                        ⚡ Registrar
+                      </button>
                     </div>
                     <input 
                       type="text" 
                       name="fechaPushPos" 
                       value={form.fechaPushPos} 
                       onChange={manejarCambio}
-                      placeholder="DD/MM/YYYY HH:mm o S/V"
-                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono"
+                      placeholder="DD/MM/YYYY HH:mm"
+                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="text-gray-400 block mb-1">Respuesta Roadmap POS API</label>
+                    <label className="text-gray-400 block mb-1">Respuesta POS API</label>
                     <select 
                       name="respuestaPos" 
                       value={normalizarRespuesta(form.respuestaPos)} 
                       onChange={manejarCambio}
-                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-semibold"
+                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-semibold text-xs"
                     >
                       <option value="">Seleccione...</option>
                       <option value="Si">Si</option>
@@ -640,38 +617,40 @@ export default function ModalDetalleCaso({
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between text-[11px] text-gray-400">
+                <div className="mt-3 pt-2.5 border-t border-gray-800/80 flex items-center justify-between text-[11px] text-gray-400">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
                       name="pushKamPos" 
-                      checked={form.pushKamPos} 
+                      checked={Boolean(form.pushKamPos)} 
                       onChange={manejarCambio}
-                      className="accent-pink-600 rounded"
+                      className="accent-pink-600 rounded cursor-pointer w-4 h-4"
                     />
-                    <span>Push KAM (Check automático si Sí o S/V)</span>
+                    <span className="font-medium text-gray-200">Push KAM POS</span>
                   </label>
-                  <div>
-                    Freeze Ancla: <span className="font-mono text-cyan-400">{form.freezePos || 'Sin Freeze (SLA activo)'}</span>
-                  </div>
+                  {form.freezePos && (
+                    <div>
+                      Freeze: <span className="font-mono text-cyan-400">{form.freezePos}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* TRACK 2: SEGUIMIENTO CATÁLOGO */}
-              <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-4">
+              {/* CATÁLOGO */}
+              <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-3.5 sm:p-4">
                 <div className="flex items-center justify-between border-b border-gray-800 pb-2 mb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-base">📋</span>
                     <h4 className="font-bold text-white text-sm">Seguimiento Catálogo</h4>
                     {alertas.tiempoTranscurridoCat && alertas.tiempoTranscurridoCat !== '-' && (
-                      <span className="bg-gray-800 text-pink-300 font-mono text-[11px] px-2 py-0.5 rounded border border-gray-700">
-                        ⏱️ {alertas.tiempoTranscurridoCat} {alertas.rangoSlaCat ? `• ${alertas.rangoSlaCat}` : ''}
+                      <span className="bg-gray-800 text-pink-300 font-mono text-[10px] px-2 py-0.5 rounded border border-gray-700">
+                        {alertas.tiempoTranscurridoCat}
                       </span>
                     )}
                   </div>
                   {alertas.requierePushCat && (
-                    <span className="bg-pink-950 text-pink-400 border border-pink-800 px-2 py-0.5 rounded text-[11px]">
-                      📦 Alerta: Requiere Push Catálogo
+                    <span className="bg-pink-950 text-pink-400 border border-pink-800 px-2 py-0.5 rounded text-[10px]">
+                      📦 Push Requerido
                     </span>
                   )}
                 </div>
@@ -684,46 +663,43 @@ export default function ModalDetalleCaso({
                       name="fechaInicioCat" 
                       value={form.fechaInicioCat} 
                       onChange={manejarCambio}
-                      placeholder="DD/MM/YYYY HH:mm:ss o S/V"
-                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono"
+                      placeholder="DD/MM/YYYY HH:mm o S/V"
+                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono text-xs"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-gray-400">Fecha de Push Catálogo</label>
-                      {!form.fechaPushCat && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const d = new Date();
-                            const fechaNow = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-                            manejarCambio({ target: { name: 'fechaPushCat', value: fechaNow } });
-                          }}
-                          className="text-[10px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-1.5 py-0.5 rounded cursor-pointer shadow"
-                          title="Estampar fecha y hora actual con 1 clic"
-                        >
-                          ⚡ Registrar Push
-                        </button>
-                      )}
+                      <label className="text-gray-400">Fecha Push Catálogo</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fechaNow = formatearFechaHora(new Date());
+                          manejarCambio({ target: { name: 'fechaPushCat', value: fechaNow } });
+                        }}
+                        className="text-[10px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-1.5 py-0.5 rounded cursor-pointer"
+                        title="Estampar fecha y hora actual (DD/MM/YYYY HH:mm)"
+                      >
+                        ⚡ Registrar
+                      </button>
                     </div>
                     <input 
                       type="text" 
                       name="fechaPushCat" 
                       value={form.fechaPushCat} 
                       onChange={manejarCambio}
-                      placeholder="DD/MM/YYYY HH:mm o S/V"
-                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono"
+                      placeholder="DD/MM/YYYY HH:mm"
+                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-mono text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="text-gray-400 block mb-1">Respuesta Roadmap Catálogo</label>
+                    <label className="text-gray-400 block mb-1">Respuesta Catálogo</label>
                     <select 
                       name="respuestaCat" 
                       value={normalizarRespuesta(form.respuestaCat)} 
                       onChange={manejarCambio}
-                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-semibold"
+                      className="w-full bg-[#161925] border border-gray-700 rounded p-2 text-white font-semibold text-xs"
                     >
                       <option value="">Seleccione...</option>
                       <option value="Si">Si</option>
@@ -733,20 +709,22 @@ export default function ModalDetalleCaso({
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-gray-800 flex items-center justify-between text-[11px] text-gray-400">
+                <div className="mt-3 pt-2.5 border-t border-gray-800/80 flex items-center justify-between text-[11px] text-gray-400">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
                       name="pushKamCat" 
-                      checked={form.pushKamCat} 
+                      checked={Boolean(form.pushKamCat)} 
                       onChange={manejarCambio}
-                      className="accent-pink-600 rounded"
+                      className="accent-pink-600 rounded cursor-pointer w-4 h-4"
                     />
-                    <span>Push KAM Catálogo (Check automático)</span>
+                    <span className="font-medium text-gray-200">Push KAM Catálogo</span>
                   </label>
-                  <div>
-                    Freeze Ancla Catálogo: <span className="font-mono text-cyan-400">{form.freezeCat || 'Sin Freeze (SLA activo)'}</span>
-                  </div>
+                  {form.freezeCat && (
+                    <div>
+                      Freeze: <span className="font-mono text-cyan-400">{form.freezeCat}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -755,34 +733,33 @@ export default function ModalDetalleCaso({
 
         </div>
 
-        {/* FOOTER ACTIONS */}
+        {/* FOOTER ACTIONS - Limpio y centrado en Guardar y Replicar */}
         <div className="p-4 border-t border-gray-800 bg-[#12141e] flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
+          <div className="text-xs text-gray-400 flex items-center gap-2">
             {caso.filaNumero && (
-              <span className="bg-gray-800 text-gray-300 px-2.5 py-1 rounded-md border border-gray-700 font-mono text-[11px]">
-                Fila en Sheet: #{caso.filaNumero}
+              <span className="text-gray-400 font-mono text-[11px]">
+                Fila: #{caso.filaNumero}
               </span>
             )}
-            <button
-              type="button"
-              onClick={copiarFilaParaSheets}
-              className="bg-gray-800 hover:bg-gray-700 text-pink-300 px-3 py-1 rounded-md border border-pink-900/50 text-[11px] font-semibold transition flex items-center gap-1.5 shadow"
-              title="Copia los campos tabulados para pegarlos con Ctrl+V directamente en la fila de Google Sheets"
-            >
-              <span>{copiadoFila ? '✅ ¡Copiado para Sheets!' : '📋 Copiar fila para Sheets'}</span>
-            </button>
             {cambioDetectado && (
-              <span className="text-amber-400 flex items-center gap-1 text-[11px]">
-                <span>●</span> Modificaciones pendientes por guardar
+              <span className="text-amber-400 text-[11px] flex items-center gap-1 font-medium">
+                ● Cambios no guardados
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={usarDatosParaNuevaOp}
+              className="px-3.5 py-2 text-xs bg-gray-800 hover:bg-gray-700 text-pink-300 border border-pink-900/40 rounded-lg transition font-medium cursor-pointer"
+            >
+              ➕ Replicar Tienda
+            </button>
             <button
               type="button"
               onClick={alCerrar}
-              className="px-4 py-2 text-xs text-gray-400 hover:text-white transition"
+              className="px-3.5 py-2 text-xs text-gray-400 hover:text-white transition cursor-pointer"
             >
               Cerrar
             </button>
@@ -790,9 +767,9 @@ export default function ModalDetalleCaso({
               type="button"
               onClick={guardarCambios}
               disabled={guardando}
-              className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-5 rounded-lg text-xs transition flex items-center gap-2 shadow-lg shadow-pink-900/20 disabled:opacity-50"
+              className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-5 rounded-lg text-xs transition flex items-center gap-2 shadow-lg shadow-pink-900/20 disabled:opacity-50 cursor-pointer"
             >
-              <span>{guardando ? '💾 Guardando...' : '💾 Guardar Cambios'}</span>
+              <span>{guardando ? 'Guardando...' : '💾 Guardar Cambios'}</span>
             </button>
           </div>
         </div>

@@ -18,7 +18,8 @@ const CATEGORIAS = [
   { id: 'assets', label: '💻 Assets', desc: 'Tipos de activo operativo (Hoja: Integraciones_Sponsorship Col H)' },
   { id: 'agentes', label: '👥 Agentes', desc: 'Agentes de HeroCare / Onboarding (Hoja: Integraciones_Sponsorship Col J)' },
   { id: 'estados', label: '📌 Estados del Caso', desc: 'Estados de seguimiento y cierre del caso (Hoja: Integraciones_Sponsorship Col L)' },
-  { id: 'etapas', label: '🚀 Etapas del Onboarding', desc: 'Etapas del flujo operativo de onboarding (Hoja: Integraciones_Sponsorship Col N)' }
+  { id: 'etapas', label: '🚀 Etapas del Onboarding', desc: 'Etapas del flujo operativo de onboarding (Hoja: Integraciones_Sponsorship Col N)' },
+  { id: 'roles', label: '🛡️ Roles de Usuario', desc: 'Roles y jerarquías permitidas para los usuarios del sistema (Agente, Supervisor, etc.)' }
 ];
 
 export interface AdminCatalogoViewProps {

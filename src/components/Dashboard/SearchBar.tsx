@@ -167,10 +167,28 @@ export default function SearchBar({
                   <div className="space-y-2 flex-1 min-w-0">
                     {/* PRIMER DATO: CASO OP PROMINENTE */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cyan-950/80 border border-cyan-600/80 text-cyan-300 font-mono font-black text-sm shadow-sm">
-                        <span className="text-cyan-400 text-xs font-semibold">Caso OP:</span>
-                        <span>{r.casoOp || r.id || 'S/OP'}</span>
-                      </div>
+                      {(() => {
+                        const opRaw = String(r.casoOp || '').trim();
+                        const esOpValido = opRaw && 
+                          opRaw !== '-' && 
+                          opRaw !== 'S/OP' && 
+                          opRaw.toLowerCase() !== 'sin caso op' && 
+                          !opRaw.startsWith('TEMP_') && 
+                          !opRaw.startsWith('SIN_OP_') && 
+                          !opRaw.includes('_r');
+
+                        return esOpValido ? (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-cyan-950/80 border border-cyan-600/80 text-cyan-300 font-mono font-black text-sm shadow-sm">
+                            <span className="text-cyan-400 text-xs font-semibold">Caso OP:</span>
+                            <span>{opRaw}</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gray-900 border border-gray-700/80 text-gray-400 font-sans text-xs shadow-sm">
+                            <span className="text-gray-500 font-semibold">Caso OP:</span>
+                            <span className="italic">Sin caso OP</span>
+                          </div>
+                        );
+                      })()}
 
                       {/* Vendor ID */}
                       <span className="px-2.5 py-1 rounded-lg bg-gray-900 border border-gray-800 text-pink-400 font-mono font-bold text-xs">

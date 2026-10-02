@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from '../../firebase';
 import { isAgentMatch, identificarMiembro } from '../../utils/agentMatching';
-import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto } from '../../utils/userPermissions';
-import { procesarActualizacionCaso, analizarAlertasCaso, limpiarTextoEtapa, formatearFechaHora } from '../../utils/onboardingRules';
+import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA } from '../../utils/userPermissions';
+import { procesarActualizacionCaso, analizarAlertasCaso, limpiarTextoEtapa, formatearFechaHora, esPushKamRealizado, normalizarRespuesta } from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
 
 import { consultarCasosGoogleSheets, actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
@@ -50,16 +50,6 @@ export interface FormularioNuevoCaso {
   sla_inicio?: string;
 }
 
-function formatearFechaEspanol(d: Date = new Date()): string {
-  const dia = d.getDate();
-  const mes = d.getMonth() + 1;
-  const anio = d.getFullYear();
-  const horas = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  const seg = String(d.getSeconds()).padStart(2, '0');
-  return `${dia}/${mes}/${anio} ${horas}:${min}:${seg}`;
-}
-
 function esCasoMayorA24Horas(c: any, track: string = 'general'): boolean {
   if (!c) return false;
   // 1. Horas numéricas calculadas o acumuladas
@@ -83,9 +73,7 @@ function esCasoMayorA24Horas(c: any, track: string = 'general'): boolean {
 
   for (const r of rangos) {
     if (!r || r === '-' || r === 's/v') continue;
-    // Si explícitamente es menor a 24 horas, ignorar
     if (r.includes('<24') || r.includes('<4') || r.includes('≤6') || r.includes('0h a') || r.includes('>6h a')) continue;
-    // Si contiene 24, 72 o 96 horas o símbolos de mayor/igual
     if (r.includes('≥24') || r.includes('>=24') || r.includes('>72') || r.includes('≥96') || r.includes('>=96')) return true;
     if (r.includes('24h') || r.includes('72h') || r.includes('96h')) return true;
   }
@@ -113,16 +101,15 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
   const resultados: AlertaPush[] = [];
 
   if (esRolSupervisor) {
-    // SUPERVISOR / TL:
-    // Todos los casos de más de 24 horas que les falte Push de KAM (en POS API o en Catálogo)
     casosActivos.forEach(c => {
-      const opLabel = c.casoOp || c.vendorId || c.id || 'Sin ID';
+      const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
       const tiendaLabel = c.tienda || 'Sin tienda';
 
-      // 1. Falta Push KAM en POS API
-      const tieneTrackPos = Boolean((c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-') || (c.rangoSlaPos && c.rangoSlaPos !== '-' && c.rangoSlaPos !== 'S/V'));
-      const esSvPos = c.respuestaPos === 'S/V' || String(c.rangoSlaPos).toUpperCase() === 'S/V';
-      const faltaKamPos = tieneTrackPos && !esSvPos && (c.pushKamPos !== true && String(c.pushKamPos).trim().toUpperCase() !== 'TRUE');
+      // 1. Falta Push KAM en POS API: Si tiene fecha de inicio, fecha de push, en respuesta dice NO y Push KAM no está hecho
+      const tieneInicioPos = Boolean(c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-');
+      const tienePushPos = Boolean(c.fechaPushPos && c.fechaPushPos !== 'S/V' && c.fechaPushPos !== '-');
+      const respNoPos = normalizarRespuesta(c.respuestaPos) === 'No';
+      const faltaKamPos = tieneInicioPos && tienePushPos && respNoPos && !esPushKamRealizado(c.pushKamPos);
       const esMasDe24Pos = esCasoMayorA24Horas(c, 'pos');
 
       if (faltaKamPos && esMasDe24Pos) {
@@ -136,10 +123,11 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
         });
       }
 
-      // 2. Falta Push KAM en Catálogo
-      const tieneTrackCat = Boolean((c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-') || (c.rangoSlaCat && c.rangoSlaCat !== '-' && c.rangoSlaCat !== 'S/V'));
-      const esSvCat = c.respuestaCat === 'S/V' || String(c.rangoSlaCat).toUpperCase() === 'S/V';
-      const faltaKamCat = tieneTrackCat && !esSvCat && (c.pushKamCat !== true && String(c.pushKamCat).trim().toUpperCase() !== 'TRUE');
+      // 2. Falta Push KAM en Catálogo: Si tiene fecha de inicio, fecha de push, en respuesta dice NO y Push KAM no está hecho
+      const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
+      const tienePushCat = Boolean(c.fechaPushCat && c.fechaPushCat !== 'S/V' && c.fechaPushCat !== '-');
+      const respNoCat = normalizarRespuesta(c.respuestaCat) === 'No';
+      const faltaKamCat = tieneInicioCat && tienePushCat && respNoCat && !esPushKamRealizado(c.pushKamCat);
       const esMasDe24Cat = esCasoMayorA24Horas(c, 'cat');
 
       if (faltaKamCat && esMasDe24Cat) {
@@ -154,11 +142,8 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
       }
     });
   } else {
-    // Casos asignados al agente exclusivamente (sin fallback a otros casos)
     const misCasos = casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
-    const pool = misCasos;
-
-    pool.forEach(c => {
+    misCasos.forEach(c => {
       const horas = c.horasSLA || c.totalHorasOp || 0;
       const rOp = String(c.rangoSlaOp || c.rangoSla || '').toLowerCase();
       const rPos = String(c.rangoSlaPos || '').toLowerCase();
@@ -170,7 +155,7 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
                          rCat.includes('4h') || rCat.includes('6h') || rCat.includes('≥4');
       if (!enRango4a6) return;
 
-      const opLabel = c.casoOp || c.vendorId || c.id || 'Sin ID';
+      const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
       const tiendaLabel = c.tienda || 'Sin tienda';
 
       // Falta push de seguimiento en POS API
@@ -212,6 +197,46 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const tieneAccesoSupervisor = useMemo(() => esSupervisor(role), [role]);
   const puedeRegistrar = useMemo(() => puedeRegistrarCasos(role), [role]);
 
+  // Sidebar responsivo y colapsable
+  const [sidebarColapsado, setSidebarColapsado] = useState<boolean>(false);
+  const [sidebarMovilAbierto, setSidebarMovilAbierto] = useState<boolean>(false);
+
+  // Overlay global de carga
+  const [cargandoOperacion, setCargandoOperacion] = useState<string | null>(null);
+
+  // Columnas redimensionables en Mis Casos
+  const [colWidthsMisCasos, setColWidthsMisCasos] = useState<Record<string, number>>({
+    op: 120,
+    tienda: 230,
+    pais: 120,
+    integracion: 120,
+    estado: 150,
+    pushPos: 120,
+    pushCat: 120,
+    sla: 110,
+    asignado: 130,
+    accion: 100
+  });
+
+  const iniciarRedimensionarMisCasos = (colKey: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = colWidthsMisCasos[colKey] || 120;
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      setColWidthsMisCasos(prev => ({
+        ...prev,
+        [colKey]: Math.max(60, startWidth + delta)
+      }));
+    };
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
   // Lista dinámica de pestañas permitidas para el usuario autenticado (desde Firestore o por defecto)
   const [pestanasPermitidas, setPestanasPermitidas] = useState<string[]>(() => {
     const porDefecto = obtenerPestanasPorDefecto(role);
@@ -219,7 +244,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   });
 
   const puedeVerTab = useCallback((tabId: string): boolean => {
-    // Regla estricta de seguridad: Agentes NUNCA pueden ver 'usuarios'
     if (tabId === 'usuarios' && !tieneAccesoSupervisor) return false;
     return pestanasPermitidas.includes(tabId);
   }, [pestanasPermitidas, tieneAccesoSupervisor]);
@@ -239,7 +263,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     setActiveTabState(tab);
   }, []);
 
-  // Escuchar en tiempo real los permisos de pestañas específicos asignados al usuario en Firestore
+  // Escuchar permisos de pestañas en tiempo real desde Firestore
   useEffect(() => {
     if (!email) return;
     const correoLimpio = String(email).trim().toLowerCase();
@@ -250,7 +274,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           ? data.pestanas 
           : obtenerPestanasPorDefecto(data.rol || role);
         
-        // Regla estricta: Agentes NUNCA pueden ver 'usuarios'
         const esRolSupervisorActual = esSupervisor(data.rol || role);
         if (!esRolSupervisorActual) {
           tabs = tabs.filter((t: string) => t !== 'usuarios');
@@ -269,7 +292,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     return () => unsubscribe();
   }, [email, role, tieneAccesoSupervisor]);
 
-  // Si la pestaña actual ya no está permitida (o se cargaron nuevos permisos), redirigir a la primera válida
   useEffect(() => {
     if (!pestanasPermitidas || pestanasPermitidas.length === 0) return;
     if (!puedeVerTab(activeTab)) {
@@ -305,16 +327,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   
   const [casoSeleccionadoModal, setCasoSeleccionadoModal] = useState<any | null>(null);
   const [filtroMisCasos, setFiltroMisCasos] = useState<string>('todos');
-  const [ordenMisCasosTienda, setOrdenMisCasosTienda] = useState<'sla' | 'asc' | 'desc'>('sla');
-  const [mostrarModalCreds, setMostrarModalCreds] = useState<boolean>(false);
+  
+  // Ordenamiento en Mis Casos: 2 botones independientes
+  const [tipoOrdenMisCasos, setTipoOrdenMisCasos] = useState<'sla' | 'tienda'>('sla');
+  const [sentidoTienda, setSentidoTienda] = useState<'asc' | 'desc'>('asc');
 
-  const toggleOrdenMisCasosTienda = () => {
-    setOrdenMisCasosTienda(prev => {
-      if (prev === 'sla') return 'asc';
-      if (prev === 'asc') return 'desc';
-      return 'sla';
-    });
-  };
+  const [mostrarModalCreds, setMostrarModalCreds] = useState<boolean>(false);
   
   const [busquedaResultados, setBusquedaResultados] = useState<any[]>([]);
   const [cargandoBusqueda, setCargandoBusqueda] = useState<boolean>(false);
@@ -323,12 +341,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const [alertasPushActivas, setAlertasPushActivas] = useState<AlertaPush[]>([]);
   const [casoResaltadoId, setCasoResaltadoId] = useState<string | null>(null);
 
+  const mostrarNotificacion = (texto: string, tipo: string = "success") => {
+    const tipoNormalizado: 'success' | 'error' | 'info' = tipo === 'error' ? 'error' : (tipo === 'info' ? 'info' : 'success');
+    setNotificacion({ texto, tipo: tipoNormalizado });
+    setTimeout(() => setNotificacion(null), 4000);
+  };
+
   const manejarClicAlertaPush = useCallback((alerta: AlertaPush) => {
     if (!alerta || !alerta.caso) return;
     const targetCaso = alerta.caso;
     const idBuscado = String(targetCaso.casoOp || targetCaso.vendorId || targetCaso.id || '').trim();
 
-    // 1. Navegar a la pestaña correspondiente
     if (puedeVerTab('tl')) {
       setActiveTab('tl');
     } else if (puedeVerTab('inicio')) {
@@ -337,10 +360,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       setActiveTab(pestanasPermitidas[0]);
     }
 
-    // 2. Resaltar / sombrear la fila en la tabla
     setCasoResaltadoId(idBuscado);
 
-    // 3. Scroll suave hasta la fila del caso en la lista
     setTimeout(() => {
       const el = document.getElementById(`caso-row-${idBuscado}`) || 
                  document.getElementById(`caso-row-${targetCaso.id}`) ||
@@ -351,10 +372,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       }
     }, 200);
 
-    // 4. Remover el toast clicado
     setAlertasPushActivas(prev => prev.filter(a => a.id !== alerta.id));
 
-    // 5. Quitar el sombreado automáticamente después de 8 segundos
     setTimeout(() => {
       setCasoResaltadoId(prev => (prev === idBuscado ? null : prev));
     }, 8000);
@@ -375,7 +394,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
 
   const [formulario, setFormulario] = useState<FormularioNuevoCaso>(() => {
-    const ahora = formatearFechaEspanol(new Date());
+    const ahora = formatearFechaHora(new Date());
     return {
       casoOp: '', vendorId: '', tienda: '', pais: 'Argentina', kam: '',
       integracion: 'Datalive', oportunidad: 'Franchise Extensión', asset: 'Integración',
@@ -423,44 +442,50 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   }, [catalogosDinamicos, listaIntegraciones]);
 
   const cargarCasosGoogleSheets = async (silencioso = false) => {
-    if (!silencioso) setCargandoSheets(true);
+    if (!silencioso) {
+      setCargandoSheets(true);
+      setCargandoOperacion('Sincronizando casos y datos desde Google Sheets...');
+    }
     try {
-      // 1. Sincronizar Casos desde hoja oficial 'Onboarding_New'
       const dataCasos = await consultarCasosGoogleSheets();
-      let totalCasosCargados = 0;
       if (Array.isArray(dataCasos) && dataCasos.length > 0) {
         setCasosSheets(dataCasos);
-        totalCasosCargados = dataCasos.length;
         setUltimaSync(new Date());
         try { localStorage.setItem('PEDA_ULTIMA_SYNC', new Date().toISOString()); } catch (_) {}
 
-        // Los casos ya se encuentran sincronizados y cacheados desde Google Sheets
+        // Sincronizar casos activos en Firestore para que Firebase siempre tenga la data real de Sheets
+        const casosActivosParaSync = dataCasos.filter((c: any) => c.esActivo);
+        if (casosActivosParaSync.length > 0) {
+          guardarCasosEnFirestore(casosActivosParaSync).catch(errSync => {
+            console.warn('[Dashboard] Sincronización silenciosa con Firestore:', errSync);
+          });
+        }
       }
 
-      // 2. Sincronizar Catálogos y Seleccionables desde hoja oficial 'Integraciones_Sponsorship'
       const dataCatalogos = await consultarCatalogosGoogleSheets();
       if (dataCatalogos) {
         setCatalogosDinamicos(dataCatalogos);
         if (Array.isArray(dataCatalogos.integraciones) && dataCatalogos.integraciones.length > 0) {
           setListaIntegraciones(dataCatalogos.integraciones.map((i: any) => typeof i === 'object' ? i.nombre : i));
         }
-
-        // Respaldar catálogos en Firebase Firestore
         guardarCatalogosEnFirestore(dataCatalogos).catch(err => {
           console.warn('[Dashboard] Error guardando catálogos en Firestore:', err);
         });
       }
 
-      if (!silencioso && mostrarNotificacion) {
+      if (!silencioso) {
         mostrarNotificacion('Actualizado', 'success');
       }
     } catch (err: any) {
       console.warn("Consulta Google Sheets fallida:", err);
-      if (!silencioso && mostrarNotificacion) {
+      if (!silencioso) {
         mostrarNotificacion(`Error al sincronizar: ${err?.message || 'Error de conexión'}`, 'error');
       }
     } finally {
-      if (!silencioso) setCargandoSheets(false);
+      if (!silencioso) {
+        setCargandoSheets(false);
+        setCargandoOperacion(null);
+      }
     }
   };
 
@@ -483,11 +508,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   }, []);
 
   const casosTotales = useMemo(() => {
-    // Si no hay casos de Sheets aún, mostrar los de Firestore
     if (!casosSheets || casosSheets.length === 0) return casosFirestore;
     if (!casosFirestore || casosFirestore.length === 0) return casosSheets;
 
-    // Indexar Firestore para O(1) matching sin bucles anidados
     const firestoreMap = new Map<string, any>();
     casosFirestore.forEach(c => {
       const docId = String(c.id || '').trim();
@@ -496,7 +519,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       if (op && !firestoreMap.has(op)) firestoreMap.set(op, c);
     });
 
-    // Mapear preservando exactamente cada fila de casosSheets (las 1,859 filas se preservan intactas)
     return casosSheets.map(s => {
       const idKey = String(s.id || '').trim();
       const opKey = String(s.casoOp || '').trim();
@@ -511,17 +533,47 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const sheetsCerrado = !s.esActivo || String(s.estado || '').toLowerCase().match(/cerrad|fallid|cancel/);
       const sheetsSinOp = String(s.estado || '').toLowerCase().includes('sin oportunidad');
 
+      const pushKamPosFinal = (s.pushKamPos !== undefined && s.pushKamPos !== '') 
+        ? s.pushKamPos 
+        : (fCaso.pushKamPos !== undefined ? fCaso.pushKamPos : 'FALSE');
+
+      const pushKamCatFinal = (s.pushKamCat !== undefined && s.pushKamCat !== '') 
+        ? s.pushKamCat 
+        : (fCaso.pushKamCat !== undefined ? fCaso.pushKamCat : 'FALSE');
+
+      let respuestaPosFinal = (s.respuestaPos !== undefined && s.respuestaPos !== '') 
+        ? s.respuestaPos 
+        : (fCaso.respuestaPos || '');
+
+      let respuestaCatFinal = (s.respuestaCat !== undefined && s.respuestaCat !== '') 
+        ? s.respuestaCat 
+        : (fCaso.respuestaCat || '');
+
+      // Sanear: si no hay fecha de push y la etapa está en espera, respuesta no puede ser 'No'
+      const etapaMergeLower = String(s.etapa || fCaso.etapa || '').toLowerCase();
+      const esEsperaPos = etapaMergeLower.includes('sin integración confirmada') || etapaMergeLower.includes('sin integracion confirmada') || etapaMergeLower.includes('en proceso de seteo');
+      const tienePushPos = Boolean((s.fechaPushPos && s.fechaPushPos !== 'S/V' && s.fechaPushPos !== '-') || (fCaso.fechaPushPos && fCaso.fechaPushPos !== 'S/V' && fCaso.fechaPushPos !== '-'));
+      if (esEsperaPos && !tienePushPos && respuestaPosFinal === 'No') {
+        respuestaPosFinal = '';
+      }
+
+      const esEsperaCat = etapaMergeLower.includes('verificación de catálogo') || etapaMergeLower.includes('verificacion de catalogo') || etapaMergeLower.includes('carga de catálogo') || etapaMergeLower.includes('carga de catalogo');
+      const tienePushCat = Boolean((s.fechaPushCat && s.fechaPushCat !== 'S/V' && s.fechaPushCat !== '-') || (fCaso.fechaPushCat && fCaso.fechaPushCat !== 'S/V' && fCaso.fechaPushCat !== '-'));
+      if (esEsperaCat && !tienePushCat && respuestaCatFinal === 'No') {
+        respuestaCatFinal = '';
+      }
+
       return {
         ...s,
         comentarios: fCaso.comentarios || s.comentarios,
-        fechaPushPos: fCaso.fechaPushPos || s.fechaPushPos,
-        fechaPushCat: fCaso.fechaPushCat || s.fechaPushCat,
-        pushKamPos: fCaso.pushKamPos !== undefined ? fCaso.pushKamPos : s.pushKamPos,
-        pushKamCat: fCaso.pushKamCat !== undefined ? fCaso.pushKamCat : s.pushKamCat,
-        respuestaPos: fCaso.respuestaPos || s.respuestaPos,
-        respuestaCat: fCaso.respuestaCat || s.respuestaCat,
-        freezePos: fCaso.freezePos || s.freezePos,
-        freezeCat: fCaso.freezeCat || s.freezeCat,
+        fechaPushPos: (s.fechaPushPos && s.fechaPushPos !== 'S/V' && s.fechaPushPos !== '-') ? s.fechaPushPos : (fCaso.fechaPushPos || s.fechaPushPos),
+        fechaPushCat: (s.fechaPushCat && s.fechaPushCat !== 'S/V' && s.fechaPushCat !== '-') ? s.fechaPushCat : (fCaso.fechaPushCat || s.fechaPushCat),
+        pushKamPos: pushKamPosFinal,
+        pushKamCat: pushKamCatFinal,
+        respuestaPos: respuestaPosFinal,
+        respuestaCat: respuestaCatFinal,
+        freezePos: (s.freezePos && s.freezePos !== '-') ? s.freezePos : (fCaso.freezePos || s.freezePos),
+        freezeCat: (s.freezeCat && s.freezeCat !== '-') ? s.freezeCat : (fCaso.freezeCat || s.freezeCat),
         estado: sheetsCerrado ? s.estado : (sheetsSinOp ? s.estado : (fCaso.estado || s.estado)),
         esActivo: sheetsCerrado ? false : s.esActivo
       };
@@ -555,7 +607,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, []);
 
-  // 1. Al iniciar sesión: sonar y mostrar alertas tipo captura para los casos pendientes de push
+  // 1. Al iniciar sesión: sonar y mostrar alertas tipo push (máximo 2 veces en la sesión)
   useEffect(() => {
     if (casosTotales.length === 0) return;
 
@@ -572,18 +624,16 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (pendientes.length > 0) {
       reproducirCampana();
       setAlertasPushActivas(pendientes);
-      if (!tieneAccesoSupervisor) {
-        sessionStorage.setItem('peya_agente_push_reproducciones_' + sesionUsuarioKey, '1');
-      }
+      sessionStorage.setItem('peya_sesion_push_reproducciones_' + sesionUsuarioKey, '1');
     }
-  }, [casosTotales.length > 0, sesionUsuarioKey, role, email, nombreUsuarioAutenticado, tieneAccesoSupervisor, reproducirCampana]);
+  }, [casosTotales.length > 0, sesionUsuarioKey, role, email, nombreUsuarioAutenticado, reproducirCampana]);
 
-  // 2. Recordatorio independiente cada 10 minutos (suena dos veces dejando 10 minutos de diferencia)
+  // 2. Recordatorio cada 10 minutos (suena solo 2 veces en total por sesión para todos los usuarios)
   useEffect(() => {
     const timer = setInterval(() => {
       const ultimoTs = parseInt(sessionStorage.getItem('peya_ultimo_timbre_ts') || '0', 10);
       const ahora = Date.now();
-      const INTERVALO_RECORDATORIO_MS = 10 * 60 * 1000; // 10 minutos de diferencia
+      const INTERVALO_RECORDATORIO_MS = 10 * 60 * 1000; // 10 minutos
 
       if (ultimoTs > 0 && ahora - ultimoTs >= INTERVALO_RECORDATORIO_MS) {
         sessionStorage.setItem('peya_ultimo_timbre_ts', String(ahora));
@@ -591,26 +641,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         if (casosActuales.length > 0) {
           const pendientes = detectarCasosPushPendientes(casosActuales, role, email, nombreUsuarioAutenticado);
           if (pendientes.length > 0) {
-            // Si es Agente, verificar límite de 2 reproducciones máximo en la sesión dejando 10 minutos
-            if (!tieneAccesoSupervisor) {
-              const veces = parseInt(sessionStorage.getItem('peya_agente_push_reproducciones_' + sesionUsuarioKey) || '0', 10);
-              if (veces < 2) {
-                reproducirCampana();
-                sessionStorage.setItem('peya_agente_push_reproducciones_' + sesionUsuarioKey, String(veces + 1));
-              }
-            } else {
-              // Supervisor / TL
+            const veces = parseInt(sessionStorage.getItem('peya_sesion_push_reproducciones_' + sesionUsuarioKey) || '0', 10);
+            if (veces < 2) {
               reproducirCampana();
+              sessionStorage.setItem('peya_sesion_push_reproducciones_' + sesionUsuarioKey, String(veces + 1));
             }
-
-            // Mostrar modal/toast por caso
             setAlertasPushActivas(pendientes);
           }
         }
       }
-    }, 15000); // Evalúa cada 15 segundos
+    }, 15000);
     return () => clearInterval(timer);
-  }, [role, email, nombreUsuarioAutenticado, tieneAccesoSupervisor, sesionUsuarioKey, reproducirCampana]);
+  }, [role, email, nombreUsuarioAutenticado, sesionUsuarioKey, reproducirCampana]);
 
   const esCasoActivo = (c: any): boolean => {
     if (!c) return false;
@@ -624,7 +666,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const casosMostrados = useMemo(() => {
     if (activeTab === 'global') return casosTotales.filter(esCasoActivo);
     if (activeTab === 'inicio') {
-      // Mostrar ÚNICAMENTE los casos asignados al agente que ingresó sesión
       return casosTotales.filter(c => esCasoActivo(c) && isAgentMatch(c, email, nombreUsuarioAutenticado));
     }
     return casosTotales;
@@ -634,13 +675,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   
   const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => {
     const est = String(x.caso.estado || '').toLowerCase().trim();
-    const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '';
+    const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
     return !esSinOp && (est === 'en progreso' || est.includes('progreso'));
   }).length, [casosConAlertas]);
 
   const totalSinOportunidad = useMemo(() => casosConAlertas.filter(x => {
     const est = String(x.caso.estado || '').toLowerCase().trim();
-    return est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '';
+    return est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
   }).length, [casosConAlertas]);
 
   const totalPos = useMemo(() => casosConAlertas.filter(x => x.alertas.requierePushPos).length, [casosConAlertas]);
@@ -650,7 +691,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const listaFiltrada = useMemo(() => {
     const filtrados = casosConAlertas.filter(x => {
       const est = String(x.caso.estado || '').toLowerCase().trim();
-      const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '';
+      const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
       if (filtroMisCasos === 'enProgreso') {
         return !esSinOp && (est === 'en progreso' || est.includes('progreso'));
       }
@@ -663,20 +704,20 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       return true;
     });
 
-    // Ordenamiento por Nombre de Tienda si está activado
-    if (ordenMisCasosTienda === 'asc') {
-      return [...filtrados].sort((a, b) => 
-        String(a.caso.tienda || '').localeCompare(String(b.caso.tienda || ''), 'es', { sensitivity: 'base' })
-      );
-    }
-    if (ordenMisCasosTienda === 'desc') {
-      return [...filtrados].sort((a, b) => 
-        String(b.caso.tienda || '').localeCompare(String(a.caso.tienda || ''), 'es', { sensitivity: 'base' })
-      );
+    if (tipoOrdenMisCasos === 'tienda') {
+      if (sentidoTienda === 'asc') {
+        return [...filtrados].sort((a, b) => 
+          String(a.caso.tienda || '').localeCompare(String(b.caso.tienda || ''), 'es', { sensitivity: 'base' })
+        );
+      } else {
+        return [...filtrados].sort((a, b) => 
+          String(b.caso.tienda || '').localeCompare(String(a.caso.tienda || ''), 'es', { sensitivity: 'base' })
+        );
+      }
     }
 
-    // Por defecto: ordenar los casos con SLA crítico o próximo a vencer arriba
-    return filtrados.sort((a, b) => {
+    // Por defecto: ordenar por prioridad de SLA
+    return [...filtrados].sort((a, b) => {
       const critA = (a.alertas?.esCritico || (a.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
       const critB = (b.alertas?.esCritico || (b.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
       if (critA !== critB) return critB - critA;
@@ -687,7 +728,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       return (b.alertas?.horasTranscurridas || 0) - (a.alertas?.horasTranscurridas || 0);
     });
-  }, [casosConAlertas, filtroMisCasos, ordenMisCasosTienda]);
+  }, [casosConAlertas, filtroMisCasos, tipoOrdenMisCasos, sentidoTienda]);
 
   const manejarBusqueda = async (busquedaId: string) => {
     if (!busquedaId.trim()) return;
@@ -728,45 +769,81 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   };
 
   const guardarNuevoCaso = async () => {
-    if (!formulario.casoOp) return mostrarNotificacion("El N° Caso OP es obligatorio.", "error");
+    setCargandoOperacion('Detectando base de datos y registrando nuevo caso...');
     try {
-      const docId = String(formulario.casoOp).trim();
+      const opInput = String(formulario.casoOp || '').trim();
+      const esOpValido = opInput && 
+        opInput !== '-' && 
+        opInput.toLowerCase() !== 'sin caso op' && 
+        !opInput.startsWith('TEMP_') && 
+        !opInput.startsWith('SIN_OP_') && 
+        !opInput.includes('_r');
+      const casoOpFinal = esOpValido ? opInput : '';
+      
       const ahora = formatearFechaHora(new Date());
       const fCreacion = formatearFechaHora(formulario.fechaCreacion) || ahora;
       const fInicio = formatearFechaHora(formulario.sla_inicio || formulario.fechaCreacion) || ahora;
 
+      // 1. Detectar en tiempo real cuántas filas hay en total en la base antes de añadir el nuevo caso
+      let proximaFila = 0;
+      try {
+        const resConteo = await fetch('/api/sheets/conteo-filas', { cache: 'no-store' });
+        if (resConteo.ok) {
+          const dataConteo = await resConteo.json();
+          if (dataConteo.success && dataConteo.proximaFilaNueva) {
+            proximaFila = dataConteo.proximaFilaNueva;
+          }
+        }
+      } catch (e) {
+        console.warn('Error consultando conteo de filas en base:', e);
+      }
+
+      if (!proximaFila) {
+        // En la hoja: Fila 1 y 2 encabezados. Última fila ocupada = recuentoCasos + 2.
+        // La nueva fila a insertar = recuentoCasos + 3
+        const recuentoCasos = casosSheets.length;
+        proximaFila = recuentoCasos + 3;
+      }
+
+      const docId = esOpValido ? opInput : `SIN_OP_${formulario.vendorId || 'caso'}_r${proximaFila}`;
+
       const casoProcesado = procesarActualizacionCaso({}, {
         ...formulario, 
         id: docId, 
+        casoOp: casoOpFinal,
         vendor_id: formulario.vendorId, 
         agente: formulario.propietarioTicket,
         fechaCreacion: fCreacion,
         sla_inicio: fInicio,
         fechaInicioSeguimientoOP: fInicio,
+        filaNumero: proximaFila,
+        esNuevo: true,
         actualizadoEn: new Date().toISOString()
       });
 
-      // 1. Guardar y sincronizar con Google Sheets (fuente de verdad)
-      const sheetsRes = await actualizarCasoEnSheets(casoProcesado).catch(err => {
+      // 2. Guardar y sincronizar con Google Sheets
+      const sheetsRes = await actualizarCasoEnSheets({ ...casoProcesado, esNuevo: true }).catch(err => {
         console.warn('Sheets sync notice:', err);
         return null;
       });
+      const filaConfirmada = sheetsRes?.caso?.filaNumero || sheetsRes?.filaNumero || proximaFila;
       const casoFinalConFila = {
         ...casoProcesado,
-        filaNumero: sheetsRes?.caso?.filaNumero || (casosSheets.length + 2)
+        filaNumero: filaConfirmada,
+        esNuevo: false
       };
 
-      // 2. Actualizar estado local de inmediato
+      // 3. Actualizar estado local
       setCasosSheets(prev => [casoFinalConFila, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
-      setCasosFirestore(prev => [casoProcesado, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
+      setCasosFirestore(prev => [casoFinalConFila, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
 
-      // 3. Respaldar en Firestore en segundo plano (sin bloquear la interfaz)
+      // 4. Respaldar en Firestore en segundo plano
       try {
         const casoRef = doc(db, "casos", docId);
-        setDoc(casoRef, casoProcesado, { merge: true }).catch(() => {});
+        setDoc(casoRef, casoFinalConFila, { merge: true }).catch(() => {});
       } catch (_) {}
 
-      mostrarNotificacion('Actualizado', "success");
+      mostrarNotificacion(`Caso registrado exitosamente en fila #${filaConfirmada}`, "success");
       const nuevoAhora = formatearFechaHora(new Date());
       setFormulario(prev => ({ 
         ...prev, 
@@ -781,31 +858,79 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     } catch (err: any) {
       console.error("Error al registrar caso:", err);
       mostrarNotificacion(`❌ Error al registrar caso: ${err.message}`, "error");
+    } finally {
+      setCargandoOperacion(null);
     }
   };
 
   const actualizarCasoExistente = async (casoActualizado: any) => {
+    setCargandoOperacion('Guardando cambios en Google Sheets y Firebase...');
     try {
-      const idBuscado = String(casoActualizado.casoOp || casoActualizado.id).trim();
-      const casoPrevio = casosTotales.find(c => String(c.casoOp || c.id) === idBuscado) || {};
-      const casoFinal = procesarActualizacionCaso(casoPrevio, casoActualizado);
-      
-      // 1. Actualizar estados locales de inmediato para respuesta instantánea
-      setCasosFirestore(prev => prev.map(c => (String(c.casoOp || c.id) === idBuscado || (casoActualizado.id && String(c.id) === String(casoActualizado.id))) ? { ...c, ...casoFinal } : c));
-      setCasosSheets(prev => prev.map(c => (String(c.casoOp || c.id) === idBuscado || (casoActualizado.id && String(c.id) === String(casoActualizado.id))) ? { ...c, ...casoFinal } : c));
+      const opInput = String(casoActualizado.casoOp || '').trim();
+      const esOpValido = opInput && 
+        opInput !== '-' && 
+        opInput.toLowerCase() !== 'sin caso op' && 
+        !opInput.startsWith('TEMP_') && 
+        !opInput.startsWith('SIN_OP_') && 
+        !opInput.includes('_r');
+      const casoOpFinal = esOpValido ? opInput : '';
 
-      // 2. Guardar y sincronizar con Google Sheets (fuente de verdad)
-      await actualizarCasoEnSheets(casoFinal).catch(err => {
+      // Identificar caso previo por filaNumero, id previo o casoOp
+      const filaNum = Number(casoActualizado.filaNumero);
+      const idPrevio = String(casoActualizado.id || '').trim();
+
+      const casoPrevio = casosTotales.find(c => 
+        (filaNum && c.filaNumero === filaNum) ||
+        (idPrevio && String(c.id).trim() === idPrevio) ||
+        (esOpValido && String(c.casoOp).trim() === opInput)
+      ) || {};
+
+      const casoFinal = procesarActualizacionCaso(casoPrevio, {
+        ...casoActualizado,
+        esNuevo: false,
+        casoOp: casoOpFinal
+      });
+      casoFinal.esNuevo = false;
+      
+      if (casoActualizado.pushKamPos !== undefined) {
+        casoFinal.pushKamPos = Boolean(casoActualizado.pushKamPos);
+      }
+      if (casoActualizado.pushKamCat !== undefined) {
+        casoFinal.pushKamCat = Boolean(casoActualizado.pushKamCat);
+      }
+      if (filaNum) {
+        casoFinal.filaNumero = filaNum;
+      }
+
+      // Si tiene OP real usarlo como ID de Firestore, sino conservar el id previo o generar id SIN_OP
+      const nuevoDocId = esOpValido ? opInput : (idPrevio || `SIN_OP_${casoFinal.vendorId || 'caso'}_r${filaNum || 'edit'}`);
+      casoFinal.id = nuevoDocId;
+
+      // 1. Actualizar estados locales de inmediato
+      const coincideCaso = (c: any) => 
+        (filaNum && c.filaNumero === filaNum) ||
+        (idPrevio && String(c.id).trim() === idPrevio) ||
+        (nuevoDocId && String(c.id).trim() === nuevoDocId) ||
+        (esOpValido && String(c.casoOp).trim() === opInput);
+
+      setCasosFirestore(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoFinal } : c));
+      setCasosSheets(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoFinal } : c));
+
+      // 2. Guardar y sincronizar con Google Sheets
+      await actualizarCasoEnSheets({ ...casoFinal, esNuevo: false }).catch(err => {
         console.warn('Sheets sync notice:', err);
       });
 
-      // 3. Respaldar en Firestore en segundo plano (no bloquea el modal si hay backoff delay)
+      // 3. Respaldar en Firestore en segundo plano
       try {
-        const casoRef = doc(db, "casos", idBuscado);
-        setDoc(casoRef, { ...casoFinal, id: idBuscado, actualizadoEn: new Date().toISOString() }, { merge: true }).catch(() => {});
-        if (casoActualizado.id && String(casoActualizado.id).trim() !== idBuscado) {
-          const altRef = doc(db, "casos", String(casoActualizado.id).trim());
-          setDoc(altRef, { ...casoFinal, actualizadoEn: new Date().toISOString() }, { merge: true }).catch(() => {});
+        const casoRef = doc(db, "casos", nuevoDocId);
+        setDoc(casoRef, { ...casoFinal, id: nuevoDocId, actualizadoEn: new Date().toISOString() }, { merge: true }).catch(() => {});
+        
+        // Si antes tenía un docId temporal y ahora tiene OP real, limpiar el doc temporal viejo
+        if (idPrevio && idPrevio !== nuevoDocId) {
+          try {
+            await deleteDoc(doc(db, "casos", idPrevio));
+          } catch (_) {}
         }
       } catch (_) {}
 
@@ -814,16 +939,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     } catch (err: any) {
       console.error("Error actualizando caso en Firebase/Sheets:", err);
       mostrarNotificacion(`❌ Error actualizando caso: ${err.message}`, "error");
+    } finally {
+      setCargandoOperacion(null);
     }
   };
 
   const manejarEliminarCaso = async (caso: any): Promise<any> => {
     if (!caso) return false;
     const targetId = String(caso.id || caso.casoOp || '').trim();
-    const op = caso.casoOp || caso.vendorId || targetId;
+    const op = (caso.casoOp && caso.casoOp !== '-' && caso.casoOp !== 'Sin caso OP') ? caso.casoOp : (caso.vendorId || targetId);
 
+    setCargandoOperacion(`Eliminando caso OP #${op}...`);
     try {
-      // 1. Eliminar en Google Sheets (API serverless / backend)
+      // 1. Eliminar en Google Sheets
       try {
         await eliminarCasoGoogleSheets(targetId, caso.casoOp, caso.filaNumero);
       } catch (sheetsErr) {
@@ -849,12 +977,15 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       console.error("Error al eliminar caso:", err);
       mostrarNotificacion(`❌ Error al eliminar caso OP #${op}: ${err.message}`, "error");
       return false;
+    } finally {
+      setCargandoOperacion(null);
     }
   };
 
   const manejarRegistrarPush = async (caso: any, tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat' | string) => {
+    setCargandoOperacion('Registrando push...');
     try {
-      const fechaSheet = formatearFechaEspanol(new Date());
+      const fechaSheet = formatearFechaHora(new Date());
       const idBuscado = String(caso.casoOp || caso.id).trim();
 
       const cambios: Record<string, any> = {};
@@ -873,7 +1004,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         ...cambios
       };
 
-      // 1. Actualización inmediata del estado local para que el botón desaparezca al instante
+      // 1. Actualización inmediata local
       setCasosSheets(prev => prev.map(c => 
         (String(c.id).trim() === idBuscado || String(c.casoOp).trim() === idBuscado || (caso.casoOp && String(c.casoOp).trim() === String(caso.casoOp).trim()))
           ? { ...c, ...cambios }
@@ -893,19 +1024,30 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         actualizadoEn: new Date().toISOString() 
       }, { merge: true });
 
-      // 3. Sincronizar con Backend y Google Sheets
-      fetch('/api/sheets/registrar-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ casoId: idBuscado, fecha: fechaSheet, tipo })
-      }).catch((e) => console.warn('Error sincronizando push con sheets:', e));
+      // 3. Sincronizar con Backend y Google Sheets (actualiza solo la celda específica por casoOp)
+      try {
+        const resPush = await fetch('/api/sheets/registrar-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            casoId: idBuscado, 
+            casoOp: caso.casoOp, 
+            filaNumero: caso.filaNumero, 
+            fecha: fechaSheet, 
+            tipo 
+          })
+        });
 
-      actualizarCasoEnSheets(casoActualizado).catch(() => {});
+        if (!resPush.ok) {
+          await actualizarCasoEnSheets(casoActualizado).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('Error sincronizando push con sheets, usando fallback:', e);
+        await actualizarCasoEnSheets(casoActualizado).catch(() => {});
+      }
 
-      const labelTipo = tipo === 'pos' ? 'POS API' : (tipo === 'cat' ? 'Catálogo' : (tipo === 'kam_pos' ? 'KAM (POS API)' : 'KAM (Catálogo)'));
-      mostrarNotificacion(`✅ Push ${labelTipo} guardado en Firebase y Google Sheets para OP #${caso.casoOp || idBuscado}.`, "success");
+      mostrarNotificacion('Actualizado', "success");
 
-      // Remover toast activo para este caso si existía
       setAlertasPushActivas(prev => prev.filter(a => {
         const c = a.caso;
         return !(String(c?.id || '').trim() === idBuscado || String(c?.casoOp || '').trim() === idBuscado);
@@ -913,6 +1055,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     } catch (err) {
       console.error("Error al registrar push:", err);
       mostrarNotificacion("Error al registrar push.", "error");
+    } finally {
+      setCargandoOperacion(null);
     }
   };
 
@@ -932,18 +1076,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     mostrarNotificacion(`Datos replicados. Ingresa el N° de Caso OP.`);
   };
 
-  const mostrarNotificacion = (texto: string, tipo: string = "success") => {
-    const tipoNormalizado: 'success' | 'error' | 'info' = tipo === 'error' ? 'error' : (tipo === 'info' ? 'info' : 'success');
-    setNotificacion({ texto, tipo: tipoNormalizado });
-    setTimeout(() => setNotificacion(null), 5000);
-  };
-
   const manejarLogout = () => {
     try {
       sessionStorage.removeItem('peya_login_alarm_' + sesionUsuarioKey);
       sessionStorage.removeItem('peya_ultimo_timbre_ts');
       sessionStorage.removeItem('peya_onb_active_tab');
-      sessionStorage.removeItem('peya_agente_push_reproducciones_' + sesionUsuarioKey);
+      sessionStorage.removeItem('peya_sesion_push_reproducciones_' + sesionUsuarioKey);
     } catch (e) {}
     if (onLogout) onLogout();
   };
@@ -952,98 +1090,155 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     <div className="flex h-screen bg-[#0f111a] text-gray-200 font-sans">
       <audio ref={audioRef} src="/ding.mp3" preload="auto" />
       
-      {/* Alertas Push Flotantes Tipo Captura (30 segundos, clicables con sombreado) */}
+      {/* Alertas Push Flotantes Tipo Captura */}
       <PushAlertContainer 
         alertas={alertasPushActivas} 
         onCerrarAlerta={manejarCerrarAlertaPush} 
         onCerrarTodas={manejarCerrarTodasAlertasPush}
         onClicAlerta={manejarClicAlertaPush} 
       />
-      
-      <div className="w-64 bg-[#161925] border-r border-gray-800 flex flex-col hidden md:flex">
-        <div className="p-4 border-b border-gray-800">
-          <h1 className="text-xl font-black text-pink-500 tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
-        </div>
-        <div className="p-4 flex-1 space-y-2">
-          {puedeVerTab('tl') && (
-            <button 
-              onClick={() => setActiveTab('tl')} 
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'tl' 
-                  ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              }`}
-            >
-              Casos en progreso global
-            </button>
-          )}
 
-          {/* Datos */}
-          {puedeVerTab('admin') && (
-            <button 
-              onClick={() => setActiveTab('admin')} 
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'admin' 
-                  ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              }`}
-            >
-              Datos
-            </button>
-          )}
+      {/* Botón flotante para ver sidebar en móviles y pantallas <= 1036px */}
+      <div className="fixed bottom-5 left-5 z-40 max-[1036px]:flex min-[1037px]:hidden">
+        <button
+          type="button"
+          onClick={() => setSidebarMovilAbierto(true)}
+          className="w-12 h-12 bg-pink-600 hover:bg-pink-500 text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition transform active:scale-95 border-2 border-pink-400 cursor-pointer"
+          title="Abrir opciones del menú"
+        >
+          ☰
+        </button>
+      </div>
 
-          {/* Mis casos */}
-          {puedeVerTab('inicio') && (
-            <button 
-              onClick={() => setActiveTab('inicio')} 
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'inicio' 
-                  ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              }`}
-            >
-              Mis casos
-            </button>
-          )}
-
-          {/* Busqueda y registro */}
-          {puedeVerTab('nuevo') && (
-            <button 
-              onClick={() => setActiveTab('nuevo')} 
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'nuevo' 
-                  ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              }`}
-            >
-              Busqueda y registro
-            </button>
-          )}
-
-          {/* Gestionar usuarios */}
-          {puedeVerTab('usuarios') && (
-            <button 
-              onClick={() => setActiveTab('usuarios')} 
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                activeTab === 'usuarios' 
-                  ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              }`}
-            >
-              Gestionar usuarios
-            </button>
-          )}
-        </div>
-        <div className="p-4 border-t border-gray-800">
-          <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-          <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">⚙️ Configuración</button>
-          <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
-            <span>{nombreUsuarioAutenticado}</span>
-            <button onClick={manejarLogout} className="hover:text-pink-400 cursor-pointer">Salir</button>
+      {/* Drawer móvil de Sidebar para pantallas <= 1036px */}
+      {sidebarMovilAbierto && (
+        <div className="fixed inset-0 z-50 flex max-[1036px]:flex min-[1037px]:hidden">
+          <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
+            onClick={() => setSidebarMovilAbierto(false)}
+          />
+          <div className="relative w-72 bg-[#161925] border-r border-gray-800 flex flex-col h-full shadow-2xl z-10 animate-slideRight">
+            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+              <h1 className="text-xl font-black text-pink-500 tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+              <button 
+                onClick={() => setSidebarMovilAbierto(false)} 
+                className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 flex-1 space-y-2 overflow-y-auto">
+              {LISTA_PESTANAS_SISTEMA.filter(tab => puedeVerTab(tab.id)).map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setSidebarMovilAbierto(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                      isActive 
+                        ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                    }`}
+                  >
+                    <span className="text-base">{tab.icono}</span>
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="p-4 border-t border-gray-800">
+              <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
+              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">⚙️ Configuración</button>
+              <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+                <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
+                <button onClick={manejarLogout} className="hover:text-pink-400 cursor-pointer">Salir</button>
+              </div>
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Sidebar de escritorio: colapsable y responsivo */}
+      <div className={`${sidebarColapsado ? 'w-20' : 'w-64'} bg-[#161925] border-r border-gray-800 flex flex-col hidden min-[1037px]:flex transition-all duration-300 select-none`}>
+        <div className={`p-4 border-b border-gray-800 flex items-center ${sidebarColapsado ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
+          {!sidebarColapsado ? (
+            <h1 className="text-xl font-black text-pink-500 tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+          ) : (
+            <span className="text-sm font-black text-pink-500">PY</span>
+          )}
+          <button
+            type="button"
+            onClick={() => setSidebarColapsado(prev => !prev)}
+            className="text-gray-400 hover:text-white bg-transparent border-0 text-base font-mono font-bold px-1.5 py-0.5 transition cursor-pointer select-none"
+            title={sidebarColapsado ? 'Expandir barra lateral' : 'Comprimir barra lateral'}
+          >
+            {sidebarColapsado ? '>' : '<'}
+          </button>
+        </div>
+        
+        <div className="p-3 flex-1 space-y-1.5 overflow-y-auto">
+          {LISTA_PESTANAS_SISTEMA.filter(tab => puedeVerTab(tab.id)).map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                title={sidebarColapsado ? tab.label : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  isActive 
+                    ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                } ${sidebarColapsado ? 'justify-center px-1' : ''}`}
+              >
+                <span className="text-base">{tab.icono}</span>
+                {!sidebarColapsado && <span className="truncate">{tab.label}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="p-3 border-t border-gray-800">
+          {!sidebarColapsado ? (
+            <>
+              <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
+              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">⚙️ Configuración</button>
+              <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+                <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
+                <button onClick={manejarLogout} className="hover:text-pink-400 cursor-pointer">Salir</button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-3 text-xs">
+              <button 
+                onClick={() => cargarCasosGoogleSheets()} 
+                title="Sincronizar desde Sheets"
+                className="text-gray-400 hover:text-pink-400 text-base cursor-pointer"
+              >
+                🔄
+              </button>
+              <button 
+                onClick={() => setMostrarModalCreds(true)} 
+                title="Configuración"
+                className="text-gray-400 hover:text-white text-base cursor-pointer"
+              >
+                ⚙️
+              </button>
+              <button 
+                onClick={manejarLogout} 
+                title="Cerrar sesión"
+                className="text-gray-400 hover:text-pink-400 text-base cursor-pointer"
+              >
+                🚪
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Contenido Principal */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {notificacion && (
           <div className={`absolute top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'}`}>
@@ -1051,7 +1246,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-6">
           {activeTab === 'tl' && puedeVerTab('tl') && (
             <TLDashboard 
               casos={casosTotales}
@@ -1160,7 +1355,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             </div>
           )}
 
-          {/* Mis casos: visible según permisos */}
+          {/* Mis casos */}
           {activeTab === 'inicio' && puedeVerTab('inicio') && (
             <div className="space-y-6">
               <div className="flex flex-wrap gap-4 items-center justify-between">
@@ -1172,24 +1367,47 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   <AlertBadge tipo="pushCat" cantidad={totalCat} activo={filtroMisCasos === 'pushCat'} onClick={setFiltroMisCasos} />
                   <AlertBadge tipo="sla" cantidad={totalSla} activo={filtroMisCasos === 'sla'} onClick={setFiltroMisCasos} />
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Botón Ordenar por Nombre de Tienda A-Z / Z-A */}
+                
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Botón 1: Ordenar por SLA */}
                   <button
-                    onClick={toggleOrdenMisCasosTienda}
+                    type="button"
+                    onClick={() => setTipoOrdenMisCasos('sla')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                      ordenMisCasosTienda !== 'sla'
-                        ? 'bg-pink-600/30 text-pink-300 border-pink-500 shadow-sm'
+                      tipoOrdenMisCasos === 'sla'
+                        ? 'bg-pink-600 text-white border-pink-500 shadow-sm font-bold'
                         : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'
                     }`}
-                    title="Ordenar casos por nombre de tienda A-Z o Z-A"
+                    title="Ordenar casos por SLA y prioridad"
                   >
-                    <span>🔤</span>
-                    <span>
-                      Tienda: {ordenMisCasosTienda === 'asc' ? 'A - Z 🔼' : ordenMisCasosTienda === 'desc' ? 'Z - A 🔽' : 'Por SLA'}
-                    </span>
+                    <span>⏱️</span>
+                    <span>Ordenar por SLA</span>
                   </button>
 
+                  {/* Botón 2: Tienda A-Z / Z-A */}
                   <button
+                    type="button"
+                    onClick={() => {
+                      if (tipoOrdenMisCasos !== 'tienda') {
+                        setTipoOrdenMisCasos('tienda');
+                      } else {
+                        setSentidoTienda(prev => prev === 'asc' ? 'desc' : 'asc');
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                      tipoOrdenMisCasos === 'tienda'
+                        ? 'bg-pink-600 text-white border-pink-500 shadow-sm font-bold'
+                        : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'
+                    }`}
+                    title="Ordenar alfabéticamente por tienda (A-Z o Z-A)"
+                  >
+                    <span>🔤</span>
+                    <span>Tienda: {tipoOrdenMisCasos === 'tienda' ? (sentidoTienda === 'asc' ? 'A - Z 🔼' : 'Z - A 🔽') : 'A - Z'}</span>
+                  </button>
+
+                  {/* Botón Actualizar */}
+                  <button
+                    type="button"
                     onClick={() => cargarCasosGoogleSheets()}
                     disabled={cargandoSheets}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
@@ -1203,7 +1421,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     <span>{cargandoSheets ? 'Actualizando...' : 'Actualizar'}</span>
                   </button>
 
-                  {/* Identificador exclusivo del agente autenticado */}
+                  {/* Usuario autenticado */}
                   <div className="px-3 py-1.5 rounded-lg bg-pink-950/40 border border-pink-800/50 text-pink-300 text-xs font-semibold flex items-center gap-1.5 shadow-sm">
                     <span>👤</span>
                     <span>Agente: {nombreUsuarioAutenticado}</span>
@@ -1211,32 +1429,68 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 </div>
               </div>
 
+              {/* Tabla de Mis Casos con columnas redimensionables */}
               <div className="bg-[#161925] border border-gray-800 rounded-xl overflow-hidden shadow-lg">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
-                      <tr className="bg-[#0f111a] border-b border-gray-800 text-xs text-gray-400 font-bold uppercase tracking-wider">
-                        <th className="p-3">OP</th>
+                      <tr className="bg-[#0f111a] border-b border-gray-800 text-xs text-gray-400 font-bold uppercase tracking-wider select-none">
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.op, minWidth: colWidthsMisCasos.op }}>
+                          <span>OP</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('op', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
                         <th 
-                          onClick={toggleOrdenMisCasosTienda}
-                          className="p-3 cursor-pointer hover:text-pink-400 select-none transition" 
-                          title="Clic para ordenar por nombre de tienda A-Z o Z-A"
+                          onClick={() => {
+                            if (tipoOrdenMisCasos !== 'tienda') {
+                              setTipoOrdenMisCasos('tienda');
+                            } else {
+                              setSentidoTienda(prev => prev === 'asc' ? 'desc' : 'asc');
+                            }
+                          }}
+                          className="p-3 cursor-pointer hover:text-pink-400 transition relative" 
+                          title="Clic para ordenar alfabéticamente por tienda"
+                          style={{ width: colWidthsMisCasos.tienda, minWidth: colWidthsMisCasos.tienda }}
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Tienda</span>
                             <span className="text-[11px] font-mono">
-                              {ordenMisCasosTienda === 'asc' ? '🔼 (A-Z)' : ordenMisCasosTienda === 'desc' ? '🔽 (Z-A)' : '↕️'}
+                              {tipoOrdenMisCasos === 'tienda' ? (sentidoTienda === 'asc' ? '🔼 (A-Z)' : '🔽 (Z-A)') : '↕️'}
                             </span>
                           </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
                         </th>
-                        <th className="p-3">País/KAM</th>
-                        <th className="p-3">Integración</th>
-                        <th className="p-3">Estado / Etapa</th>
-                        <th className="p-3">Push POS</th>
-                        <th className="p-3">Push Catálogo</th>
-                        <th className="p-3">SLA</th>
-                        <th className="p-3">Asignado</th>
-                        <th className="p-3">Acción</th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.pais, minWidth: colWidthsMisCasos.pais }}>
+                          <span>País/KAM</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pais', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.integracion, minWidth: colWidthsMisCasos.integracion }}>
+                          <span>Integración</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('integracion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.estado, minWidth: colWidthsMisCasos.estado }}>
+                          <span>Estado / Etapa</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('estado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.pushPos, minWidth: colWidthsMisCasos.pushPos }}>
+                          <span>Push POS</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushPos', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.pushCat, minWidth: colWidthsMisCasos.pushCat }}>
+                          <span>Push Catálogo</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushCat', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.sla, minWidth: colWidthsMisCasos.sla }}>
+                          <span>SLA</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('sla', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.asignado, minWidth: colWidthsMisCasos.asignado }}>
+                          <span>Asignado</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('asignado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
+                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.accion, minWidth: colWidthsMisCasos.accion }}>
+                          <span>Acción</span>
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1269,10 +1523,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             <GestionUsuariosView 
               nombreUsuarioAutenticado={nombreUsuarioAutenticado}
               mostrarNotificacion={mostrarNotificacion}
+              rolesDisponibles={catalogosDinamicos?.roles}
             />
           )}
         </div>
       </div>
+
+      {/* Overlay Global de Carga con Spinner */}
+      {cargandoOperacion && (
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-white animate-fadeIn">
+          <div className="w-14 h-14 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-bold tracking-wide animate-pulse">{cargandoOperacion}</p>
+        </div>
+      )}
 
       <ConfigModal visible={mostrarModalCreds} onCerrar={() => setMostrarModalCreds(false)} onSincronizar={() => cargarCasosGoogleSheets()} casosCount={casosSheets.length} />
       

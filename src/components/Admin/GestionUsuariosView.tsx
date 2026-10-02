@@ -29,13 +29,21 @@ export interface UsuarioFirestore {
 export interface GestionUsuariosViewProps {
   nombreUsuarioAutenticado?: string;
   mostrarNotificacion?: (texto: string, tipo?: string) => void;
+  rolesDisponibles?: string[];
 }
 
-export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarNotificacion }: GestionUsuariosViewProps) {
+export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarNotificacion, rolesDisponibles }: GestionUsuariosViewProps) {
   const [usuarios, setUsuarios] = useState<UsuarioFirestore[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtroRol, setFiltroRol] = useState<string>('todos');
+
+  const listaRoles = useMemo(() => {
+    if (Array.isArray(rolesDisponibles) && rolesDisponibles.length > 0) {
+      return rolesDisponibles;
+    }
+    return ['Agente', 'Supervisor', 'Supervisor / TL'];
+  }, [rolesDisponibles]);
 
   // Modal para agregar / editar usuario
   const [modalAbierto, setModoModalAbierto] = useState<boolean>(false);
@@ -136,7 +144,7 @@ export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarN
       if (filtroRol !== 'todos') {
         if (filtroRol === 'Supervisor' && !u.rol.includes('Supervisor')) return false;
         if (filtroRol === 'Agente' && u.rol !== 'Agente') return false;
-        if (filtroRol === 'Agente / Supervisor' && u.rol !== 'Agente / Supervisor') return false;
+        if (filtroRol !== 'Supervisor' && filtroRol !== 'Agente' && (u.rol as string) !== filtroRol) return false;
       }
       return true;
     }).sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -289,7 +297,7 @@ export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarN
             <span className="text-lg font-black text-purple-400">{conteoSupervisores}</span>
           </div>
           <div className="bg-[#0f111a] border border-cyan-900/40 rounded-xl p-3 flex items-center justify-between col-span-2 sm:col-span-1">
-            <span className="text-xs text-cyan-300">Agentes Puros</span>
+            <span className="text-xs text-cyan-300">Agentes</span>
             <span className="text-lg font-black text-cyan-400">{conteoAgentes}</span>
           </div>
         </div>
@@ -323,9 +331,11 @@ export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarN
             className="bg-[#0f111a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:border-pink-500 flex-1 sm:flex-none"
           >
             <option value="todos">Todos los roles ({usuarios.length})</option>
-            <option value="Supervisor">Supervisores ({conteoSupervisores})</option>
-            <option value="Agente">Agentes ({conteoAgentes})</option>
-            <option value="Agente / Supervisor">Agente / Supervisor</option>
+            {listaRoles.map(r => (
+              <option key={r} value={r}>
+                {r} ({usuarios.filter(u => u.rol === r).length})
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -362,10 +372,8 @@ export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarN
                       </td>
                       <td className="p-3.5">
                         <span className={`inline-block px-2.5 py-1 rounded-lg font-bold border text-[11px] ${
-                          u.rol === 'Supervisor'
+                          u.rol === 'Supervisor' || u.rol === 'Supervisor / TL'
                             ? 'bg-purple-950/80 border-purple-700 text-purple-300'
-                            : u.rol === 'Agente / Supervisor'
-                            ? 'bg-pink-950/80 border-pink-700 text-pink-300'
                             : 'bg-cyan-950/80 border-cyan-700 text-cyan-300'
                         }`}>
                           {u.rol}
@@ -493,9 +501,11 @@ export default function GestionUsuariosView({ nombreUsuarioAutenticado, mostrarN
                   }}
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-semibold cursor-pointer"
                 >
-                  <option value="Agente">Agente (Recomendado: Datos, Mis Casos, Búsqueda)</option>
-                  <option value="Supervisor">Supervisor (Recomendado: Global, Datos, Búsqueda, Gestionar Usuarios)</option>
-                  <option value="Agente / Supervisor">Agente / Supervisor (Todas las pestañas)</option>
+                  {listaRoles.map(r => (
+                    <option key={r} value={r}>
+                      {r} {r === 'Agente' ? '(Recomendado: Datos, Mis Casos, Búsqueda)' : r.includes('TL') ? '(Todas las pestañas)' : '(Recomendado: Global, Datos, Búsqueda, Gestionar Usuarios)'}
+                    </option>
+                  ))}
                 </select>
               </div>
 

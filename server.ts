@@ -308,6 +308,21 @@ async function startServer() {
     });
   });
 
+  // Conteo exacto de filas detectando directamente la base de Google Sheets antes de registrar nuevo caso
+  app.get('/api/sheets/conteo-filas', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    try {
+      const conteo = await sheetsBackendService.detectarTotalFilasEnBase();
+      res.json({
+        success: true,
+        ...conteo
+      });
+    } catch (err: any) {
+      console.error('[API /api/sheets/conteo-filas] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Actualización o creación de caso sin duplicar registro
   app.post('/api/sheets/actualizar-caso', async (req, res) => {
     try {
@@ -396,12 +411,13 @@ async function startServer() {
   // Registrar Push
   app.post('/api/sheets/registrar-push', async (req, res) => {
     try {
-      const { casoId, fecha, tipo } = req.body;
-      if (!casoId) {
-        return res.status(400).json({ success: false, error: 'Se requiere casoId' });
+      const { casoId, casoOp, fecha, tipo } = req.body;
+      const targetId = casoOp || casoId;
+      if (!targetId) {
+        return res.status(400).json({ success: false, error: 'Se requiere casoId o casoOp' });
       }
       
-      const resultado = await sheetsBackendService.registrarPush(casoId, tipo, fecha);
+      const resultado = await sheetsBackendService.registrarPush(targetId, tipo, fecha);
       if (resultado.success) {
         res.json(resultado);
       } else {

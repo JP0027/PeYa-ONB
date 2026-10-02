@@ -51,7 +51,22 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
       }`}
     >
       <td className="p-3 text-xs">
-        <span className="font-mono text-pink-400 font-semibold">{caso.casoOp || caso.id}</span>
+        {(() => {
+          const opRaw = String(caso.casoOp || '').trim();
+          const esOpValido = opRaw && 
+            opRaw !== '-' && 
+            opRaw !== 'S/OP' && 
+            opRaw.toLowerCase() !== 'sin caso op' && 
+            !opRaw.startsWith('TEMP_') && 
+            !opRaw.startsWith('SIN_OP_') && 
+            !opRaw.includes('_r');
+          const textoOp = esOpValido ? opRaw : 'Sin caso OP';
+          return (
+            <span className={`font-mono font-semibold ${textoOp === 'Sin caso OP' ? 'text-gray-500 italic' : 'text-pink-400'}`}>
+              {textoOp}
+            </span>
+          );
+        })()}
       </td>
       <td className="p-3">
         <div className="text-xs font-semibold text-white">{caso.tienda || 'Sin tienda'}</div>

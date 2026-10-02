@@ -4,6 +4,13 @@
  * =MAP(R3:R; S3:S; LAMBDA(inicio; fin; ...))
  */
 
+export function esPushKamRealizado(valor: any): boolean {
+  if (valor === true) return true;
+  if (!valor) return false;
+  const str = String(valor).trim().toUpperCase();
+  return str === 'TRUE' || str === 'VERDADERO' || str === 'SI' || str === 'SÍ' || str === '1';
+}
+
 /**
  * Parsea fechas en distintos formatos comunes (ISO, DD/MM/YYYY HH:mm, YYYY-MM-DD HH:mm, timestamp)
  */
@@ -338,7 +345,7 @@ export function analizarTiemposCaso(caso: any): any {
     fInicioPos,
     fechaPushPos: caso.fechaPushPos,
     respuestaPos: caso.respuestaPos || '',
-    pushKamPos: Boolean(caso.pushKamPos),
+    pushKamPos: esPushKamRealizado(caso.pushKamPos),
     freezePos: caso.freezePos,
     estaCongeladoPos,
     tiempoPos: tiempoPosCalculado,
@@ -350,7 +357,7 @@ export function analizarTiemposCaso(caso: any): any {
     fInicioCat,
     fechaPushCat: caso.fechaPushCat,
     respuestaCat: caso.respuestaCat || '',
-    pushKamCat: Boolean(caso.pushKamCat),
+    pushKamCat: esPushKamRealizado(caso.pushKamCat),
     freezeCat: caso.freezeCat,
     estaCongeladoCat,
     tiempoCat: tiempoCatCalculado,
