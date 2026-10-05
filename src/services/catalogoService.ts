@@ -24,6 +24,8 @@ const FIRESTORE_DOC_PATH = ['configuracion', 'catalogos'];
 export interface IntegracionSponsorship {
   nombre: string;
   sponsorship: string;
+  /** Correos de contacto de la integración (Col C de Integraciones_Sponsorship, separados por coma) */
+  contactos?: string;
 }
 
 export interface CatalogosPorDefecto {

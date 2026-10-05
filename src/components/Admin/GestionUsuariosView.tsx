@@ -31,30 +31,65 @@ export interface GestionUsuariosViewProps {
   mostrarNotificacion?: (texto: string, tipo?: string) => void;
   rolesDisponibles?: string[];
   rolUsuario?: string | null;
+  onActualizarRoles?: (roles: string[]) => Promise<void> | void;
+  setCargandoOperacion?: (texto: string | null) => void;
 }
 
 export default function GestionUsuariosView({ 
   nombreUsuarioAutenticado, 
   mostrarNotificacion, 
   rolesDisponibles,
-  rolUsuario 
+  rolUsuario,
+  onActualizarRoles,
+  setCargandoOperacion
 }: GestionUsuariosViewProps) {
+  const [subTabActivo, setSubTabActivo] = useState<'usuarios' | 'roles'>('usuarios');
   const [usuarios, setUsuarios] = useState<UsuarioFirestore[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtroRol, setFiltroRol] = useState<string>('todos');
+
+  // Gestión de roles de usuario
+  const [roles, setRoles] = useState<string[]>(() => {
+    if (Array.isArray(rolesDisponibles) && rolesDisponibles.length > 0) {
+      return rolesDisponibles;
+    }
+    return ['Agente', 'Supervisor', 'Supervisor / TL'];
+  });
+  const [nuevoRol, setNuevoRol] = useState<string>('');
+  const [busquedaRoles, setBusquedaRoles] = useState<string>('');
+  const [editandoRolIdx, setEditandoRolIdx] = useState<number | null>(null);
+  const [rolEditadoTexto, setRolEditadoTexto] = useState<string>('');
+  const [guardandoRoles, setGuardandoRoles] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (Array.isArray(rolesDisponibles) && rolesDisponibles.length > 0) {
+      setRoles(rolesDisponibles);
+    }
+  }, [rolesDisponibles]);
+
+  // Sincronización en vivo de roles desde Firestore (configuracion/catalogos)
+  useEffect(() => {
+    const docRef = doc(db, 'configuracion', 'catalogos');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (Array.isArray(data.roles) && data.roles.length > 0) {
+          setRoles(data.roles);
+        }
+      }
+    }, (err) => {
+      console.warn('Error escuchando roles de Firestore:', err);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const esSupervisor = useMemo(() => {
     const r = String(rolUsuario || '').toLowerCase().trim();
     return r.includes('supervisor') || r.includes('tl') || r.includes('admin') || r.includes('leader');
   }, [rolUsuario]);
 
-  const listaRoles = useMemo(() => {
-    if (Array.isArray(rolesDisponibles) && rolesDisponibles.length > 0) {
-      return rolesDisponibles;
-    }
-    return ['Agente', 'Supervisor', 'Supervisor / TL'];
-  }, [rolesDisponibles]);
+  const listaRoles = roles;
 
   // Modal para agregar / editar usuario
   const [modalAbierto, setModoModalAbierto] = useState<boolean>(false);
@@ -206,6 +241,9 @@ export default function GestionUsuariosView({
     }
 
     setGuardando(true);
+    if (setCargandoOperacion) {
+      setCargandoOperacion(esEdicion ? `Actualizando usuario "${nombreLimpio}"...` : `Registrando nuevo usuario "${nombreLimpio}"...`);
+    }
     try {
       const docId = correoLimpio;
 
@@ -241,6 +279,9 @@ export default function GestionUsuariosView({
       mostrarNotificacion && mostrarNotificacion(`Error al guardar usuario: ${err.message}`, 'error');
     } finally {
       setGuardando(false);
+      if (setCargandoOperacion) {
+        setCargandoOperacion(null);
+      }
     }
   };
 
@@ -249,6 +290,9 @@ export default function GestionUsuariosView({
     const confirmar = window.confirm(`¿Confirmas eliminar el acceso de "${nombreMostrar}" (${usuario.correo}) a Onboarding?`);
     if (!confirmar) return;
 
+    if (setCargandoOperacion) {
+      setCargandoOperacion(`Eliminando usuario "${nombreMostrar}"...`);
+    }
     try {
       // 1. Eliminar por su ID exacto de documento (sensible a mayúsculas/minúsculas en Firestore)
       if (usuario.id) {
@@ -265,11 +309,113 @@ export default function GestionUsuariosView({
     } catch (err: any) {
       console.error('Error eliminando usuario:', err);
       mostrarNotificacion && mostrarNotificacion(`Error al eliminar usuario: ${err.message}`, 'error');
+    } finally {
+      if (setCargandoOperacion) {
+        setCargandoOperacion(null);
+      }
     }
   };
 
   const conteoSupervisores = usuarios.filter(u => u.rol.includes('Supervisor')).length;
   const conteoAgentes = usuarios.filter(u => u.rol === 'Agente').length;
+
+  // Persistir cambios en los roles de usuario en Firestore y notificar
+  const persistirRoles = async (nuevosRoles: string[]) => {
+    setGuardandoRoles(true);
+    if (setCargandoOperacion) {
+      setCargandoOperacion('Actualizando roles de usuario en Firestore...');
+    }
+    try {
+      setRoles(nuevosRoles);
+      const docRef = doc(db, 'configuracion', 'catalogos');
+      await setDoc(docRef, { 
+        roles: nuevosRoles,
+        actualizadoEn: new Date().toISOString()
+      }, { merge: true });
+
+      if (onActualizarRoles) {
+        await onActualizarRoles(nuevosRoles);
+      }
+
+      mostrarNotificacion && mostrarNotificacion('Roles de usuario actualizados correctamente.', 'success');
+    } catch (err: any) {
+      console.error('Error al guardar roles:', err);
+      mostrarNotificacion && mostrarNotificacion(`Error al guardar roles: ${err.message}`, 'error');
+    } finally {
+      setGuardandoRoles(false);
+      if (setCargandoOperacion) {
+        setCargandoOperacion(null);
+      }
+    }
+  };
+
+  const manejarAgregarRol = async () => {
+    const rLimpio = nuevoRol.trim();
+    if (!rLimpio) {
+      mostrarNotificacion && mostrarNotificacion('Ingresa un nombre de rol válido.', 'error');
+      return;
+    }
+    if (roles.some(r => r.toLowerCase().trim() === rLimpio.toLowerCase())) {
+      mostrarNotificacion && mostrarNotificacion('Ese rol ya existe en la lista.', 'error');
+      return;
+    }
+    const nuevaLista = [...roles, rLimpio];
+    await persistirRoles(nuevaLista);
+    setNuevoRol('');
+  };
+
+  const iniciarEdicionRol = (idx: number, rolActual: string) => {
+    setEditandoRolIdx(idx);
+    setRolEditadoTexto(rolActual);
+  };
+
+  const guardarEdicionRol = async (idxOriginal: number) => {
+    const rLimpio = rolEditadoTexto.trim();
+    if (!rLimpio) return;
+    const rolAnterior = roles[idxOriginal];
+
+    if (roles.some((r, i) => i !== idxOriginal && r.toLowerCase().trim() === rLimpio.toLowerCase())) {
+      mostrarNotificacion && mostrarNotificacion('Ese nombre de rol ya existe.', 'error');
+      return;
+    }
+
+    const nuevaLista = [...roles];
+    nuevaLista[idxOriginal] = rLimpio;
+    await persistirRoles(nuevaLista);
+
+    // Actualizar usuarios en Firestore si tenían este rol
+    if (rolAnterior !== rLimpio) {
+      const usuariosAfectados = usuarios.filter(u => u.rol === rolAnterior);
+      if (usuariosAfectados.length > 0) {
+        for (const u of usuariosAfectados) {
+          const docId = (u.id || u.correo).toLowerCase().trim();
+          await setDoc(doc(db, 'usuarios_permitidos', docId), { rol: rLimpio }, { merge: true }).catch(() => {});
+        }
+      }
+    }
+
+    setEditandoRolIdx(null);
+    setRolEditadoTexto('');
+  };
+
+  const manejarEliminarRol = async (idxOriginal: number) => {
+    const rolAEliminar = roles[idxOriginal];
+    const usuariosConEsteRol = usuarios.filter(u => u.rol === rolAEliminar);
+    if (usuariosConEsteRol.length > 0) {
+      alert(`No se puede eliminar el rol "${rolAEliminar}" porque actualmente está asignado a ${usuariosConEsteRol.length} usuario(s). Reasigna sus roles antes de eliminar.`);
+      return;
+    }
+    if (!window.confirm(`¿Seguro que deseas eliminar el rol "${rolAEliminar}"?`)) return;
+
+    const nuevaLista = roles.filter((_, i) => i !== idxOriginal);
+    await persistirRoles(nuevaLista);
+  };
+
+  const rolesFiltrados = useMemo(() => {
+    if (!busquedaRoles.trim()) return roles;
+    const term = busquedaRoles.toLowerCase().trim();
+    return roles.filter(r => r.toLowerCase().includes(term));
+  }, [roles, busquedaRoles]);
 
   return (
     <div className="space-y-6 w-full">
@@ -288,17 +434,26 @@ export default function GestionUsuariosView({
             </p>
           </div>
 
-          <button
-            onClick={abrirModalCrear}
-            className="bg-pink-600 hover:bg-pink-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-pink-950/50 transition self-start md:self-auto cursor-pointer"
-          >
-            <span>➕</span>
-            <span>Nuevo Usuario</span>
-          </button>
+          {subTabActivo === 'usuarios' ? (
+            <button
+              onClick={abrirModalCrear}
+              className="bg-pink-600 hover:bg-pink-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-pink-950/50 transition self-start md:self-auto cursor-pointer"
+            >
+              <span>➕</span>
+              <span>Nuevo Usuario</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-purple-950/80 border border-purple-700/80 text-purple-300 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm">
+                <span>🔒</span>
+                <span>Configuración de Seguridad</span>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Resumen de Métricas de Roles */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 pt-4 border-t border-gray-800/80">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-4 border-t border-gray-800/80">
           <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-3 flex items-center justify-between">
             <span className="text-xs text-gray-400">Total Usuarios</span>
             <span className="text-lg font-black text-white">{usuarios.length}</span>
@@ -307,14 +462,64 @@ export default function GestionUsuariosView({
             <span className="text-xs text-purple-300">Supervisores</span>
             <span className="text-lg font-black text-purple-400">{conteoSupervisores}</span>
           </div>
-          <div className="bg-[#0f111a] border border-cyan-900/40 rounded-xl p-3 flex items-center justify-between col-span-2 sm:col-span-1">
+          <div className="bg-[#0f111a] border border-cyan-900/40 rounded-xl p-3 flex items-center justify-between">
             <span className="text-xs text-cyan-300">Agentes</span>
             <span className="text-lg font-black text-cyan-400">{conteoAgentes}</span>
+          </div>
+          <div className="bg-[#0f111a] border border-pink-900/40 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-xs text-pink-300">Roles Configurados</span>
+            <span className="text-lg font-black text-pink-400">{roles.length}</span>
           </div>
         </div>
       </div>
 
-      {/* Barra de Filtros y Búsqueda */}
+      {/* Barra de Sub-pestañas: Usuarios Permitidos vs Roles de Usuario */}
+      <div className="bg-[#151824] border border-gray-800 rounded-2xl p-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSubTabActivo('usuarios')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              subTabActivo === 'usuarios'
+                ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/40 border border-pink-500'
+                : 'bg-[#0f111a] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+            }`}
+          >
+            <span>👥</span>
+            <span>Usuarios Permitidos</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${subTabActivo === 'usuarios' ? 'bg-white/20 text-white' : 'bg-pink-950 text-pink-400 border border-pink-800'}`}>
+              {usuarios.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubTabActivo('roles')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              subTabActivo === 'roles'
+                ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/40 border border-pink-500'
+                : 'bg-[#0f111a] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+            }`}
+          >
+            <span>🛡️</span>
+            <span>Roles de Usuario</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${subTabActivo === 'roles' ? 'bg-white/20 text-white' : 'bg-pink-950 text-pink-400 border border-pink-800'}`}>
+              {roles.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs text-gray-400 px-3 hidden md:block">
+          {subTabActivo === 'usuarios' 
+            ? 'Administra correos y permisos por pestaña' 
+            : 'Configuración segura de roles y jerarquías (Solo Supervisores)'}
+        </div>
+      </div>
+
+      {/* PESTAÑA 1: GESTIÓN DE USUARIOS */}
+      {subTabActivo === 'usuarios' && (
+        <div className="space-y-6">
+          {/* Barra de Filtros y Búsqueda */}
       <div className="bg-[#151824] border border-gray-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-center justify-between shadow-lg">
         <div className="relative w-full sm:w-80">
           <input
@@ -447,6 +652,197 @@ export default function GestionUsuariosView({
           </div>
         )}
       </div>
+    </div>
+  )}
+
+  {/* PESTAÑA 2: GESTIÓN DE ROLES DE USUARIO (ÁREA PROTEGIDA) */}
+  {subTabActivo === 'roles' && (
+    <div className="space-y-6">
+      {/* Card de Información y Agregar Rol */}
+      <div className="bg-[#151824] border border-gray-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800 pb-3">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>🛡️</span>
+              <span>Roles y Jerarquías del Sistema ({roles.length})</span>
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Gestiona las jerarquías permitidas para los usuarios. Modificar los roles aquí los actualiza de forma segura en Firebase y en los formularios del sistema.
+            </p>
+          </div>
+          <span className="text-[11px] px-2.5 py-1 rounded-full bg-pink-950/60 text-pink-300 border border-pink-800/80 font-bold self-start sm:self-auto flex items-center gap-1.5">
+            <span>🔒</span>
+            <span>Solo Supervisores / TL</span>
+          </span>
+        </div>
+
+        {/* Input para agregar nuevo rol */}
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <input
+            type="text"
+            value={nuevoRol}
+            onChange={(e) => setNuevoRol(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                manejarAgregarRol();
+              }
+            }}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="Nuevo valor para 🛡️ Roles de Usuario (ej: Coordinador, Calidad, Agente Senior)..."
+            className="flex-1 bg-[#0f111a] border border-gray-700 focus:border-pink-500 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none transition shadow-inner font-mono"
+          />
+          <button
+            type="button"
+            onClick={manejarAgregarRol}
+            disabled={guardandoRoles || !nuevoRol.trim()}
+            className="bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-950/50 transition cursor-pointer whitespace-nowrap"
+          >
+            <span>➕</span>
+            <span>Agregar Rol</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tabla de Roles de Usuario */}
+      <div className="bg-[#151824] border border-gray-800 rounded-2xl overflow-hidden shadow-xl">
+        <div className="p-3 border-b border-gray-800 flex items-center justify-between gap-3 bg-[#11131c]">
+          <span className="text-xs font-bold text-gray-300 uppercase tracking-wider px-2">
+            Listado de Roles ({rolesFiltrados.length})
+          </span>
+          <div className="w-64">
+            <input
+              type="text"
+              value={busquedaRoles}
+              onChange={(e) => setBusquedaRoles(e.target.value)}
+              placeholder="Buscar en 🛡️ Roles de Usuario..."
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full bg-[#0f111a] border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:border-pink-500 font-mono"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-[#0f111a] border-b border-gray-800 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
+                <th className="p-3.5 w-12 text-center">#</th>
+                <th className="p-3.5">Nombre / Jerarquía del Rol</th>
+                <th className="p-3.5">Nivel de Acceso</th>
+                <th className="p-3.5 text-center">Usuarios Asignados</th>
+                <th className="p-3.5 text-right w-36">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800/60 font-mono">
+              {rolesFiltrados.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-500 italic font-sans">
+                    No se encontraron roles coincidentes con &quot;{busquedaRoles}&quot;
+                  </td>
+                </tr>
+              ) : (
+                rolesFiltrados.map((r) => {
+                  const idxOriginal = roles.indexOf(r);
+                  const estaEditando = editandoRolIdx === idxOriginal;
+                  const usuariosConRol = usuarios.filter(u => u.rol.toLowerCase().trim() === r.toLowerCase().trim());
+                  const esRolSupervisor = r.toLowerCase().includes('supervisor') || r.toLowerCase().includes('tl') || r.toLowerCase().includes('admin');
+
+                  return (
+                    <tr key={idxOriginal} className="hover:bg-gray-800/30 transition">
+                      <td className="p-3.5 text-center text-gray-500 text-[11px]">{idxOriginal + 1}</td>
+                      <td className="p-3.5">
+                        {estaEditando ? (
+                          <input
+                            type="text"
+                            value={rolEditadoTexto}
+                            onChange={(e) => setRolEditadoTexto(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') guardarEdicionRol(idxOriginal);
+                              if (e.key === 'Escape') setEditandoRolIdx(null);
+                            }}
+                            autoFocus
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            className="w-full bg-[#0f111a] border border-pink-500 rounded-lg p-1.5 text-white text-xs font-mono"
+                          />
+                        ) : (
+                          <span className="text-white font-bold">{r}</span>
+                        )}
+                      </td>
+                      <td className="p-3.5">
+                        <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-sans font-bold border ${
+                          esRolSupervisor 
+                            ? 'bg-purple-950/70 border-purple-700/70 text-purple-300' 
+                            : 'bg-cyan-950/70 border-cyan-700/70 text-cyan-300'
+                        }`}>
+                          {esRolSupervisor ? '👑 Acceso Supervisor / TL' : '👤 Acceso Operativo Agente'}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${
+                          usuariosConRol.length > 0 
+                            ? 'bg-pink-950/60 border-pink-800 text-pink-300 font-bold' 
+                            : 'bg-gray-800 border-gray-700 text-gray-500'
+                        }`} title={usuariosConRol.map(u => u.nombre || u.correo).join(', ')}>
+                          {usuariosConRol.length} {usuariosConRol.length === 1 ? 'usuario' : 'usuarios'}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right">
+                        {estaEditando ? (
+                          <div className="flex items-center justify-end gap-1.5 font-sans">
+                            <button
+                              type="button"
+                              onClick={() => guardarEdicionRol(idxOriginal)}
+                              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition cursor-pointer"
+                              title="Guardar cambios"
+                            >
+                              💾 Guardar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditandoRolIdx(null)}
+                              className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs transition cursor-pointer"
+                              title="Cancelar"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2 text-base">
+                            <button
+                              type="button"
+                              onClick={() => iniciarEdicionRol(idxOriginal, r)}
+                              className="text-gray-400 hover:text-pink-400 transition cursor-pointer p-1"
+                              title="Editar nombre de este rol"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => manejarEliminarRol(idxOriginal)}
+                              className="text-gray-400 hover:text-rose-400 transition cursor-pointer p-1"
+                              title={usuariosConRol.length > 0 ? "No se puede eliminar porque tiene usuarios asignados" : "Eliminar rol"}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )}
 
       {/* Modal para Agregar / Editar Usuario */}
       {modalAbierto && (

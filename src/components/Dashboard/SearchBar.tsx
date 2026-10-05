@@ -96,6 +96,9 @@ export default function SearchBar({
               value={busquedaId}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBusquedaId(e.target.value)}
               onKeyDown={handleKeyDown}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="Buscar por N° Caso OP, Vendor ID o Nombre de Tienda..."
               className="w-full bg-[#0f111a] border border-gray-700 focus:border-pink-500 rounded-xl pl-10 pr-9 py-2.5 text-white font-mono text-sm placeholder-gray-500 focus:outline-none transition shadow-inner"
             />

@@ -12,14 +12,13 @@ import {
 
 const CATEGORIAS = [
   { id: 'onboarding', label: 'Onboarding', desc: 'Listado completo de casos totales de la hoja Onboarding_New con opción de ampliar/editar y eliminar' },
-  { id: 'integraciones', label: '🔌 Integraciones & Sponsorship', desc: 'Integraciones POS/API y su estado de sponsorship (Hoja: Integraciones_Sponsorship Cols A & B)' },
-  { id: 'paises', label: '🌎 Países', desc: 'Países disponibles para asignación de casos (Hoja: Integraciones_Sponsorship Col D)' },
-  { id: 'oportunidades', label: '💼 Oportunidades', desc: 'Tipos de oportunidad (Business Types) (Hoja: Integraciones_Sponsorship Col F)' },
-  { id: 'assets', label: '💻 Assets', desc: 'Tipos de activo operativo (Hoja: Integraciones_Sponsorship Col H)' },
-  { id: 'agentes', label: '👥 Agentes', desc: 'Agentes de HeroCare / Onboarding (Hoja: Integraciones_Sponsorship Col J)' },
-  { id: 'estados', label: '📌 Estados del Caso', desc: 'Estados de seguimiento y cierre del caso (Hoja: Integraciones_Sponsorship Col L)' },
-  { id: 'etapas', label: '🚀 Etapas del Onboarding', desc: 'Etapas del flujo operativo de onboarding (Hoja: Integraciones_Sponsorship Col N)' },
-  { id: 'roles', label: '🛡️ Roles de Usuario', desc: 'Roles y jerarquías permitidas para los usuarios del sistema (Agente, Supervisor, etc.)' }
+  { id: 'integraciones', label: '🔌 Integraciones & Sponsorship', desc: 'Integraciones POS/API, sponsorship y contactos (Hoja: Integraciones_Sponsorship Cols A, B & C)' },
+  { id: 'paises', label: '🌎 Países', desc: 'Países disponibles para asignación de casos (Hoja: Integraciones_Sponsorship Col E)' },
+  { id: 'oportunidades', label: '💼 Oportunidades', desc: 'Tipos de oportunidad (Business Types) (Hoja: Integraciones_Sponsorship Col G)' },
+  { id: 'assets', label: '💻 Assets', desc: 'Tipos de activo operativo (Hoja: Integraciones_Sponsorship Col I)' },
+  { id: 'agentes', label: '👥 Agentes', desc: 'Agentes de HeroCare / Onboarding (Hoja: Integraciones_Sponsorship Col K)' },
+  { id: 'estados', label: '📌 Estados del Caso', desc: 'Estados de seguimiento y cierre del caso (Hoja: Integraciones_Sponsorship Col M)' },
+  { id: 'etapas', label: '🚀 Etapas del Onboarding', desc: 'Etapas del flujo operativo de onboarding (Hoja: Integraciones_Sponsorship Col O)' }
 ];
 
 export interface AdminCatalogoViewProps {
@@ -32,6 +31,7 @@ export interface AdminCatalogoViewProps {
   onEliminarCaso?: (caso: any) => Promise<void> | void;
   sincronizando?: boolean;
   onForzarSyncCasos?: () => Promise<void> | void;
+  setCargandoOperacion?: (texto: string | null) => void;
 }
 
 export default function AdminCatalogoView({
@@ -43,7 +43,8 @@ export default function AdminCatalogoView({
   onActualizarCaso,
   onEliminarCaso,
   sincronizando = false,
-  onForzarSyncCasos
+  onForzarSyncCasos,
+  setCargandoOperacion
 }: AdminCatalogoViewProps) {
   const [categoriaActiva, setCategoriaActiva] = useState<string>('onboarding');
   const [busqueda, setBusqueda] = useState<string>('');
@@ -83,6 +84,9 @@ export default function AdminCatalogoView({
   // Recargar casos y catálogos en vivo desde Google Sheets
   const recargarDesdeSheets = async () => {
     setRecargandoSheets(true);
+    if (setCargandoOperacion) {
+      setCargandoOperacion('Sincronizando catálogos y casos con Google Sheets...');
+    }
     try {
       if (onForzarSyncCasos) {
         await onForzarSyncCasos();
@@ -98,12 +102,19 @@ export default function AdminCatalogoView({
       mostrarNotificacion && mostrarNotificacion('Error recargando desde Google Sheets.', 'error');
     } finally {
       setRecargandoSheets(false);
+      if (setCargandoOperacion) {
+        setCargandoOperacion(null);
+      }
     }
   };
 
   // Guardar cambio en catálogo (impacta en Firestore en tiempo real y en Google Sheets si está disponible)
-  const persistirCambios = async (nuevaLista: any[]) => {
+  const persistirCambios = async (nuevaLista: any[], mensajeAccion?: string) => {
     setGuardando(true);
+    const msg = mensajeAccion || `Guardando cambios en ${categoriaMeta?.label || 'catálogo'} y sincronizando...`;
+    if (setCargandoOperacion) {
+      setCargandoOperacion(msg);
+    }
     try {
       const nuevosCatalogos = {
         ...catalogos,
@@ -134,6 +145,9 @@ export default function AdminCatalogoView({
       mostrarNotificacion && mostrarNotificacion(`❌ Error al guardar: ${err.message}`, 'error');
     } finally {
       setGuardando(false);
+      if (setCargandoOperacion) {
+        setCargandoOperacion(null);
+      }
     }
   };
 
@@ -145,6 +159,8 @@ export default function AdminCatalogoView({
       return;
     }
 
+    const labelCat = categoriaMeta?.label || 'catálogo';
+
     if (categoriaActiva === 'integraciones') {
       const existe = listaActual.some(item => 
         (typeof item === 'object' ? item.nombre : item).toLowerCase() === valLimpio.toLowerCase()
@@ -155,7 +171,7 @@ export default function AdminCatalogoView({
       }
       const nuevoItem = { nombre: valLimpio, sponsorship: nuevoSponsorship };
       const nuevaLista = [...listaActual, nuevoItem].sort((a, b) => a.nombre.localeCompare(b.nombre));
-      await persistirCambios(nuevaLista);
+      await persistirCambios(nuevaLista, `Agregando "${valLimpio}" a ${labelCat}...`);
     } else {
       const existe = listaActual.some(item => String(item).toLowerCase() === valLimpio.toLowerCase());
       if (existe) {
@@ -163,7 +179,7 @@ export default function AdminCatalogoView({
         return;
       }
       const nuevaLista = [...listaActual, valLimpio];
-      await persistirCambios(nuevaLista);
+      await persistirCambios(nuevaLista, `Agregando "${valLimpio}" a ${labelCat}...`);
     }
 
     setNuevoValor('');
@@ -186,6 +202,7 @@ export default function AdminCatalogoView({
     const valLimpio = valorEditado.trim();
     if (!valLimpio) return;
 
+    const labelCat = categoriaMeta?.label || 'catálogo';
     let nuevaLista = [...listaActual];
     if (categoriaActiva === 'integraciones') {
       nuevaLista[idxOriginal] = { nombre: valLimpio, sponsorship: sponEditado };
@@ -194,15 +211,18 @@ export default function AdminCatalogoView({
       nuevaLista[idxOriginal] = valLimpio;
     }
 
-    await persistirCambios(nuevaLista);
+    await persistirCambios(nuevaLista, `Actualizando elemento en ${labelCat}...`);
     setEditandoIdx(null);
   };
 
   // Eliminar elemento
   const manejarEliminar = async (idxOriginal: number) => {
     if (!window.confirm('¿Seguro que deseas eliminar este elemento del catálogo?')) return;
+    const itemAEliminar = listaActual[idxOriginal];
+    const nombreItem = typeof itemAEliminar === 'object' ? itemAEliminar.nombre : String(itemAEliminar);
+    const labelCat = categoriaMeta?.label || 'catálogo';
     const nuevaLista = listaActual.filter((_, idx) => idx !== idxOriginal);
-    await persistirCambios(nuevaLista);
+    await persistirCambios(nuevaLista, `Eliminando "${nombreItem}" de ${labelCat}...`);
   };
 
   // Importar CSV
@@ -236,7 +256,8 @@ export default function AdminCatalogoView({
         }
       }
 
-      await persistirCambios(nuevaLista);
+      const labelCat = categoriaMeta?.label || 'catálogo';
+      await persistirCambios(nuevaLista, `Importando ${itemsParseados.length} elementos en ${labelCat}...`);
       setTextoCSV('');
       setModoCsvAbierto(false);
       mostrarNotificacion && mostrarNotificacion(`Se importaron ${itemsParseados.length} elementos correctamente.`, 'success');
@@ -274,6 +295,9 @@ export default function AdminCatalogoView({
   const manejarRestaurar = async () => {
     if (!window.confirm('⚠️ ¿Estás seguro de que deseas restaurar TODOS los catálogos a sus valores oficiales iniciales?')) return;
     setGuardando(true);
+    if (setCargandoOperacion) {
+      setCargandoOperacion('Restaurando catálogos a valores oficiales iniciales...');
+    }
     try {
       await restaurarCatalogosPorDefecto();
       const defecto = {
@@ -291,6 +315,9 @@ export default function AdminCatalogoView({
       mostrarNotificacion && mostrarNotificacion('Error restaurando catálogos.', 'error');
     } finally {
       setGuardando(false);
+      if (setCargandoOperacion) {
+        setCargandoOperacion(null);
+      }
     }
   };
 
@@ -659,6 +686,14 @@ export default function AdminCatalogoView({
         </div>
 
       </div>
+      )}
+
+      {/* Overlay Fallback de Carga */}
+      {guardando && !setCargandoOperacion && (
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-white animate-fadeIn">
+          <div className="w-14 h-14 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-bold tracking-wide animate-pulse">Guardando cambios en catálogo...</p>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { isAgentMatch, identificarMiembro } from '../../utils/agentMatching';
-import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA } from '../../utils/userPermissions';
+import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL } from '../../utils/userPermissions';
 import { 
   procesarActualizacionCaso, 
   analizarAlertasCaso, 
@@ -27,7 +27,7 @@ import AdminCatalogoView from '../Admin/AdminCatalogoView';
 import GestionUsuariosView from '../Admin/GestionUsuariosView';
 import PushAlertContainer, { AlertaPush } from './PushAlertToast';
 import { suscribirCatalogos, CATALOGOS_POR_DEFECTO, consultarCatalogosGoogleSheets, guardarCatalogosEnFirestore } from '../../services/catalogoService';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 export interface DashboardProps {
@@ -400,17 +400,56 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
 
   const [formulario, setFormulario] = useState<FormularioNuevoCaso>(() => {
-    const ahora = formatearFechaHora(new Date());
     return {
       casoOp: '', vendorId: '', tienda: '', pais: 'Argentina', kam: '',
       integracion: 'Datalive', oportunidad: 'Franchise Extension', asset: 'Integración',
       propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
       casoSeguimiento: '', tieneCasoInicio: 'Si', comentarios: '', estado: 'En progreso',
       etapa: 'Sin integración confirmada', 
-      fechaCreacion: ahora,
-      sla_inicio: ahora
+      fechaCreacion: '',
+      sla_inicio: ''
     };
   });
+
+  // Lista de correos oficiales del equipo de Onboarding para tickets de seguimiento
+  const [correosOnboarding, setCorreosOnboarding] = useState<string[]>(() => {
+    return Object.keys(LISTA_BLANCA_OFICIAL).filter(c => !c.includes('demo'));
+  });
+  const [correoCopiado, setCorreoCopiado] = useState<string | null>(null);
+  const [todosCorreosCopiados, setTodosCorreosCopiados] = useState<boolean>(false);
+
+  useEffect(() => {
+    const usuariosRef = collection(db, 'usuarios_permitidos');
+    const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
+      const correosSet = new Set<string>(Object.keys(LISTA_BLANCA_OFICIAL).filter(c => !c.includes('demo')));
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const correo = (data.correo || docSnap.id || '').toLowerCase().trim();
+        if (correo && correo.includes('@') && !correo.includes('demo')) {
+          correosSet.add(correo);
+        }
+      });
+      setCorreosOnboarding(Array.from(correosSet));
+    }, (err) => {
+      console.warn('Error suscribiendo correos onboarding:', err);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const copiarCorreoIndividual = (correo: string) => {
+    navigator.clipboard.writeText(correo);
+    setCorreoCopiado(correo);
+    mostrarNotificacion(`Copiado: ${correo}`);
+    setTimeout(() => setCorreoCopiado(null), 2000);
+  };
+
+  const copiarTodosCorreosOnboarding = () => {
+    if (correosOnboarding.length === 0) return;
+    navigator.clipboard.writeText(correosOnboarding.join(', '));
+    setTodosCorreosCopiados(true);
+    mostrarNotificacion(`Copiados ${correosOnboarding.length} correos de onboarding`);
+    setTimeout(() => setTodosCorreosCopiados(false), 2500);
+  };
 
   const [catalogosDinamicos, setCatalogosDinamicos] = useState<any>(CATALOGOS_POR_DEFECTO);
 
@@ -657,31 +696,49 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     );
     setBusquedaResultados(resultadosLocales);
     if (resultadosLocales.length > 0) {
-      const d = resultadosLocales[0];
+      // Ordenar para tomar el último caso registrado (fila más alta en la base)
+      const casosOrdenados = [...resultadosLocales].sort((a, b) => {
+        const filaA = Number(a.filaNumero) || 0;
+        const filaB = Number(b.filaNumero) || 0;
+        if (filaA && filaB) return filaB - filaA;
+        return 0;
+      });
+      const d = casosOrdenados[0] || resultadosLocales[0];
       setFormulario(prev => ({
         ...prev, 
         casoOp: '', 
-        vendorId: d.vendor_id || d.vendorId || term, 
+        vendorId: d.vendor_id || d.vendorId || busquedaId.trim(), 
         tienda: d.tienda || '',
-        pais: d.pais || 'Argentina', 
-        kam: d.kam || prev.kam, 
+        pais: d.pais || prev.pais || 'Argentina', 
+        kam: d.kam || '', 
         integracion: d.integracion || 'Datalive',
         oportunidad: resolverOportunidad(d.oportunidad, catalogosDinamicos.oportunidades),
-        asset: d.asset || prev.asset,
-        sla_inicio: d.sla_inicio || d.fechaInicioSeguimientoOP || '',
-        etapa: d.etapa ? limpiarTextoEtapa(d.etapa, d.comentarios, d.integracion) : 'Sin integración confirmada'
+        asset: d.asset || prev.asset || 'Integración',
+        etapa: d.etapa ? limpiarTextoEtapa(d.etapa, d.comentarios, d.integracion) : 'Sin integración confirmada',
+        fechaCreacion: '',
+        sla_inicio: ''
       }));
       mostrarNotificacion(`Encontrados ${resultadosLocales.length} antecedentes.`, "success");
     } else {
-      setFormulario(prev => ({ ...prev, casoOp: '', vendorId: term }));
-      mostrarNotificacion(`Sin antecedentes previos.`, "info");
+      // Si no existen antecedentes, redirigir automáticamente a la pestaña de agregar caso nuevo
+      setFormulario(prev => ({ 
+        ...prev, 
+        casoOp: '', 
+        vendorId: busquedaId.trim(),
+        tienda: '',
+        kam: '',
+        fechaCreacion: '',
+        sla_inicio: ''
+      }));
+      setSubTabNuevo('registro');
+      mostrarNotificacion(`Sin antecedentes previos para "${busquedaId.trim()}". Redirigiendo a nuevo registro.`, "info");
     }
     setCargandoBusqueda(false);
   };
 
   const limpiarFormularioNuevoCaso = () => {
-    const ahora = formatearFechaHora(new Date());
-    setFormulario({
+    setFormulario(prev => ({
+      ...prev,
       casoOp: '',
       vendorId: '',
       tienda: '',
@@ -690,16 +747,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       integracion: 'Datalive',
       oportunidad: 'Franchise Extension',
       asset: 'Integración',
-      propietarioOportunidad: nombreUsuarioAutenticado,
-      propietarioTicket: nombreUsuarioAutenticado,
       casoSeguimiento: '',
       tieneCasoInicio: 'Si',
       comentarios: '',
       estado: 'En progreso',
       etapa: 'Sin integración confirmada',
-      fechaCreacion: ahora,
-      sla_inicio: ahora
-    });
+      fechaCreacion: '',
+      sla_inicio: ''
+    }));
     mostrarNotificacion('Formulario restablecido.', 'info');
   };
 
@@ -721,8 +776,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const casoOpFinal = esOpValido ? opInput : '';
       
       const ahora = formatearFechaHora(new Date());
-      const fCreacion = formatearFechaHora(formulario.fechaCreacion) || ahora;
-      const fInicio = formatearFechaHora(formulario.sla_inicio || formulario.fechaCreacion) || ahora;
+      // Fecha de creación de la OP: se guarda vacía si el usuario no la ingresó, o la fecha que escribió
+      const fechaCreacionInput = String(formulario.fechaCreacion || '').trim();
+      const fCreacion = fechaCreacionInput ? formatearFechaHora(fechaCreacionInput) : '';
+      const fInicio = formatearFechaHora(formulario.sla_inicio || fechaCreacionInput || ahora) || ahora;
 
       // 1. Detectar en tiempo real cuántas filas hay en total en la base antes de añadir el nuevo caso
       let proximaFila = 0;
@@ -778,8 +835,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       mostrarNotificacion(`Caso registrado exitosamente en fila #${filaConfirmada}`, "success");
       
-      // Limpiar formulario completo manteniendo propietario y fechas actualizadas
-      const nuevoAhora = formatearFechaHora(new Date());
+      // Limpiar formulario completo manteniendo propietario y fechas preparadas
       setFormulario({
         casoOp: '', 
         vendorId: '', 
@@ -796,8 +852,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         comentarios: '', 
         estado: 'En progreso',
         etapa: 'Sin integración confirmada', 
-        fechaCreacion: nuevoAhora,
-        sla_inicio: nuevoAhora
+        fechaCreacion: '',
+        sla_inicio: ''
       });
     } catch (err: any) {
       console.error("Error al registrar caso:", err);
@@ -971,19 +1027,27 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   const onReplicarTienda = (datosTienda: any) => {
     const opResuelta = resolverOportunidad(datosTienda.oportunidad, catalogosDinamicos.oportunidades);
+    const etapaLimpia = datosTienda.etapa 
+      ? limpiarTextoEtapa(datosTienda.etapa, datosTienda.comentarios, datosTienda.integracion)
+      : 'Sin integración confirmada';
+
     setFormulario(prev => ({
       ...prev, 
       casoOp: '', 
-      vendorId: datosTienda.vendorId || prev.vendorId,
+      vendorId: datosTienda.vendorId || datosTienda.vendor_id || prev.vendorId,
       tienda: datosTienda.tienda || prev.tienda, 
-      pais: datosTienda.pais || prev.pais,
-      kam: datosTienda.kam || prev.kam, 
-      integracion: datosTienda.integracion || prev.integracion,
+      pais: datosTienda.pais || prev.pais || 'Argentina',
+      kam: datosTienda.kam || prev.kam || '', 
+      integracion: datosTienda.integracion || prev.integracion || 'Datalive',
       oportunidad: opResuelta,
-      asset: datosTienda.asset || prev.asset
+      asset: datosTienda.asset || prev.asset || 'Integración',
+      etapa: etapaLimpia,
+      fechaCreacion: '',
+      sla_inicio: ''
     }));
     setActiveTab('nuevo');
-    mostrarNotificacion(`Datos replicados. Ingresa el N° de Caso OP.`);
+    setSubTabNuevo('registro');
+    mostrarNotificacion(`Datos replicados (${datosTienda.tienda || datosTienda.vendorId || ''}). Ingresa el N° de Caso OP.`);
   };
 
   const manejarLogout = () => {
@@ -1150,11 +1214,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       {/* Contenido Principal */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {notificacion && (
-          <div className={`absolute top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'}`}>
-            {notificacion.texto}
-          </div>
-        )}
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-6">
           {activeTab === 'tl' && puedeVerTab('tl') && (
@@ -1183,11 +1242,56 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               onEliminarCaso={manejarEliminarCaso}
               onForzarSyncCasos={cargarCasosGoogleSheets}
               sincronizando={cargandoSheets}
+              setCargandoOperacion={setCargandoOperacion}
             />
           )}
           
           {activeTab === 'nuevo' && puedeVerTab('nuevo') && (
-            <div className="space-y-6 w-full">
+            <div className="space-y-5 w-full">
+              {/* Barra superior de correos del equipo de Onboarding para tickets */}
+              <div className="bg-[#151824] border border-gray-800 rounded-2xl p-3 sm:p-3.5 shadow-lg">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-pink-400 text-sm">✉️</span>
+                    <span className="text-xs font-bold text-gray-200">Equipo Onboarding:</span>
+                    <span className="text-[11px] text-gray-400 font-normal hidden sm:inline">
+                      (1 clic para copiar a ticket de seguimiento)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {correosOnboarding.map((correo) => (
+                      <button
+                        key={correo}
+                        type="button"
+                        onClick={() => copiarCorreoIndividual(correo)}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-mono transition flex items-center gap-1 cursor-pointer border ${
+                          correoCopiado === correo
+                            ? 'bg-emerald-600 text-white border-emerald-500 font-bold'
+                            : 'bg-[#0f111a] hover:bg-gray-800 text-gray-300 hover:text-white border-gray-700/80 hover:border-pink-500/60'
+                        }`}
+                        title={`Clic para copiar ${correo}`}
+                      >
+                        <span>{correoCopiado === correo ? '✅' : '📋'}</span>
+                        <span>{correo}</span>
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={copiarTodosCorreosOnboarding}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer border ${
+                        todosCorreosCopiados
+                          ? 'bg-emerald-600 text-white border-emerald-500'
+                          : 'bg-pink-950/70 hover:bg-pink-900/90 text-pink-300 border-pink-700/60'
+                      }`}
+                      title="Copiar todos los correos del equipo separados por coma"
+                    >
+                      <span>{todosCorreosCopiados ? '✅' : '📑'}</span>
+                      <span>{todosCorreosCopiados ? '¡Todos copiados!' : 'Copiar todos'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Barra de Sub-pestañas: Búsqueda vs Agregar Caso */}
               <div className="bg-[#151824] border border-gray-800 rounded-2xl p-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -1242,7 +1346,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   onSeleccionarCaso={setCasoSeleccionadoModal} 
                   onReplicarTienda={(r) => {
                     onReplicarTienda(r);
-                    setSubTabNuevo('registro');
                   }} 
                   onLimpiar={() => setBusquedaResultados([])}
                 />
@@ -1255,6 +1358,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   nombreUsuario={nombreUsuarioAutenticado} 
                   puedeRegistrar={puedeRegistrar} 
                   integraciones={listaIntegracionesNombres}
+                  integracionesDetalle={catalogosDinamicos.integraciones}
+                  correosOnboarding={correosOnboarding}
                   paises={catalogosDinamicos.paises}
                   oportunidades={catalogosDinamicos.oportunidades}
                   assets={catalogosDinamicos.assets}
@@ -1436,6 +1541,15 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               mostrarNotificacion={mostrarNotificacion}
               rolesDisponibles={catalogosDinamicos?.roles}
               rolUsuario={role}
+              onActualizarRoles={async (nuevosRoles: string[]) => {
+                const nuevosCat = {
+                  ...catalogosDinamicos,
+                  roles: nuevosRoles
+                };
+                setCatalogosDinamicos(nuevosCat);
+                await guardarCatalogosEnFirestore(nuevosCat);
+              }}
+              setCargandoOperacion={setCargandoOperacion}
             />
           )}
         </div>
@@ -1466,6 +1580,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           assets={catalogosDinamicos.assets}
           integraciones={listaIntegracionesNombres}
         />
+      )}
+
+      {/* Notificación de confirmación: capa superior, visible incluso con modales abiertos */}
+      {notificacion && (
+        <div className={`fixed top-4 right-4 z-[10000] px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce pointer-events-none ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : notificacion.tipo === 'info' ? 'bg-sky-600 text-white' : 'bg-emerald-600 text-white'}`}>
+          {notificacion.texto}
+        </div>
       )}
     </div>
   );

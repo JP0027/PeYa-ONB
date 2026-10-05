@@ -1,4 +1,4 @@
-export type RolUsuario = 'Agente' | 'Supervisor' | 'Supervisor / TL';
+export type RolUsuario = 'Agente' | 'Supervisor' | 'Supervisor / TL' | string;
 
 export interface PerfilUsuario {
   correo: string;

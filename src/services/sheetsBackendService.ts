@@ -65,7 +65,7 @@ const CACHE_FILE_PATH = path.resolve(process.cwd(), 'data_cached_casos.json');
 const CATALOGOS_CACHE_FILE = path.resolve(process.cwd(), 'data_cached_catalogos.json');
 
 export interface CatalogosSheet {
-  integraciones: { nombre: string; sponsorship: string }[];
+  integraciones: { nombre: string; sponsorship: string; contactos?: string }[];
   paises: string[];
   oportunidades: string[];
   assets: string[];
@@ -483,7 +483,7 @@ export class SheetsService {
       let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'Cerrado por oportunidad satisfactoria');
       let etapa = getVal(bestColEtapa >= 0 ? bestColEtapa : 15, 'Validación del Onboarding');
       const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
-      const fechaCreacion = formatearFechaHora(rawFechaCreacion);
+      const fechaCreacion = rawFechaCreacion ? formatearFechaHora(rawFechaCreacion) : '';
       const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, rawFechaCreacion || '');
       const sla_inicio = formatearFechaHora(rawSlaInicio);
 
@@ -797,7 +797,7 @@ export class SheetsService {
         agente: casoActualizado.agente || casoActualizado.propietarioOportunidad || '',
         tieneCasoInicio: (casoActualizado as any).tieneCasoInicio || 'Si',
         comentarios: casoActualizado.comentarios || '',
-        fechaCreacion: formatearFechaHora(casoActualizado.fechaCreacion),
+        fechaCreacion: casoActualizado.fechaCreacion ? formatearFechaHora(casoActualizado.fechaCreacion) : '',
         estado: casoActualizado.estado || 'Nuevo',
         etapa: casoActualizado.etapa || 'Validación del Onboarding',
         sla_inicio: formatearFechaHora((casoActualizado as any).sla_inicio || casoActualizado.fechaCreacion),
@@ -946,7 +946,9 @@ export class SheetsService {
     const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' || String(c.pushKamCat).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' || String(c.pushKamCat).toUpperCase() === 'FALSO' ? 'FALSE' : '');
     const sponsorship = c.sponsorship || c.descuentosBajoEstructuraSponsorship || 'NO';
 
-    const fechaCreacionStr = formatearFechaHora(c.fechaCreacion || new Date());
+    // Q: Fecha de creación de la OP -> se respeta vacía si el usuario no la ingresó (casos sin OP)
+    const fechaCreacionRaw = String(c.fechaCreacion || '').trim();
+    const fechaCreacionStr = fechaCreacionRaw && fechaCreacionRaw !== '-' ? formatearFechaHora(fechaCreacionRaw) : '';
     const slaInicioStr = formatearFechaHora(c.sla_inicio || c.fechaInicioSeguimientoOP || c.fechaCreacion || new Date());
     const fechaCierreStr = c.fechaCierre && c.fechaCierre !== '-' ? formatearFechaHora(c.fechaCierre) : (c.fechaCierre || '');
     const fechaInicioPosStr = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' ? formatearFechaHora(c.fechaInicioPos) : (c.fechaInicioPos || '');
@@ -1407,7 +1409,7 @@ export class SheetsService {
     if (creds) {
       try {
         const token = await this.obtenerAuthToken();
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:N")}?valueRenderOption=FORMATTED_VALUE`;
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:O")}?valueRenderOption=FORMATTED_VALUE`;
         const res = await fetch(url, {
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -1421,7 +1423,7 @@ export class SheetsService {
           const json = await res.json();
           const rows: any[][] = json.values || [];
 
-          const integraciones: { nombre: string; sponsorship: string }[] = [];
+          const integraciones: { nombre: string; sponsorship: string; contactos?: string }[] = [];
           const paises: string[] = [];
           const oportunidades: string[] = [];
           const assets: string[] = [];
@@ -1429,46 +1431,50 @@ export class SheetsService {
           const estados: string[] = [];
           const etapas: string[] = [];
 
+          // Estructura actual de la hoja (con columna de Contactos en C):
+          // A: Integración | B: Sponsorship | C: Contactos | E: País | G: Oportunidad | I: Asset | K: Agente | M: Estado | O: Etapa
           // La fila 0 es cabecera; a partir de la fila 1 son datos
           for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
             if (!row) continue;
 
-            // Col A (0): Integración & Col B (1): Sponsorship
+            // Col A (0): Integración, Col B (1): Sponsorship, Col C (2): Contactos
             const nomInteg = row[0] ? String(row[0]).trim() : '';
             const sponInteg = row[1] ? String(row[1]).trim().toUpperCase() : 'NO';
+            const contInteg = row[2] ? String(row[2]).trim() : '';
             if (nomInteg) {
               const existe = integraciones.some(it => it.nombre.toLowerCase() === nomInteg.toLowerCase());
               if (!existe) {
                 integraciones.push({
                   nombre: nomInteg,
-                  sponsorship: (sponInteg === 'SI' || sponInteg === 'TRUE' || sponInteg === 'VERDADERO') ? 'SI' : 'NO'
+                  sponsorship: (sponInteg === 'SI' || sponInteg === 'TRUE' || sponInteg === 'VERDADERO') ? 'SI' : 'NO',
+                  contactos: contInteg
                 });
               }
             }
 
-            // Col D (3): País
-            const p = row[3] ? String(row[3]).trim() : '';
+            // Col E (4): País
+            const p = row[4] ? String(row[4]).trim() : '';
             if (p && !paises.some(x => x.toLowerCase() === p.toLowerCase())) paises.push(p);
 
-            // Col F (5): Oportunidad
-            const op = row[5] ? String(row[5]).trim() : '';
+            // Col G (6): Oportunidad
+            const op = row[6] ? String(row[6]).trim() : '';
             if (op && !oportunidades.some(x => x.toLowerCase() === op.toLowerCase())) oportunidades.push(op);
 
-            // Col H (7): Asset
-            const as = row[7] ? String(row[7]).trim() : '';
+            // Col I (8): Asset
+            const as = row[8] ? String(row[8]).trim() : '';
             if (as && !assets.some(x => x.toLowerCase() === as.toLowerCase())) assets.push(as);
 
-            // Col J (9): Agente
-            const ag = row[9] ? String(row[9]).trim() : '';
+            // Col K (10): Agente
+            const ag = row[10] ? String(row[10]).trim() : '';
             if (ag && !agentes.some(x => x.toLowerCase() === ag.toLowerCase())) agentes.push(ag);
 
-            // Col L (11): Estado del caso
-            const est = row[11] ? String(row[11]).trim() : '';
+            // Col M (12): Estado del caso
+            const est = row[12] ? String(row[12]).trim() : '';
             if (est && !estados.some(x => x.toLowerCase() === est.toLowerCase())) estados.push(est);
 
-            // Col N (13): Etapa del onboarding
-            const et = row[13] ? String(row[13]).trim() : '';
+            // Col O (14): Etapa del onboarding
+            const et = row[14] ? String(row[14]).trim() : '';
             if (et && !etapas.some(x => x.toLowerCase() === et.toLowerCase())) etapas.push(et);
           }
 
@@ -1534,49 +1540,62 @@ export class SheetsService {
       let values: any[][] = [];
 
       switch (seccion.toLowerCase()) {
-        case 'integraciones':
-          rangoClear = "Integraciones_Sponsorship!A2:B";
-          rangoUpdate = `Integraciones_Sponsorship!A2:B${Math.max(items.length + 1, 2)}`;
+        case 'integraciones': {
+          // Preservar los contactos (Col C) de cada integración aunque el editor no los envíe
+          const contactosPrevios = new Map<string, string>();
+          try {
+            const actuales = await this.obtenerCatalogosSheet();
+            (actuales.integraciones || []).forEach(it => {
+              contactosPrevios.set(String(it.nombre).trim().toLowerCase(), it.contactos || '');
+            });
+          } catch (_) {}
+
+          rangoClear = "Integraciones_Sponsorship!A2:C";
+          rangoUpdate = `Integraciones_Sponsorship!A2:C${Math.max(items.length + 1, 2)}`;
           values = items.map(item => {
             const nom = typeof item === 'object' ? item.nombre : String(item);
             const sp = (typeof item === 'object' && (String(item.sponsorship).toUpperCase() === 'SI' || item.sponsorship === true)) ? 'SI' : 'NO';
-            return [nom, sp];
+            const cont = (typeof item === 'object' && typeof item.contactos === 'string')
+              ? item.contactos
+              : (contactosPrevios.get(String(nom).trim().toLowerCase()) || '');
+            return [nom, sp, cont];
           });
           break;
+        }
 
         case 'paises':
-          rangoClear = "Integraciones_Sponsorship!D2:D";
-          rangoUpdate = `Integraciones_Sponsorship!D2:D${Math.max(items.length + 1, 2)}`;
+          rangoClear = "Integraciones_Sponsorship!E2:E";
+          rangoUpdate = `Integraciones_Sponsorship!E2:E${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
 
         case 'oportunidades':
-          rangoClear = "Integraciones_Sponsorship!F2:F";
-          rangoUpdate = `Integraciones_Sponsorship!F2:F${Math.max(items.length + 1, 2)}`;
+          rangoClear = "Integraciones_Sponsorship!G2:G";
+          rangoUpdate = `Integraciones_Sponsorship!G2:G${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
 
         case 'assets':
-          rangoClear = "Integraciones_Sponsorship!H2:H";
-          rangoUpdate = `Integraciones_Sponsorship!H2:H${Math.max(items.length + 1, 2)}`;
+          rangoClear = "Integraciones_Sponsorship!I2:I";
+          rangoUpdate = `Integraciones_Sponsorship!I2:I${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
 
         case 'agentes':
-          rangoClear = "Integraciones_Sponsorship!J2:J";
-          rangoUpdate = `Integraciones_Sponsorship!J2:J${Math.max(items.length + 1, 2)}`;
+          rangoClear = "Integraciones_Sponsorship!K2:K";
+          rangoUpdate = `Integraciones_Sponsorship!K2:K${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
 
         case 'estados':
-          rangoClear = "Integraciones_Sponsorship!L2:L";
-          rangoUpdate = `Integraciones_Sponsorship!L2:L${Math.max(items.length + 1, 2)}`;
+          rangoClear = "Integraciones_Sponsorship!M2:M";
+          rangoUpdate = `Integraciones_Sponsorship!M2:M${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
 
         case 'etapas':
-          rangoClear = "Integraciones_Sponsorship!N2:N";
-          rangoUpdate = `Integraciones_Sponsorship!N2:N${Math.max(items.length + 1, 2)}`;
+          rangoClear = "Integraciones_Sponsorship!O2:O";
+          rangoUpdate = `Integraciones_Sponsorship!O2:O${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
 

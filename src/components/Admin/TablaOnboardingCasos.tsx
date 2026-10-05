@@ -279,10 +279,11 @@ export default function TablaOnboardingCasos({
   // Ejecutar eliminación confirmada
   const ejecutarEliminacion = async () => {
     if (!casoAEliminar || !onEliminarCaso) return;
+    const caso = casoAEliminar;
+    setCasoAEliminar(null);
     setEliminando(true);
     try {
-      await onEliminarCaso(casoAEliminar);
-      setCasoAEliminar(null);
+      await onEliminarCaso(caso);
     } catch (e) {
       console.error('Error al eliminar caso:', e);
     } finally {

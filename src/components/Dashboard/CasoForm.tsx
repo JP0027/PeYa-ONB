@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   LISTA_PAISES,
   LISTA_OPORTUNIDADES,
@@ -10,7 +10,8 @@ import {
   obtenerSponsorship
 } from '../../data/catalogoOnboarding';
 import { formatearFechaHora, resolverOportunidad } from '../../utils/onboardingRules';
-import SearchableSelect from '../Common/SearchableSelect';
+import SearchableSelect, { OptionItem } from '../Common/SearchableSelect';
+import ModalContactosIntegracion from '../Common/ModalContactosIntegracion';
 
 export interface CasoFormProps {
   formulario: {
@@ -39,6 +40,8 @@ export interface CasoFormProps {
   nombreUsuario?: string;
   puedeRegistrar?: boolean;
   integraciones?: string[];
+  integracionesDetalle?: Array<{ nombre: string; sponsorship: string; contactos?: string }>;
+  correosOnboarding?: string[];
   paises?: string[];
   oportunidades?: string[];
   assets?: string[];
@@ -55,6 +58,8 @@ export default function CasoForm({
   nombreUsuario, 
   puedeRegistrar = true, 
   integraciones = [],
+  integracionesDetalle = [],
+  correosOnboarding = [],
   paises = LISTA_PAISES,
   oportunidades = LISTA_OPORTUNIDADES,
   assets = LISTA_ASSETS,
@@ -63,6 +68,9 @@ export default function CasoForm({
   agentes = LISTA_AGENTES
 }: CasoFormProps) {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState<boolean>(false);
+  const [modalContactosAbierto, setModalContactosAbierto] = useState<boolean>(false);
+  const [integracionParaContactos, setIntegracionParaContactos] = useState<string>('');
+  const [kamCopiado, setKamCopiado] = useState<boolean>(false);
 
   if (!puedeRegistrar) {
     return (
@@ -72,13 +80,34 @@ export default function CasoForm({
     );
   }
 
-  const listaIntegraciones = integraciones.length > 0 ? integraciones : [];
-  const listaIntegracionesOpciones = listaIntegraciones.map(i => ({
-    label: i,
-    value: i,
-    badge: obtenerSponsorship(i)
-  }));
+  // Lista de opciones enriquecidas con contactos
+  const listaIntegracionesOpciones: OptionItem[] = useMemo(() => {
+    if (Array.isArray(integracionesDetalle) && integracionesDetalle.length > 0) {
+      return integracionesDetalle.map(i => ({
+        label: i.nombre,
+        value: i.nombre,
+        badge: i.sponsorship,
+        contactos: i.contactos || ''
+      }));
+    }
+    return integraciones.map(i => ({
+      label: i,
+      value: i,
+      badge: obtenerSponsorship(i),
+      contactos: ''
+    }));
+  }, [integracionesDetalle, integraciones]);
+
   const sponsorshipActual = obtenerSponsorship(formulario.integracion || '');
+
+  // Buscar detalle de contactos para la integración seleccionada o abierta
+  const integracionObjetivoNombre = integracionParaContactos || formulario.integracion || '';
+  const integracionEncontrada = useMemo(() => {
+    if (!integracionObjetivoNombre) return null;
+    return integracionesDetalle.find(
+      i => i.nombre.toLowerCase().trim() === integracionObjetivoNombre.toLowerCase().trim()
+    );
+  }, [integracionesDetalle, integracionObjetivoNombre]);
 
   const intentarGuardar = () => {
     if (!formulario.casoOp || !String(formulario.casoOp).trim()) {
@@ -98,20 +127,48 @@ export default function CasoForm({
         </span>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+      <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); intentarGuardar(); }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
         <div>
           <label className="text-gray-400 block mb-1 font-medium">a. N° Caso OP *</label>
-          <input type="text" name="casoOp" value={formulario.casoOp || ''} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-pink-400 font-mono focus:border-pink-500" placeholder="Ej: OP-12345" />
+          <input 
+            type="text" 
+            name="casoOp" 
+            value={formulario.casoOp || ''} 
+            onChange={onChange} 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-pink-400 font-mono focus:border-pink-500" 
+            placeholder="Ej: OP-12345 (o dejar vacío para Sin OP)" 
+          />
         </div>
 
         <div>
           <label className="text-gray-400 block mb-1 font-medium">b. Vendor ID</label>
-          <input type="text" name="vendorId" value={formulario.vendorId || ''} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono focus:border-pink-500" />
+          <input 
+            type="text" 
+            name="vendorId" 
+            value={formulario.vendorId || ''} 
+            onChange={onChange} 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono focus:border-pink-500" 
+          />
         </div>
 
         <div className="sm:col-span-2">
           <label className="text-gray-400 block mb-1 font-medium">c. Tienda</label>
-          <input type="text" name="tienda" value={formulario.tienda || ''} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium" />
+          <input 
+            type="text" 
+            name="tienda" 
+            value={formulario.tienda || ''} 
+            onChange={onChange} 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium" 
+          />
         </div>
 
         <div>
@@ -122,13 +179,57 @@ export default function CasoForm({
         </div>
 
         <div>
-          <label className="text-gray-400 block mb-1 font-medium">e. KAM</label>
-          <input type="text" name="kam" value={formulario.kam || ''} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500" />
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-gray-400 font-medium">e. KAM</label>
+            {formulario.kam && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(formulario.kam || '');
+                  setKamCopiado(true);
+                  setTimeout(() => setKamCopiado(false), 2000);
+                }}
+                className={`text-[10px] px-1.5 py-0.5 rounded cursor-pointer flex items-center gap-1 border transition ${
+                  kamCopiado ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-gray-800 hover:bg-gray-700 text-cyan-300 border-cyan-800'
+                }`}
+                title="Copiar contacto del KAM"
+              >
+                <span>{kamCopiado ? '✅' : '📋'}</span>
+                <span>{kamCopiado ? '¡Copiado!' : 'Copiar KAM'}</span>
+              </button>
+            )}
+          </div>
+          <input 
+            type="text" 
+            name="kam" 
+            value={formulario.kam || ''} 
+            onChange={onChange} 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="ejemplo@pedidosya.com"
+            className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500" 
+          />
         </div>
 
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-gray-400 font-medium">f. Integración *</label>
+            <div className="flex items-center gap-2">
+              <label className="text-gray-400 font-medium">f. Integración *</label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIntegracionParaContactos(formulario.integracion || '');
+                  setModalContactosAbierto(true);
+                }}
+                className="text-[10px] bg-pink-950/80 hover:bg-pink-900 text-pink-300 border border-pink-700/60 px-2 py-0.5 rounded flex items-center gap-1 transition cursor-pointer"
+                title="Ver contactos de correo de esta integración"
+              >
+                <span>👥</span>
+                <span>Contactos</span>
+                <span>↗️</span>
+              </button>
+            </div>
             <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sponsorshipActual === 'SI' ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300' : 'bg-gray-800/80 border-gray-700 text-gray-400'}`}>
               Sponsorship: {sponsorshipActual}
             </span>
@@ -138,6 +239,10 @@ export default function CasoForm({
             value={formulario.integracion || ''}
             onChange={(val) => onChange({ target: { name: 'integracion', value: val } })}
             options={listaIntegracionesOpciones}
+            onVerContactos={(op) => {
+              setIntegracionParaContactos(op.value);
+              setModalContactosAbierto(true);
+            }}
             placeholder="Buscar integración..."
             searchPlaceholder="Escribe para buscar integración..."
           />
@@ -187,7 +292,16 @@ export default function CasoForm({
 
         <div>
           <label className="text-gray-400 block mb-1 font-medium">k. N° Caso Seguimiento</label>
-          <input type="text" name="casoSeguimiento" value={formulario.casoSeguimiento || ''} onChange={onChange} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-mono" />
+          <input 
+            type="text" 
+            name="casoSeguimiento" 
+            value={formulario.casoSeguimiento || ''} 
+            onChange={onChange} 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-mono" 
+          />
         </div>
 
         <div>
@@ -199,24 +313,39 @@ export default function CasoForm({
 
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-gray-400 font-medium">p. Fecha y Hora de Creación *</label>
-            <button
-              type="button"
-              onClick={() => {
-                onChange({ target: { name: 'fechaCreacion', value: formatearFechaHora(new Date()) } });
-              }}
-              className="text-[10px] bg-pink-900/60 hover:bg-pink-800 text-pink-300 px-1.5 py-0.5 rounded cursor-pointer border border-pink-700/60"
-              title="Estampar fecha y hora actual"
-            >
-              🕒 Ahora
-            </button>
+            <label className="text-gray-400 font-medium">p. Fecha y Hora de Creación</label>
+            <div className="flex items-center gap-1">
+              {formulario.fechaCreacion && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ target: { name: 'fechaCreacion', value: '' } })}
+                  className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white px-1.5 py-0.5 rounded cursor-pointer border border-gray-700"
+                  title="Borrar fecha de creación"
+                >
+                  ✕ Borrar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({ target: { name: 'fechaCreacion', value: formatearFechaHora(new Date()) } });
+                }}
+                className="text-[10px] bg-pink-900/60 hover:bg-pink-800 text-pink-300 px-1.5 py-0.5 rounded cursor-pointer border border-pink-700/60"
+                title="Estampar fecha y hora actual"
+              >
+                🕒 Ahora
+              </button>
+            </div>
           </div>
           <input 
             type="text" 
             name="fechaCreacion" 
             value={formulario.fechaCreacion || ''} 
             onChange={onChange} 
-            placeholder="DD/MM/YYYY HH:mm:ss" 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="DD/MM/YYYY HH:mm (Opcional, dejar vacía si es sin OP)" 
             className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono" 
           />
         </div>
@@ -224,23 +353,38 @@ export default function CasoForm({
         <div>
           <div className="flex justify-between items-center mb-1">
             <label className="text-gray-400 font-medium">r. Inicio de seguimiento OP (Fecha y Hora) *</label>
-            <button
-              type="button"
-              onClick={() => {
-                onChange({ target: { name: 'sla_inicio', value: formatearFechaHora(new Date()) } });
-              }}
-              className="text-[10px] bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded cursor-pointer border border-cyan-700/60"
-              title="Estampar fecha y hora actual"
-            >
-              🕒 Ahora
-            </button>
+            <div className="flex items-center gap-1">
+              {formulario.sla_inicio && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ target: { name: 'sla_inicio', value: '' } })}
+                  className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white px-1.5 py-0.5 rounded cursor-pointer border border-gray-700"
+                  title="Borrar inicio de seguimiento"
+                >
+                  ✕ Borrar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({ target: { name: 'sla_inicio', value: formatearFechaHora(new Date()) } });
+                }}
+                className="text-[10px] bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded cursor-pointer border border-cyan-700/60"
+                title="Estampar fecha y hora actual"
+              >
+                🕒 Ahora
+              </button>
+            </div>
           </div>
           <input 
             type="text" 
             name="sla_inicio" 
             value={formulario.sla_inicio || ''} 
             onChange={onChange} 
-            placeholder="DD/MM/YYYY HH:mm:ss (Auto por etapa)" 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="DD/MM/YYYY HH:mm (Auto por etapa si se deja vacía)" 
             className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono" 
           />
         </div>
@@ -261,9 +405,19 @@ export default function CasoForm({
 
         <div className="sm:col-span-2">
           <label className="text-gray-400 block mb-1 font-medium">m. Comentarios</label>
-          <textarea name="comentarios" value={formulario.comentarios || ''} onChange={onChange} rows={2} className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500" placeholder="Notas..." />
+          <textarea 
+            name="comentarios" 
+            value={formulario.comentarios || ''} 
+            onChange={onChange} 
+            rows={2} 
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500" 
+            placeholder="Notas..." 
+          />
         </div>
-      </div>
+      </form>
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-gray-800/80 pt-4">
         {onLimpiar && (
@@ -325,6 +479,18 @@ export default function CasoForm({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Contactos de la Integración */}
+      {modalContactosAbierto && (
+        <ModalContactosIntegracion
+          integracionNombre={integracionObjetivoNombre}
+          contactosRaw={integracionEncontrada?.contactos || ''}
+          sponsorship={integracionEncontrada?.sponsorship || sponsorshipActual}
+          onCerrar={() => setModalContactosAbierto(false)}
+          correosOnboarding={correosOnboarding}
+          kamEmail={formulario.kam || ''}
+        />
       )}
     </div>
   );

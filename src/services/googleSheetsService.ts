@@ -570,7 +570,7 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
       agente,
       tieneCasoInicio: getVal(colTieneInicio, 'Si'),
       comentarios: getVal(colComentarios, ''),
-      fechaCreacion: getVal(colFechaCreacion) ? formatearFechaHora(getVal(colFechaCreacion)) : formatearFechaHora(new Date()),
+      fechaCreacion: getVal(colFechaCreacion) ? formatearFechaHora(getVal(colFechaCreacion)) : '',
       fechaInicioSeguimientoOP: getVal(colSlaInicio) ? formatearFechaHora(getVal(colSlaInicio)) : '',
       fechaCierre: getVal(colFechaCierre) ? formatearFechaHora(getVal(colFechaCierre)) : '',
       fechaInicioPos: getVal(colInicioPos) && getVal(colInicioPos) !== 'S/V' ? formatearFechaHora(getVal(colInicioPos)) : getVal(colInicioPos, ''),

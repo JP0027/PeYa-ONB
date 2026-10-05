@@ -5,6 +5,7 @@ export interface OptionItem {
   value: string;
   extra?: string;
   badge?: string;
+  contactos?: string;
 }
 
 export interface SearchableSelectProps {
@@ -18,6 +19,7 @@ export interface SearchableSelectProps {
   className?: string;
   disabled?: boolean;
   required?: boolean;
+  onVerContactos?: (opcion: OptionItem) => void;
 }
 
 export default function SearchableSelect({
@@ -29,7 +31,8 @@ export default function SearchableSelect({
   placeholder = 'Seleccione una opción...',
   searchPlaceholder = 'Buscar...',
   className = '',
-  disabled = false
+  disabled = false,
+  onVerContactos
 }: SearchableSelectProps) {
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState('');
@@ -142,6 +145,9 @@ export default function SearchableSelect({
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder={searchPlaceholder}
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               className="w-full bg-transparent text-white text-xs placeholder-gray-500 focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
@@ -175,25 +181,40 @@ export default function SearchableSelect({
               opcionesFiltradas.map((op, idx) => {
                 const esSeleccionado = (value || '').toLowerCase().trim() === op.value.toLowerCase().trim();
                 return (
-                  <button
+                  <div
                     key={`${op.value}-${idx}`}
-                    type="button"
                     onClick={() => seleccionarOpcion(op.value)}
-                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors ${
+                    className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors cursor-pointer ${
                       esSeleccionado
                         ? 'bg-pink-600/20 text-pink-300 font-semibold'
                         : 'text-gray-300 hover:bg-gray-800/70 hover:text-white'
                     }`}
                   >
                     <span className="truncate">{op.label}</span>
-                    {op.badge && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                        op.badge === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-gray-800 text-gray-400'
-                      }`}>
-                        {op.badge}
-                      </span>
-                    )}
-                  </button>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      {op.badge && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                          op.badge === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-gray-800 text-gray-400'
+                        }`}>
+                          {op.badge}
+                        </span>
+                      )}
+                      {onVerContactos && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onVerContactos(op);
+                          }}
+                          className="p-1 hover:bg-pink-600/40 text-pink-400 hover:text-white rounded transition cursor-pointer text-xs flex items-center justify-center border border-pink-500/30 hover:border-pink-500"
+                          title={`Ver contactos de ${op.label}`}
+                        >
+                          ↗️
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 );
               })
             )}

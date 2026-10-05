@@ -1,1220 +1,1534 @@
 {
   "integraciones": [
     {
-      "nombre": "Sushi Pop - Poke Pop - Franui\nChe Sushi - Bunka Sushi\nLa Causa Nikkei\n\nAtteliersoftware",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Delivery Hub",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "abaPOS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "ABSOLUTE",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "ADA POS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Agencia Monstera",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Agil",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Aisushi",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Alberdin",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Aloha - Starbucks Panama",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Alpharest",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Alsea - Domino's UY",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Alsea AR",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Alsea CL",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Alturisa",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Ambrosia",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Anfora",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "ApiWorking",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Appex",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Appgrade",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Applebees",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Arcoprime",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Arturos (Odoo)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Arzion",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Avances_AvantSales",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Ayres IT",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Bacon Burgers",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "BeQuick",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Bianca",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Biaqsr",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Bistrosoft",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Bites",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Bona",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "BoomBurger01",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Boton",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Brodevo / Bocatti",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Bruler Software",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Buffalo Wings El Salvador",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Burger King Guatemala",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Burger King Paraguay",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cactus",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Café Barista",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Chancho Gusto RD",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cinet - Freddo",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cinet Milanga & Co",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cinet Mostaza AR",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cinet UY/BO",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Clickeame",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Coci.pro",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Codicia",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Comanda Central / Menu Fast",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Comidas Centroamericanas S.A. (Pizza Hut Costa Rica)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Complementagestion",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "ConectorPlus",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Conflux / Odoo POS La Alemana",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Control Facilito",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Copapos",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cravel",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cucina",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Cucinago",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Danos.Click",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Datalive",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Dean & Denny's",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Delicheck",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Deliverect",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "DeliveryOne / RetailOne / SoluOne",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Delosi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Delysoft",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Dintico",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Domino's Guatemala",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Domino's Pizza Panamá",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Dominos Chile",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Dominos Pizza RD",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Donkin Donuts Ecuador",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Ecuaviche",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "El Patron IA",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "EnjoySTI",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Enmarsi Cia. Ltda.",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Enqiu",
-      "sponsorship": "NO"
-    },
-    {
       "nombre": "Estudio MQ",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "EstudioResto",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Evyta Sushi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Fidelio / Intedi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Flama Hub",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Flaminco",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Flex",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Foodology",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Fork",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Fornaio",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Franquify",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Freakie Dogs ERP",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "FUDO",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Gcode",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "GDPSistemas",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Gedis / Update",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Gesrest",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Gestionar Gastronomía",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "GeSuite",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "GianelliYa",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Globonet Soluciones (Pollos Stav)",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "GNBrands",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Grido Automatizado - I+DIoT",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Grupo Comidas",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Grupo Hasar",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Grupo Jade",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Grupo KFC",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Grupo KFC (ecuador)",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Grupo Madero",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Guacamole",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Halloween 2",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Harpi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "HDP Burgers",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Heidi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Heladería Paris",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Heniasoft",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Hexium / Burgery",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Hiopos",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Hoppiness",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "ICG IT",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "ID Business Intelligence",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Influye",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Infomatica (Inforest)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Ingefactura",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Innovaside EIRL",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Innovasys",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Integración Cinet General",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Integración Papa John's (Costa Rica)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Integración Paradise Venture / Bacon Burger",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Integración Popapp",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Integracion Republica Dominicana",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Integración San Camilo",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Integrasoft",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Intranet Mafer Camila",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "InvuPos",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Iungo - Sarlatam",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Izirest",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Janaq (Roky´s)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "JBSoft",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Jedisoft",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "JoinPoster.com",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Justo POS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Kaotai",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "KFC Venezuela",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Kitchenita 2.0",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "KiwyPOS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Kleer / Centipede / TIH S.A.",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Kumba (Pronto Copec)",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Kuup",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "La Cocina",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "La Fábrica de Bianca Flor",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "La Pizzada",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "La Vene",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Linisco",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Lithospos",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Live POS - Johnny Rockets",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "lrdWeb (Ofsystem)",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "LS - Sistemas",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Lucciano's",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Ludwing POS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Macrosoft",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "MammaTomato",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Manducar",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Manso Dev Shop",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "masDelivery",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "MasterSolutions",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "MatrixERP",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Maxirest",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Mayflower",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "McDonalds Paraguay",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Medio Punto",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Mediterraneo",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Megafoody",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Meltpizzas Chile",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Menooh",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "MENU Technologies",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Menufast",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Mercat BO",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Mercat CL",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Merchise",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Metre",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Mi Gestiva",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "MIl Sabores",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "MoonIdeas",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Morphi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Morsis / Synergy Shock",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Movi.Shop",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "MPM - Market",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Multicode",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Napse",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Neola",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "NeolaPOS (Los Cebiches De La Rumiñahui)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Niufoods / Coco thai",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Nori Sushi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Norkys",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Nubecenter",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "NubeFood",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Nubing",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Núcleo IT\n\nNúcleo Check",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Odoo AR",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Ofisistemas",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "OlaClick",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Operance (El Club de la Milanesa)",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Optimus",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Ordatic",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "OrdenApp",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "OrderAR",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Orgiuto",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pampa Enterprise Solutions",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Panca",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Panda Express",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Papa Johns CL",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Papa Johns El Salvador",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "PcNub - Aloha",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pedidos NGR",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pedix",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Pegasus_GodsPan",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pendiente",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Pertutti",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "PideDirecto - Ambit",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Pinulito Guatemala",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pixel Point",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Pixo Gestión",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pizza Hut - Jedisoft",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Plaglabs",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Planeta Empanada",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pollo Campestre",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Pollos Copacabana",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "POSBerry",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "POSGo",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "PostApp",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Power Chicken",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Proper Business Solutions",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Proyectiva",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Pulse",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Qikserve",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "QRmenu",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "QSR S.A.",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Quinube - Quinoa",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "QwayPOS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "RankOS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Rapanui",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Rapimesas",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Raven (El Desembarco)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Rctech",
-      "sponsorship": "NO"
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
       "nombre": "RedCumbre SPA",
-      "sponsorship": "NO"
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "Rentcoffit",
-      "sponsorship": "NO"
+      "nombre": "Kitchenita 2.0",
+      "sponsorship": "NO",
+      "contactos": "nadia.drubich@kitchenita.co, cristian@kitchenita.co"
     },
     {
-      "nombre": "Restaurant.Pe",
-      "sponsorship": "NO"
+      "nombre": "Kaotai",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "RestaurantSoft | Emestudio Ltda.",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "RestoExpress - GSOFT",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Restolia",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "RESTOMETRICS",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Restonline",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "RestoSimple",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Retail S.A",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Rolling Steaks",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "RunFood App",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "San Martin",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Santa Burguesa",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Sertech",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Shily",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Shipeo",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Sigg",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "SiiPi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Sinqro",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "SistemaX",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Slabcode",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Smartfran",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Smartpay",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Smarty",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "SOLUSYSTEMS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "SOUS",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Spleat",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Subway Transformapp",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Sweet Coffee",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Tabbi",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Tabletech SRL - SnowEats - TOi",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Tach Agency",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Taco Bell",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Taco Bell HN/SV (Belluno)",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Tango Resto - Axoft",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Tatú",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Tedepsa - Mostaza PY",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Teknisa",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Terceariza",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Teriyaki Madness",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "The Boss",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "The Coffee",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Thinkion",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Tillster",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Toptech - Restotech",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Tori",
-      "sponsorship": "SI"
-    },
-    {
-      "nombre": "Toteat",
-      "sponsorship": "NO"
+      "nombre": "Guacamole",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
       "nombre": "Trade",
-      "sponsorship": "NO"
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "UrbanPiper",
-      "sponsorship": "NO"
+      "nombre": "BeQuick",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "Vinson",
-      "sponsorship": "NO"
+      "nombre": "Innovaside EIRL",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "Voucheroo",
-      "sponsorship": "NO"
+      "nombre": "Evyta Sushi",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Morphi",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Integración Papa John's (Costa Rica)",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
       "nombre": "Waitry",
-      "sponsorship": "NO"
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "Wakanda Forever",
-      "sponsorship": "NO"
+      "nombre": "KFC Venezuela",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "Wantan",
-      "sponsorship": "NO"
+      "nombre": "Grupo Hasar",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
-      "nombre": "WeMenú",
-      "sponsorship": "NO"
-    },
-    {
-      "nombre": "Wide",
-      "sponsorship": "NO"
+      "nombre": "Integración Popapp",
+      "sponsorship": "NO",
+      "contactos": ""
     },
     {
       "nombre": "WOLOP",
-      "sponsorship": "NO"
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Dominos Pizza RD",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Mercat CL",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "LS - Sistemas",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Mercat BO",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Justo POS",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "MoonIdeas",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Manso Dev Shop",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "JoinPoster.com",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Arzion",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "InvuPos",
+      "sponsorship": "SI",
+      "contactos": "madelaine@invupos.com, jesus@invupos.com, alon@invupos.com"
+    },
+    {
+      "nombre": "GDPSistemas",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Ordatic",
+      "sponsorship": "NO",
+      "contactos": "soporte@ordatic.com, victor.fernandez@ordatic.com,\nomar.gil@ordatic.com, roberto.berrondo@ordatic.com"
+    },
+    {
+      "nombre": "Ofisistemas",
+      "sponsorship": "NO",
+      "contactos": "drojas@ofisistemas.com, ojimenez@ofisistemas.com,support@ofisistemas.com"
+    },
+    {
+      "nombre": "Fork",
+      "sponsorship": "NO",
+      "contactos": "egutierrez@betterfood.cl, lmoenne-loccoz@betterfood.cl, sinfante@betterfood.cl, fsmith@betterfood.cl, ruki@betterfood.cl"
+    },
+    {
+      "nombre": "Linisco",
+      "sponsorship": "NO",
+      "contactos": "martin@linisco.com.ar, samuel@linisco.com.ar"
+    },
+    {
+      "nombre": "Niufoods / Coco thai",
+      "sponsorship": "NO",
+      "contactos": "alexis.quijada@niufoods.cl, karla.leal@niufoods.cl, elio.padron@niufoods.cl"
+    },
+    {
+      "nombre": "Norkys",
+      "sponsorship": "NO",
+      "contactos": "cninahuanca@hyasesores.pe, pdiaz@hyasesores.pe"
+    },
+    {
+      "nombre": "Lucciano's",
+      "sponsorship": "NO",
+      "contactos": "fabricio@luccianos.com.ar, operaciones.caba@luccianos.com.ar, soporte@sharessoftware.com"
+    },
+    {
+      "nombre": "Dean & Denny's",
+      "sponsorship": "NO",
+      "contactos": "soporte@sharessoftware.com, pedidos@sharesvirtual.com.ar, nicolas@sharesvirtual.com.ar"
+    },
+    {
+      "nombre": "Heidi",
+      "sponsorship": "NO",
+      "contactos": "pedidos@sharesvirtual.com.ar, soporte@sharessoftware.com"
+    },
+    {
+      "nombre": "Delicheck",
+      "sponsorship": "NO",
+      "contactos": "ayuda@delicheck.io, cficam@anticipa.cl, eherrera@anticipa.cl, cmardones@anticipa.cl, dcabrera@anticipa.cl"
+    },
+    {
+      "nombre": "Datalive",
+      "sponsorship": "NO",
+      "contactos": "soporte@datalive.com.ar, info@datalive.com.ar, mati.datalive@gmail.com"
+    },
+    {
+      "nombre": "Rapimesas",
+      "sponsorship": "NO",
+      "contactos": "rapimesas@gmail.com"
+    },
+    {
+      "nombre": "Planeta Empanada",
+      "sponsorship": "SI",
+      "contactos": "viviana.planetaempanada@gmail.com, luciana.planetaempanada@gmail.com, giselle.planetaempanada@gmail.com"
+    },
+    {
+      "nombre": "Qikserve",
+      "sponsorship": "SI",
+      "contactos": "\"sthefanie.morales@alsea.cl, Haroldo.Viana@qikserve.com, \nStarbucksSupport@qikserve.com,\nItalo.Pereira@qikserve.com\""
+    },
+    {
+      "nombre": "Cinet UY/BO",
+      "sponsorship": "NO",
+      "contactos": "fnakladal@mostazaweb.com.ar, msmeriglio@mostazaweb.com.ar, gniglio@ci-net.com.ar, freyes@ci-net.com.ar"
+    },
+    {
+      "nombre": "FUDO",
+      "sponsorship": "NO",
+      "contactos": "integraciones@fu.do"
+    },
+    {
+      "nombre": "Dominos Chile",
+      "sponsorship": "NO",
+      "contactos": "aaron.berrios@dominospizza.cl, german@dominos.cl"
+    },
+    {
+      "nombre": "Vinson",
+      "sponsorship": "NO",
+      "contactos": "soporte@vinson.com.ar, mariano.gomez@vinson.com.ar,andres.polcaro@vinson.com.ar, fabian.monteros@vinson.com.ar,hernan.reynoso@vinson.com.ar\nmariano.gomez@vinson.com.ar (Emergencia)"
+    },
+    {
+      "nombre": "Janaq (Roky´s)",
+      "sponsorship": "NO",
+      "contactos": "daniel.quispe@janaq.com, solman@janaq.com"
+    },
+    {
+      "nombre": "GNBrands",
+      "sponsorship": "NO",
+      "contactos": "SVASQUEZ@gnbrands.com, basalazare@gnbrandschile.onmicrosoft.com, pcherubini@gnbrands.com, mandarcia@gnbrands.com"
+    },
+    {
+      "nombre": "Smartfran",
+      "sponsorship": "NO",
+      "contactos": "Support: rodrigos@smartfran.com, atencionalcliente@smartfran.com, joelo@smartfran.com\nOnboarding: lucasm@smartfran.com, macarenag@smartfran.com"
+    },
+    {
+      "nombre": "Meltpizzas Chile",
+      "sponsorship": "NO",
+      "contactos": "avillamizar@tactech.cl, cristian.hojas@vfrchile.com, dshaul@tactech.cl, julio.pizarro@vfrchile.com"
+    },
+    {
+      "nombre": "Proyectiva",
+      "sponsorship": "NO",
+      "contactos": "ctiraferri@sushiclubweb.com, ayrton@proyectiva.com, juancarlos@proyectiva.com"
+    },
+    {
+      "nombre": "Ayres IT",
+      "sponsorship": "NO",
+      "contactos": "soporte@ayresit.com.ar,\nrmarcos@ayresit.com.ar, rarregin@ayresit.com.ar, esutter@ayresit.com.ar"
+    },
+    {
+      "nombre": "Toptech - Restotech",
+      "sponsorship": "SI",
+      "contactos": "asoljancic@toptech.com.bo,"
+    },
+    {
+      "nombre": "Cinet Mostaza AR",
+      "sponsorship": "NO",
+      "contactos": "fnakladal@mostazaweb.com.ar, msmeriglio@mostazaweb.com.ar, gniglio@ci-net.com.ar, freyes@ci-net.com.ar"
+    },
+    {
+      "nombre": "Grupo Comidas",
+      "sponsorship": "NO",
+      "contactos": "juan.ohara@impactmobilehn.com, klara@grupocomidas.com, gissela.navarro@impactmobilehn.com"
+    },
+    {
+      "nombre": "PcNub - Aloha",
+      "sponsorship": "SI",
+      "contactos": "erios@pcnub.com, csanmartin@pcnub.com, operaciones@pcnub.com, soporte@pcnub.com, acabanilla@pcnub.com, desarrollo@pcnub.com"
+    },
+    {
+      "nombre": "Pizza Hut - Jedisoft",
+      "sponsorship": "NO",
+      "contactos": "g@darwin.id, informatica@southfood.com.py, gbc@southfood.com.py, aalvarenga@logica.com.py, administracion@southfood.com.py, mcaballero@logica.com.py, a@darwin.id\ng@darwin.id (Emergencia)\ngiovamartinez@gmail.com (Emergencia)\ninformatica@southfood.com.py (Emergencia)"
+    },
+    {
+      "nombre": "Arcoprime",
+      "sponsorship": "NO",
+      "contactos": "ignacio.williams@arcoprime.cl, carolina.landeta@arcoprime.cl, martin.stone.ex@arcoprime.cl, evelyn.andaur@arcoprime.cl, techeverria@copec.cl"
+    },
+    {
+      "nombre": "Taco Bell",
+      "sponsorship": "NO",
+      "contactos": "alexisq@hotmail.com, cleiva@tacobell.cl"
+    },
+    {
+      "nombre": "Delosi",
+      "sponsorship": "NO",
+      "contactos": "raul@conexa.ai, german.vanderusten@conexa.ai, matias@conexa.ai, jcamposv@franquiciasperu.com, pgonzales@franquiciasperu.com, fquevedo@franquiciasperu.com, fhuaman@franquiciasperu.com"
+    },
+    {
+      "nombre": "Cinet Milanga & Co",
+      "sponsorship": "NO",
+      "contactos": "fnakladal@mostazaweb.com.ar, msmeriglio@mostazaweb.com.ar, gniglio@ci-net.com.ar, freyes@ci-net.com.ar"
+    },
+    {
+      "nombre": "Tango Resto - Axoft",
+      "sponsorship": "NO",
+      "contactos": "Support: ppena@axoft.com, cdfigarelli@axoft.com, jorgea@axoft.com, jorgea@axoft.com, carlosijl@axoft.com, MarceloG@axoft.com, storres@axoft.com\nOnboarding: consultas_resto@axoft.com"
+    },
+    {
+      "nombre": "Alturisa",
+      "sponsorship": "SI",
+      "contactos": "edson.mejia@premium.sv, zayra.alvarenga@premium.sv, rafael.rodriguez@premium.sv, fernanda.kreitz@premium.sv"
+    },
+    {
+      "nombre": "Deliverect",
+      "sponsorship": "SI",
+      "contactos": ""
+    },
+    {
+      "nombre": "Pixel Point",
+      "sponsorship": "NO",
+      "contactos": "pali@tecseris.com, jsalgado@tecseris.com"
+    },
+    {
+      "nombre": "Macrosoft",
+      "sponsorship": "NO",
+      "contactos": "gonzalo340@macrosoft.com.uy, gonzalo@macrosoft.com.uy"
+    },
+    {
+      "nombre": "Bistrosoft",
+      "sponsorship": "NO",
+      "contactos": "aruiz@pdssa.com.ar, fmolina@pdssa.com.ar, lrivera@pdssa.com.ar, dmercado@pdssa.com.ar, afernandezgiani@pdssa.com.ar, churtado@bistrosoft.com, bzambrano@pdssa.com.ar, lrivera@pdssa.com.ar (Emergencia)"
+    },
+    {
+      "nombre": "Nubing",
+      "sponsorship": "NO",
+      "contactos": "silvio.dotolo@nubing.net, luislobo@nubing.com.ar"
+    },
+    {
+      "nombre": "Pedidos NGR",
+      "sponsorship": "SI",
+      "contactos": "cynthia.ramon@ngr.com.pe, juan.uribe@ngr.com.pe, john.salazar@ngr.com.pe, raquel.vera@ngr.com.pe, mery.diestra@ngr.com.pe, jean.ordonez@ngr.com.pe, jimmy.rojas@ngr.com.pe, Juan.Araujo@ngr.com.pe"
+    },
+    {
+      "nombre": "Pixo Gestión",
+      "sponsorship": "SI",
+      "contactos": "jkocina@pixogestion.com.ar, herediatomasagustin@gmail.com"
+    },
+    {
+      "nombre": "Iungo - Sarlatam",
+      "sponsorship": "NO",
+      "contactos": "nelson.serrano@sarlatam.com, sergio.guoz@iungo.co, brandon.barillas@sarlatam.com, eduardo.alvarez@sarlatam.com, joseandres.deleon@sarlatam.com, soporteaplicaciones@iungo.co\nabdiel.vasquez@iungo.co\nfausto.licardie@sarlatam.com\ndiego.cortez@iungo.co"
+    },
+    {
+      "nombre": "Integración Cinet General",
+      "sponsorship": "NO",
+      "contactos": "fnakladal@mostazaweb.com.ar, msmeriglio@mostazaweb.com.ar, gniglio@ci-net.com.ar, freyes@ci-net.com.ar"
+    },
+    {
+      "nombre": "Heladería Paris",
+      "sponsorship": "NO",
+      "contactos": "yony.centurion@hparis.com.py, betania.mora@hparis.com.py, denis.vargas@hparis.com.py"
+    },
+    {
+      "nombre": "Maxirest",
+      "sponsorship": "NO",
+      "contactos": "Support: leonel.gottardi@maxirest.com, juan.muente@maxirest.com, ariel.laran@maxirest.com\n\nOnboarding: implementaciones@maxirest.com, federico.galera@maxirest.com\n\nDesarrollo: ivan.weigandt@maxisistemas.com.ar, alejandro.garibotti@maxisistemas.com.ar, samuel.benitez@maxisistemas.com.ar, nerina.uliana@maxirest.com.ar"
+    },
+    {
+      "nombre": "Burger King Guatemala",
+      "sponsorship": "NO",
+      "contactos": "mescobar@bkgtm.com, Jherrarte@stypgua.com, melh@stypgua.com, bfranco@bkgtm.com"
+    },
+    {
+      "nombre": "RestaurantSoft | Emestudio Ltda.",
+      "sponsorship": "NO",
+      "contactos": "emestudio001@gmail.com, marcel.rytt@emestudio.com.uy, rodrigo@emestudio.com.uy\nsoporte@emestudio.com.uy (Emergencia)"
+    },
+    {
+      "nombre": "Taco Bell HN/SV (Belluno)",
+      "sponsorship": "NO",
+      "contactos": "jgodinez@tacobell.com.gt, jherrarte@stypgua.com, mlori@stypgua.com, jherrera@tacobell.com.gt, , cgonzalez@tacobell.com.gt, globos@tacobell.com.gt"
+    },
+    {
+      "nombre": "Delysoft",
+      "sponsorship": "NO",
+      "contactos": "ivanhalen@gmail.com, nacho@surbit.uy, hector@surbit.uy, soporte@surbit.uy, ivan@surbit.uy, ivan.coppes@gmail.com"
+    },
+    {
+      "nombre": "Mayflower",
+      "sponsorship": "NO",
+      "contactos": "fbermeo@grupomb.com.ec, fteran@grupomb.com.ec"
+    },
+    {
+      "nombre": "Sushi Pop - Poke Pop - Franui\nChe Sushi - Bunka Sushi\nLa Causa Nikkei\n\nAtteliersoftware",
+      "sponsorship": "NO",
+      "contactos": "jose@ateliersoftware.com.ar, adriana@ateliersoftware.com.ar, juanmuinos@sushi-pop.com.ar, ailindaquila@sushi-pop.com.ar, franciscoiturralde@sushi-pop.com.ar"
+    },
+    {
+      "nombre": "Tedepsa - Mostaza PY",
+      "sponsorship": "NO",
+      "contactos": "ozelada@tedepsa.com, informatica@mostaza.com.py"
+    },
+    {
+      "nombre": "Papa Johns CL",
+      "sponsorship": "NO",
+      "contactos": "francisca.poblete@pjchile.com,eduardo.tapia@pjchile.com, kevin.fernandez@pjchile.com, Richard.salas@drakefsi.com, soporte.espana@pjespana.es"
+    },
+    {
+      "nombre": "Toteat",
+      "sponsorship": "NO",
+      "contactos": "aguerocamila@toteat.com\nnalvarez@toteat.com, clientes@toteat.com, fernanda@toteat.com,  jcruz@toteat.com, america@toteat.com"
+    },
+    {
+      "nombre": "Merchise",
+      "sponsorship": "SI",
+      "contactos": "luis.hereira@merchise.cl"
+    },
+    {
+      "nombre": "Live POS - Johnny Rockets",
+      "sponsorship": "NO",
+      "contactos": "soporte@livepos.app, francisco@livepos.app"
+    },
+    {
+      "nombre": "Thinkion",
+      "sponsorship": "NO",
+      "contactos": "marcosc@thinkion.com.ar, eldea@thinkion.com.ar, ignacioc@thinkion.com.ar, santiagop@thinkion.com.ar"
+    },
+    {
+      "nombre": "Núcleo IT\n\nNúcleo Check",
+      "sponsorship": "NO",
+      "contactos": "integraciones@nucleoit.com.ar"
+    },
+    {
+      "nombre": "ICG IT",
+      "sponsorship": "SI",
+      "contactos": "soporte@icgit.com.uy"
+    },
+    {
+      "nombre": "Panda Express",
+      "sponsorship": "NO",
+      "contactos": "linda.farfan@biaqsr.com, alex.mendizabal@iungo.co, gabriela.diaz@iungo.co, alexander.estrada@biaqsr.com, levy.gonzalez@biaqsr.com"
+    },
+    {
+      "nombre": "Burger King Paraguay",
+      "sponsorship": "NO",
+      "contactos": "Carlos-Sanchez@grupovierci.com.pa, Matias-Ortega@aj.com.py, luis-granados@ajvierci.com.py, Walter-Cattebeke@aj.com.py, Carolina-Llamazares@aj.com.py, Laura-Yegros@aj.com.py, MIRTAELIZABETH-MOLINASGONZALEZ@aj.com.py"
+    },
+    {
+      "nombre": "Grupo KFC (ecuador)",
+      "sponsorship": "SI",
+      "contactos": "andres.aguirre@kfc.com.ec,mychael.castro@kfc.com.ec, joy.lino@kfc.com.ec, daira.ona@kfc.com.ec, carlos.castro@kfc.com.ec"
+    },
+    {
+      "nombre": "Grupo KFC",
+      "sponsorship": "NO",
+      "contactos": "andres.aguirre@kfc.com.ec,mychael.castro@kfc.com.ec, joy.lino@kfc.com.ec, daira.ona@kfc.com.ec, carlos.castro@kfc.com.ec"
+    },
+    {
+      "nombre": "Applebees",
+      "sponsorship": "NO",
+      "contactos": "alex.mendizabal@iungo.co, linda.farfan@biaqsr.com, gabriela.diaz@iungo.co, alexander.estrada@biaqsr.com, levy.gonzalez@biaqsr.com"
+    },
+    {
+      "nombre": "Flex",
+      "sponsorship": "NO",
+      "contactos": "Leandro.Gutierrez@ar.mcd.com, Monica.Lopez@ar.mcd.com, joseluis@fktech.net, emilianom@fktech.net, josmary@fktech.net \nflex-dlv@fktech.net (Emergencia)\n\nOnboarding Argentina: Sofia.rodriguez1@ar.mcd.com, Manuel.Farrace@ar.mcd.com"
+    },
+    {
+      "nombre": "Metre",
+      "sponsorship": "NO",
+      "contactos": "info@metre.com.ar, sebadevouge@gmail.com"
+    },
+    {
+      "nombre": "Hiopos",
+      "sponsorship": "NO",
+      "contactos": "pinsua@prokey.com.ar\nguido@icgargentina.com.ar"
+    },
+    {
+      "nombre": "Rapanui",
+      "sponsorship": "NO",
+      "contactos": "Support: desarrollo@patagoniait.com\n\nOnboarding: victoria.po@rapanui.com.ar, gestion@rapanui.com.ar, p.o.ecommerce@rapanui.com.ar"
+    },
+    {
+      "nombre": "Alsea AR",
+      "sponsorship": "NO",
+      "contactos": "marcelino.munoz@alsea.cl, jonatan.mendoza@alsea.com.ar, gustavo.hernandez@alsea.cl, javier.donoso@alsea.cl, jose.suarez@alsea.net, rodrigo.oyarzo@alsea.cl, juan.gonzalez@alsea.com.mx"
+    },
+    {
+      "nombre": "Alsea CL",
+      "sponsorship": "NO",
+      "contactos": "marcelino.munoz@alsea.cl, jonatan.mendoza@alsea.com.ar, gustavo.hernandez@alsea.cl, javier.donoso@alsea.cl, jose.suarez@alsea.net, rodrigo.oyarzo@alsea.cl, juan.gonzalez@alsea.com.mx"
+    },
+    {
+      "nombre": "Quinube - Quinoa",
+      "sponsorship": "NO",
+      "contactos": "fernando.gimenez@tacu.ar, fernando.daniel.gimenez@gmail.com, martin.brito@tacu.ar"
+    },
+    {
+      "nombre": "Wide",
+      "sponsorship": "NO",
+      "contactos": "wespinosa@wide.ec, soporte@wide.ec"
+    },
+    {
+      "nombre": "Grupo Jade",
+      "sponsorship": "NO",
+      "contactos": "msoriano@grupojade.com.do, cgarcia@grupojade.com.do, msoriano@expresojade.com, sgarcia@grupojade.com.do"
+    },
+    {
+      "nombre": "RestoExpress - GSOFT",
+      "sponsorship": "NO",
+      "contactos": "cristian.osuna@gsoft.com.uy. pascovich.gaston@gsoft.com.uy, kevin.medina@gsoft.com.uy"
+    },
+    {
+      "nombre": "PideDirecto - Ambit",
+      "sponsorship": "NO",
+      "contactos": "agustin@ambit.la, erica.kreimerman@ambit.la, joel.sosa@ambit.la, martin.salas@ambit.la, soporte@ambit.la"
+    },
+    {
+      "nombre": "Bona",
+      "sponsorship": "NO",
+      "contactos": "desarrollo@bona.com.do"
+    },
+    {
+      "nombre": "Restaurant.Pe",
+      "sponsorship": "NO",
+      "contactos": "egamarra@restaurant.pe\nvguevara@restaurant.pe (Emergencia)"
+    },
+    {
+      "nombre": "Wakanda Forever",
+      "sponsorship": "NO",
+      "contactos": "matcozzani@gmail.com, gomuggeri@gmail.com"
+    },
+    {
+      "nombre": "Buffalo Wings El Salvador",
+      "sponsorship": "NO",
+      "contactos": "diego@expresate.io, erick@expresate.io"
+    },
+    {
+      "nombre": "EstudioResto",
+      "sponsorship": "NO",
+      "contactos": "matias.dinsmann@gmail.com, soporte@estudioinformatico.com"
+    },
+    {
+      "nombre": "Tori",
+      "sponsorship": "SI",
+      "contactos": ""
+    },
+    {
+      "nombre": "Slabcode",
+      "sponsorship": "NO",
+      "contactos": "integrations2@slabcode.com, integrations3@slabcode.com, integrations@slabcode.com"
+    },
+    {
+      "nombre": "Ingefactura",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Gestionar Gastronomía",
+      "sponsorship": "SI",
+      "contactos": "emeisel@gestionargastronomia.com, gonzalo@gestionargastronomia.com"
+    },
+    {
+      "nombre": "Foodology",
+      "sponsorship": "NO",
+      "contactos": "kennyvillamarin@foodology.com.co, santiagorojas@foodology.com.co, juanlizarazo@foodology.com.co"
+    },
+    {
+      "nombre": "Nubecenter",
+      "sponsorship": "SI",
+      "contactos": "lucass.portugal@gmail.com"
+    },
+    {
+      "nombre": "Donkin Donuts Ecuador",
+      "sponsorship": "NO",
+      "contactos": "sistemas2@dunkinec.com"
+    },
+    {
+      "nombre": "MIl Sabores",
+      "sponsorship": "NO",
+      "contactos": "cborgono@dotsolutions.io\ncmiranda@grupomilsabores.com"
+    },
+    {
+      "nombre": "Grido Automatizado - I+DIoT",
+      "sponsorship": "NO",
+      "contactos": "mariano.pasquali@idiotlab.io, diego@idiotlab.io\nmariano.pasquali@idiotlab.io (Emergencia)"
+    },
+    {
+      "nombre": "ConectorPlus",
+      "sponsorship": "NO",
+      "contactos": "angel@conectorplus.io, roberto@conectorplus.io, alvaro@conectorplus.io, mateo@conectorplus.io, mauricio@conectorplus.io"
+    },
+    {
+      "nombre": "masDelivery",
+      "sponsorship": "NO",
+      "contactos": "desarrollo@masdelivery.com, franyimar@masdelivery.com, santiago@masdelivery.com, Peregodesarrollo@masdelivery.com"
+    },
+    {
+      "nombre": "Cinet - Freddo",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Enmarsi Cia. Ltda.",
+      "sponsorship": "NO",
+      "contactos": "scasco@grupotcg.com, rdiaz@grupotcg.com"
+    },
+    {
+      "nombre": "Papa Johns El Salvador",
+      "sponsorship": "NO",
+      "contactos": "christian.ventura@papajohns.com.sv, erick@expresate.io, rpalacios@papajohns.com.sv, Gabriel.ledezma@papajohns.com.sv, mercadeo@papajohns.com.sv, jorge@expresate.io, jdepaul@papajohns.com.sv"
+    },
+    {
+      "nombre": "Cravel",
+      "sponsorship": "NO",
+      "contactos": "lpalmes@gmail.com, bianchi.b95@gmail.com, gerardopicon@gmail.com, renzobianchi.06@gmail.com"
+    },
+    {
+      "nombre": "Power Chicken",
+      "sponsorship": "NO",
+      "contactos": "sistemas@powerchicken.co,\nr.contreras@powerchicken.co"
+    },
+    {
+      "nombre": "Bruler Software",
+      "sponsorship": "NO",
+      "contactos": "bruler.software@gmail.com"
+    },
+    {
+      "nombre": "Retail S.A",
+      "sponsorship": "SI",
+      "contactos": "Juan-Cuevas@aj.com.py,eamarilla@sd.com.py, Arnaldo-Mendoza@aj.com.py, ydiaz@sd.com.py, Javier-Dominguez@aj.com.py"
+    },
+    {
+      "nombre": "Infomatica (Inforest)",
+      "sponsorship": "NO",
+      "contactos": "operaciones@infomatica.pe,\r\ndesarrollo@infomatica.pe"
+    },
+    {
+      "nombre": "QSR S.A.",
+      "sponsorship": "SI",
+      "contactos": "victor.fernandez@gtov.net"
+    },
+    {
+      "nombre": "Innovasys",
+      "sponsorship": "NO",
+      "contactos": "frsr707@gmail.com"
+    },
+    {
+      "nombre": "Domino's Guatemala",
+      "sponsorship": "NO",
+      "contactos": "vianka.franco@grupopit.com, elder.perez@acentonet.com, pablo.torres@grupopit.com, oscar.ramirez@acentonet.com, omar.escobar@dominos.com.gt"
+    },
+    {
+      "nombre": "Aisushi",
+      "sponsorship": "SI",
+      "contactos": "pedidosya@aisushi.ar"
+    },
+    {
+      "nombre": "Halloween 2",
+      "sponsorship": "NO",
+      "contactos": "fcastejonvelazquez@hotmail.com"
+    },
+    {
+      "nombre": "Alsea - Domino's UY",
+      "sponsorship": "NO",
+      "contactos": "javier.donoso@alsea.cl, marcelino.munoz@alsea.cl, alan.enrique-garcia@alsea.com.mx, bcaceres@alsea.com.co, lina.barrera@alsea.cl"
+    },
+    {
+      "nombre": "Complementagestion",
+      "sponsorship": "NO",
+      "contactos": "claudio.sepulveda@gruposephi.cl,"
+    },
+    {
+      "nombre": "Odoo AR",
+      "sponsorship": "SI",
+      "contactos": "gabriel@oncompetence.com, monica@oncompetence.com"
+    },
+    {
+      "nombre": "Aloha - Starbucks Panama",
+      "sponsorship": "NO",
+      "contactos": "kelly.villalta@cctlgrp.com, boris.aragon@cctlgrp.com,rolando.portillo@cctlgrp.com"
+    },
+    {
+      "nombre": "Tabletech SRL - SnowEats - TOi",
+      "sponsorship": "SI",
+      "contactos": "tabletechsrl@gmail.com"
+    },
+    {
+      "nombre": "Influye",
+      "sponsorship": "NO",
+      "contactos": "marco@influye.app, miguelreyes@influye.app, ramirosaezsa@gmail.com, manuelquiva@influye.app"
+    },
+    {
+      "nombre": "Comidas Centroamericanas S.A. (Pizza Hut Costa Rica)",
+      "sponsorship": "NO",
+      "contactos": "yesseniamurillo@pizzahutcr.com, christianalvarado@pizzahutcr.com, hanspaniagua@pizzahutcr.com, manuelchacon@pizzahutcr.com"
+    },
+    {
+      "nombre": "Anfora",
+      "sponsorship": "NO",
+      "contactos": "vianka.franco@grupopit.com, elder.perez@acentonet.com, pablo.torres@grupopit.com, oscar.ramirez@acentonet.com, omar.escobar@dominos.com.gt"
+    },
+    {
+      "nombre": "ID Business Intelligence",
+      "sponsorship": "NO",
+      "contactos": "kristell.lossio@idbi.pe, product@idbi.pe, ignacio@idbi.pe, julia.castillo@idbi.pe, alvaro@idbi.pe"
+    },
+    {
+      "nombre": "Bianca",
+      "sponsorship": "SI",
+      "contactos": "ffaajj@hotmail.com, bianca01796@gmail.com, fabio_d_rossi@hotmail.com"
+    },
+    {
+      "nombre": "MasterSolutions",
+      "sponsorship": "NO",
+      "contactos": "obrian.villasmil@mastersolutions.ec, soporte@mastersolutions.ec, luis.ramirez@mastersolutions.ec, oswaldo.flores@mastersolutions.ec"
+    },
+    {
+      "nombre": "Medio Punto",
+      "sponsorship": "NO",
+      "contactos": "dietmar.krause@mediopunto.cl, ventas@mediopunto.cl"
+    },
+    {
+      "nombre": "Appgrade",
+      "sponsorship": "SI",
+      "contactos": "javier.gazzano@gmail.com, gaffasoft@gmail.com, gajofre@aplicenter.ar"
+    },
+    {
+      "nombre": "Tillster",
+      "sponsorship": "NO",
+      "contactos": "yambati@tillster.com, ksilva@tillster.com, aprajapati@tillster.com, dsaha@tillster.com"
+    },
+    {
+      "nombre": "Smartpay",
+      "sponsorship": "NO",
+      "contactos": "macuervo84@gmail.com"
     },
     {
       "nombre": "Xperto Cya",
-      "sponsorship": "NO"
+      "sponsorship": "NO",
+      "contactos": "rolandogonzales@xperto.com.bo, leonardodeheza@xperto.com.bo, alvaromunoz@xperto.com.bo"
+    },
+    {
+      "nombre": "Domino's Pizza Panamá",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Integración Paradise Venture / Bacon Burger",
+      "sponsorship": "SI",
+      "contactos": "alex.amarilla@baconburgers.com.py, acarrizosa@diesa.com.py,celica.zaracho@baconburgers.com.py,  marcos.vallejos@baconburgers.com.py, antonio.vallejos@baconburgers.com.py, nicolas.mujica@baconburgers.com.py, vallejosmarcos.py@gmail.com"
+    },
+    {
+      "nombre": "Bacon Burgers",
+      "sponsorship": "SI",
+      "contactos": "alex.amarilla@baconburgers.com.py, acarrizosa@diesa.com.py,celica.zaracho@baconburgers.com.py,  marcos.vallejos@baconburgers.com.py, antonio.vallejos@baconburgers.com.py, nicolas.mujica@baconburgers.com.py, vallejosmarcos.py@gmail.com"
+    },
+    {
+      "nombre": "HDP Burgers",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Pertutti",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "MENU Technologies",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Nori Sushi",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Neola",
+      "sponsorship": "SI",
+      "contactos": "mromero@lcrcebiches.com"
+    },
+    {
+      "nombre": "QRmenu",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Shipeo",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Rctech",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Proper Business Solutions",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Chancho Gusto RD",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "ADA POS",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "UrbanPiper",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "RESTOMETRICS",
+      "sponsorship": "SI",
+      "contactos": "Soporte@restometrics.pe, jlmonteza@gmail.com"
+    },
+    {
+      "nombre": "Cucina",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Mediterraneo",
+      "sponsorship": "NO",
+      "contactos": "asanchez@wong.net.pe, msoko@wong.net.pe, rherrera@wong.net.pe, smadrid@wong.net.pe"
+    },
+    {
+      "nombre": "abaPOS",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Napse",
+      "sponsorship": "NO",
+      "contactos": "hector.abregu@napse.global, matias.vancauwenberghe@napse.global, andrea.asato@napse.global, mariano.pumares@napse.global, ivan.diaz@napse.global"
+    },
+    {
+      "nombre": "Integrasoft",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Agil",
+      "sponsorship": "NO",
+      "contactos": "dereck.pavez@getagil.com, cristopher.coopman@getagil.com, carlos.bonomelli@getagil.com"
+    },
+    {
+      "nombre": "SOLUSYSTEMS",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Integracion Republica Dominicana",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "McDonalds Paraguay",
+      "sponsorship": "NO",
+      "contactos": "diana.sebilla@unnaki.com.py, lujan.mir@unnaki.com.py, fabian@unnaki.com.py"
+    },
+    {
+      "nombre": "Integración San Camilo",
+      "sponsorship": "SI",
+      "contactos": "phmunoz@advicom.cl, vfarias@sancamilo.com, agalaz@sancamilo.com, mhernandez@sancamilo.com"
+    },
+    {
+      "nombre": "Café Barista",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Fornaio",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Avances_AvantSales",
+      "sponsorship": "SI",
+      "contactos": "edvillegasv@gmail.com, integraciones.na@gmail.com"
+    },
+    {
+      "nombre": "La Fábrica de Bianca Flor",
+      "sponsorship": "NO",
+      "contactos": "ronel.fernandez@banticsoftware.com, roger.martinez@banticsoftware.com, mauricio.banegas@banticsoftware.com"
+    },
+    {
+      "nombre": "Kuup",
+      "sponsorship": "NO",
+      "contactos": "rodrigo.alcaino.c@gmail.com"
+    },
+    {
+      "nombre": "Sweet Coffee",
+      "sponsorship": "NO",
+      "contactos": "j.idrovo@sweetandcoffee.com.ec, carlos.farias@joinec.net, francisco.yanza@joinec.net,"
+    },
+    {
+      "nombre": "Smarty",
+      "sponsorship": "SI",
+      "contactos": "franco.cerutti.smarty@gmail.com"
+    },
+    {
+      "nombre": "Codicia",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Movi.Shop",
+      "sponsorship": "SI",
+      "contactos": "apivaral@movi.shop, dev@movi.shop"
+    },
+    {
+      "nombre": "ApiWorking",
+      "sponsorship": "NO",
+      "contactos": "jchamorro.sistemas@apiworking.pe"
+    },
+    {
+      "nombre": "Pollo Campestre",
+      "sponsorship": "SI",
+      "contactos": "kevin.flores@campestre.com.sv\nISAIAS.POSADA@campestre.com.sv\nrodolfo.galeas@campestre.com.sv\njosue.rauda@campestre.com.sv"
+    },
+    {
+      "nombre": "GianelliYa",
+      "sponsorship": "NO",
+      "contactos": "norman@softpro.com.ar"
+    },
+    {
+      "nombre": "Pinulito Guatemala",
+      "sponsorship": "SI",
+      "contactos": "jonnatan.sanchez@corporacionalisa.com, desarrollo@grupopinulito.com, estuardo.gonzalez@corporacionalisa.com"
+    },
+    {
+      "nombre": "Orgiuto",
+      "sponsorship": "SI",
+      "contactos": "quinchomayorista@gmail.com, nahuel90gem@hotmail.es"
+    },
+    {
+      "nombre": "BoomBurger01",
+      "sponsorship": "NO",
+      "contactos": "boomburgerhouse@gmail.com"
+    },
+    {
+      "nombre": "Grupo Madero",
+      "sponsorship": "NO",
+      "contactos": "matheus.drulla@grupomadero.com.br, marcos.santos@grupomadero.com.br ,fernando.dias@grupomadero.com.br, keffy.rosa@grupomadero.com.br, mariana.coelho@grupomadero.com.br"
+    },
+    {
+      "nombre": "Teknisa",
+      "sponsorship": "NO",
+      "contactos": "matheus.drulla@grupomadero.com.br, marcos.santos@grupomadero.com.br ,fernando.dias@grupomadero.com.br, keffy.rosa@grupomadero.com.br, mariana.coelho@grupomadero.com.br\nheitor.carvalho@teknisa.com, daniel.santos@teknisa.com, marcos.souza@teknisa.com"
+    },
+    {
+      "nombre": "Pulse",
+      "sponsorship": "SI",
+      "contactos": "eliecer.c@dominospanama.com,\n kfonseca@grupo-ari.net"
+    },
+    {
+      "nombre": "MammaTomato",
+      "sponsorship": "NO",
+      "contactos": "tecnologiaysistemas@mammatomato.pe"
+    },
+    {
+      "nombre": "Plaglabs",
+      "sponsorship": "NO",
+      "contactos": "ignacio.planella@plaglabs.com, jm.castro@plaglabs.com, ja.cordero@plaglabs.com,"
+    },
+    {
+      "nombre": "Pedix",
+      "sponsorship": "NO",
+      "contactos": "andres@pedix.app, soporte@pedix.app"
+    },
+    {
+      "nombre": "Sinqro",
+      "sponsorship": "NO",
+      "contactos": "miguel.lobato@sinqro.com, florian.poirot@sinqro.com, integrations@sinqro.com"
+    },
+    {
+      "nombre": "Alberdin",
+      "sponsorship": "SI",
+      "contactos": "josias.lopez@joguatec.com.py, cgimenez@alberdin.com.py, sgimenez@alberdin.com.py, gunzain@innovaerp.com, creinoso@innovaerp.com, rolando.lopez@joguatec.com.py, jromero@innovaerp.com, cpereira@innovaerp.com"
+    },
+    {
+      "nombre": "Santa Burguesa",
+      "sponsorship": "NO",
+      "contactos": "diego@expresate.io, erick@expresate.io"
+    },
+    {
+      "nombre": "Sigg",
+      "sponsorship": "NO",
+      "contactos": "brunonicolaspenalver@gmail.com\nmarcelodariop@gmail.com"
+    },
+    {
+      "nombre": "Alpharest",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Comanda Central / Menu Fast",
+      "sponsorship": "NO",
+      "contactos": "donofri.mrcomanda@gmail.com, flonano.mrc@gmail.com, gguerra.mrcomanda@gmail.com, jprieto@mrcomanda.com"
+    },
+    {
+      "nombre": "Danos.Click",
+      "sponsorship": "SI",
+      "contactos": "maurosparvoli@danos.click, nicolasmorell@danos.click"
+    },
+    {
+      "nombre": "DeliveryOne / RetailOne / SoluOne",
+      "sponsorship": "NO",
+      "contactos": "cristian@deliveryone.com.mx"
+    },
+    {
+      "nombre": "Gedis / Update",
+      "sponsorship": "NO",
+      "contactos": "mcorrao@update.com.ar"
+    },
+    {
+      "nombre": "Spleat",
+      "sponsorship": "NO",
+      "contactos": "spleat.spa@gmail.com"
+    },
+    {
+      "nombre": "POSBerry",
+      "sponsorship": "NO",
+      "contactos": "evignolo@arandusoft.com, cesaretchebarne@posberry.com"
+    },
+    {
+      "nombre": "Appex",
+      "sponsorship": "NO",
+      "contactos": "felix.coca@appex.lat, leonardo.eguez@appex.lat, desarrollo@appex.lat, niagara.acasigue@appexbo.com"
+    },
+    {
+      "nombre": "Kumba (Pronto Copec)",
+      "sponsorship": "SI",
+      "contactos": "cpina@copec.cl, sliras@copec.cl"
+    },
+    {
+      "nombre": "Gcode",
+      "sponsorship": "NO",
+      "contactos": "gcoderd@gmail.com"
+    },
+    {
+      "nombre": "Cactus",
+      "sponsorship": "NO",
+      "contactos": "ben@cactus.do, fschvartzman@opame.io"
+    },
+    {
+      "nombre": "La Cocina",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Rentcoffit",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Brodevo / Bocatti",
+      "sponsorship": "NO",
+      "contactos": "renzo@brodevo.com"
+    },
+    {
+      "nombre": "OrderAR",
+      "sponsorship": "NO",
+      "contactos": "mvidal@orderar.com"
+    },
+    {
+      "nombre": "Wantan",
+      "sponsorship": "NO",
+      "contactos": "contacto@wantanclan.pe, sebastianvaldiviah0004@gmail.com"
+    },
+    {
+      "nombre": "La Vene",
+      "sponsorship": "NO",
+      "contactos": "maurivelez99@gmail.com, laveneciana.ventas@gmail.com"
+    },
+    {
+      "nombre": "Tatú",
+      "sponsorship": "NO",
+      "contactos": "matipv1979@gmail.com, silvia.deleon@orangeloops.com"
+    },
+    {
+      "nombre": "Coci.pro",
+      "sponsorship": "NO",
+      "contactos": "jct@alvore.com"
+    },
+    {
+      "nombre": "Pegasus_GodsPan",
+      "sponsorship": "SI",
+      "contactos": "mario_ramos@sistemapegasus.com, magnos@sistemapegasus.com, celso_baez@sistemapegasus.com"
+    },
+    {
+      "nombre": "Flama Hub",
+      "sponsorship": "NO",
+      "contactos": "macuna@flamahub.com\nsoporte@rokeat.com"
+    },
+    {
+      "nombre": "Menufast",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Morsis / Synergy Shock",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "OlaClick",
+      "sponsorship": "SI",
+      "contactos": "sebastian.godoy@olaclick.com"
+    },
+    {
+      "nombre": "Arturos (Odoo)",
+      "sponsorship": "NO",
+      "contactos": "jmendoza@arturos.com.ve, IT@arturos.com.ve, mgutierrez@arturos.com.ve, anino@arturos.com.ve"
+    },
+    {
+      "nombre": "Operance (El Club de la Milanesa)",
+      "sponsorship": "SI",
+      "contactos": "tech@operance.ai,tomas@operance.ai"
+    },
+    {
+      "nombre": "Globonet Soluciones (Pollos Stav)",
+      "sponsorship": "SI",
+      "contactos": "globonetsoluciones@gmail.com"
+    },
+    {
+      "nombre": "RankOS",
+      "sponsorship": "NO",
+      "contactos": "guillermovergara88@gmail.com"
+    },
+    {
+      "nombre": "Bites",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "Restolia",
+      "sponsorship": "SI",
+      "contactos": "damian.ramirez@lambdaclass.com, manuel@lambdaclass.com, nicolas.sanchez@lambdaclass.com"
+    },
+    {
+      "nombre": "JBSoft",
+      "sponsorship": "SI",
+      "contactos": "jbr2414@gmail.com"
+    },
+    {
+      "nombre": "WeMenú",
+      "sponsorship": "NO",
+      "contactos": "support@webuuq.com, jbosco@webuuq.com"
+    },
+    {
+      "nombre": "Biaqsr",
+      "sponsorship": "NO",
+      "contactos": "ronald.bailey@biaqsr.com, anibal.donis@biaqsr.com, jeperez@biarestaurants.com"
+    },
+    {
+      "nombre": "Ambrosia",
+      "sponsorship": "NO",
+      "contactos": "gerencia@ambrosia.pe"
+    },
+    {
+      "nombre": "Optimus",
+      "sponsorship": "NO",
+      "contactos": "ypong@casadelcafe.com, Humberto.santiago@optimus.pro, jsolis@casadelcafe.com"
+    },
+    {
+      "nombre": "Sertech",
+      "sponsorship": "NO",
+      "contactos": "denniskblas@outlook.com"
+    },
+    {
+      "nombre": "PostApp",
+      "sponsorship": "SI",
+      "contactos": "mariano@postapp.com.ar"
+    },
+    {
+      "nombre": "Jedisoft",
+      "sponsorship": "SI",
+      "contactos": "aalvarenga@logica.com.py, \nsalvarenga@logica.com.py,\nvallejosmarcos.py@gmail.com"
+    },
+    {
+      "nombre": "Lithospos",
+      "sponsorship": "NO",
+      "contactos": "support@lithospos.com, natalie@technificate.com"
+    },
+    {
+      "nombre": "Delivery Hub",
+      "sponsorship": "NO",
+      "contactos": "wcarrillo@tacobell.com.gt jherrera@tacobell.com.gt"
+    },
+    {
+      "nombre": "Ecuaviche",
+      "sponsorship": "NO",
+      "contactos": "desarrollos16@hotmail.com"
+    },
+    {
+      "nombre": "San Martin",
+      "sponsorship": "NO",
+      "contactos": "davidmoreira@sanmartinbakery.com"
+    },
+    {
+      "nombre": "KiwyPOS",
+      "sponsorship": "NO",
+      "contactos": "poskiwy@gmail.com"
+    },
+    {
+      "nombre": "GeSuite",
+      "sponsorship": "NO",
+      "contactos": "algorym.adm@gmail.com"
+    },
+    {
+      "nombre": "Hoppiness",
+      "sponsorship": "NO",
+      "contactos": "juan.finocchiaro@gmail.com"
+    },
+    {
+      "nombre": "Cucinago",
+      "sponsorship": "NO",
+      "contactos": "cucinago.cloud@gmail.com"
+    },
+    {
+      "nombre": "Teriyaki Madness",
+      "sponsorship": "NO",
+      "contactos": "diego@expresate.io, erick@expresate.io"
+    },
+    {
+      "nombre": "Boton",
+      "sponsorship": "NO",
+      "contactos": "fernando@botonapp.com"
+    },
+    {
+      "nombre": "SistemaX",
+      "sponsorship": "NO",
+      "contactos": ""
+    },
+    {
+      "nombre": "SiiPi",
+      "sponsorship": "NO",
+      "contactos": "jaimewvf@gmail.com, kimvallejos3@gmail.com"
+    },
+    {
+      "nombre": "Raven (El Desembarco)",
+      "sponsorship": "NO",
+      "contactos": "juanjo@asthor.co, jmarinelli@eldesembarco.com, dpcanestro@eldesembarco.com, polejavetzky@eldesembarco.com, lveliz@eldesembarco.com \r\ncbustos@eldesembarco.com"
+    },
+    {
+      "nombre": "Voucheroo",
+      "sponsorship": "NO",
+      "contactos": "soporte@voucheroo.app"
+    },
+    {
+      "nombre": "Ludwing POS",
+      "sponsorship": "NO",
+      "contactos": "facundoacastello@gmail.com"
+    },
+    {
+      "nombre": "OrdenApp",
+      "sponsorship": "NO",
+      "contactos": "emmanuel.marconi@byroncode.com, jMarcantonio@gitanessrl.com"
+    },
+    {
+      "nombre": "lrdWeb (Ofsystem)",
+      "sponsorship": "SI",
+      "contactos": "manuvale200122@gmail.com, bmoran@ofsystem.com.pe, desarrollo@ofsystem.com.pe"
+    },
+    {
+      "nombre": "Franquify",
+      "sponsorship": "NO",
+      "contactos": "santiagore1000@gmail.com"
+    },
+    {
+      "nombre": "MPM - Market",
+      "sponsorship": "NO",
+      "contactos": "tomas@void.cl, sergio@mypedigital.cl"
+    },
+    {
+      "nombre": "El Patron IA",
+      "sponsorship": "SI",
+      "contactos": "coach@ivanrissopatron.com"
+    },
+    {
+      "nombre": "Pampa Enterprise Solutions",
+      "sponsorship": "NO",
+      "contactos": "german.faiella@gmail.com, german_faiella@yahoo.com"
+    },
+    {
+      "nombre": "Subway Transformapp",
+      "sponsorship": "NO",
+      "contactos": "imorales@transformapp.cl, mary@alfadata.cl"
+    },
+    {
+      "nombre": "SOUS",
+      "sponsorship": "NO",
+      "contactos": "felipeherreraherrera@gmail.com, felipe@herrera.works"
+    },
+    {
+      "nombre": "Heniasoft",
+      "sponsorship": "NO",
+      "contactos": "contacto@heniasoft.com.ar"
+    },
+    {
+      "nombre": "RunFood App",
+      "sponsorship": "NO",
+      "contactos": "desarrollo@runfoodapp.com,\ndpq@runfoodapp.com\nsoporte@runfoodapp.com"
+    },
+    {
+      "nombre": "The Boss",
+      "sponsorship": "SI",
+      "contactos": "danielvattimo@gmail.com"
+    },
+    {
+      "nombre": "Panca",
+      "sponsorship": "NO",
+      "contactos": "ventas@panca.pe"
+    },
+    {
+      "nombre": "Intranet Mafer Camila",
+      "sponsorship": "NO",
+      "contactos": "maria.tello@tortasmafercamila.com"
+    },
+    {
+      "nombre": "Copapos",
+      "sponsorship": "NO",
+      "contactos": "michelle.mendoza@grupocopacabana.com\nEnrique.Lucero@grupocopacabana.com\nXimena.Agramont@grupocopacabana.com"
+    },
+    {
+      "nombre": "QwayPOS",
+      "sponsorship": "SI",
+      "contactos": "hola@qway.pe\nonlinebusinessperu@gmail.com"
+    },
+    {
+      "nombre": "Izirest",
+      "sponsorship": "NO",
+      "contactos": "izirest@manriquedevs.com"
+    },
+    {
+      "nombre": "Multicode",
+      "sponsorship": "NO",
+      "contactos": "Desarollo: ebaqueros@multicode.ia.bo \n\nSoporte: rjustiniano@multicode.ia.bo\n\nPor emergencia ambos correos"
+    },
+    {
+      "nombre": "Pollos Copacabana",
+      "sponsorship": "NO",
+      "contactos": "michelle.mendoza@grupocopacabana.com"
+    },
+    {
+      "nombre": "ABSOLUTE",
+      "sponsorship": "NO",
+      "contactos": "absoluteholdingssas@gmail.com"
+    },
+    {
+      "nombre": "Kleer / Centipede / TIH S.A.",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo: cenped@kleer.la // juan.gabardini@kleer.la // carlos.peix@kleer.la\n\nSoporte técnico:  cenped@kleer.la\n\nEmergencias:  (+54 9 11) 5037 3017 |"
+    },
+    {
+      "nombre": "Mi Gestiva",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo: admin@ukamasolutions.com\n\nSoporte técnico: admin@ukamasolutions.com\n\nEmergencias: francofedericoferrari@gmail.com"
+    },
+    {
+      "nombre": "Fidelio / Intedi",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo: toshiro.escobedo@intediperu.com\r\nSoporte técnico: intedi@intediperu.com\r\nEmergencias: jeanbocanegra@intediperu.com"
+    },
+    {
+      "nombre": "Enqiu",
+      "sponsorship": "NO",
+      "contactos": "adepaoli@sideitsolutions.com"
+    },
+    {
+      "nombre": "POSGo",
+      "sponsorship": "NO",
+      "contactos": "sespinoza@techdigital.cl, seba.espinoza.f@gmail.com"
+    },
+    {
+      "nombre": "MatrixERP",
+      "sponsorship": "NO",
+      "contactos": "chipsetsistemas@gmail.com, Sanpi90@gmail.com"
+    },
+    {
+      "nombre": "Dintico",
+      "sponsorship": "NO",
+      "contactos": "fernando@dintico.com, javiergrana84@gmail.com"
     },
     {
       "nombre": "ZenIA",
-      "sponsorship": "NO"
+      "sponsorship": "NO",
+      "contactos": "Desarrollo: erp.zenia@gmail.com\nSoporte técnico: erp.zenia@gmail.com\nEmergencias: erp.zenia@gmail.com"
+    },
+    {
+      "nombre": "La Pizzada",
+      "sponsorship": "NO",
+      "contactos": "- ibarra.lisandro@gmail.com\n- ibarra.francisco14@gmail.com\n- ingsfibarra@hotmail.com"
+    },
+    {
+      "nombre": "NeolaPOS (Los Cebiches De La Rumiñahui)",
+      "sponsorship": "NO",
+      "contactos": "Contacto Desarrollo: soporte@neola.ec\r\n\r\nContacto LCR: tecnologia@lcrcebiches.com"
+    },
+    {
+      "nombre": "Harpi",
+      "sponsorship": "NO",
+      "contactos": "pablo@harpi.app"
+    },
+    {
+      "nombre": "The Coffee",
+      "sponsorship": "NO",
+      "contactos": "diego@expresate.io, erick@expresate.io"
+    },
+    {
+      "nombre": "Rolling Steaks",
+      "sponsorship": "NO",
+      "contactos": "administracion@rollingsteaks.com"
+    },
+    {
+      "nombre": "Gesrest",
+      "sponsorship": "SI",
+      "contactos": "soporte@gesrest.net, martin.ampuero@garzasoft.com, sistemas@marakos.pe, jefe.operaciones@marakos.pe, jeanrubiomc@gmail.com"
+    },
+    {
+      "nombre": "Menooh",
+      "sponsorship": "NO",
+      "contactos": "ventas@bytespire.me, pvegavalenzuela@gmail.com"
+    },
+    {
+      "nombre": "Tabbi",
+      "sponsorship": "NO",
+      "contactos": "integraciones@infosis.tech"
+    },
+    {
+      "nombre": "RestoSimple",
+      "sponsorship": "NO",
+      "contactos": "daniel@arzion.com"
+    },
+    {
+      "nombre": "Flaminco",
+      "sponsorship": "NO",
+      "contactos": "andrespasquetta@flaminco.com.ar"
+    },
+    {
+      "nombre": "Clickeame",
+      "sponsorship": "NO",
+      "contactos": "desarrollo@clickeame.app,soporte@clickeame.app, emergencias@clickeame.app"
+    },
+    {
+      "nombre": "Megafoody",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo\r\nFrancisco Enea\r\nfrancisco.enea@megafy.es\r\n\r\nSoporte y Emergencias\r\nPaula Bortnik\r\npaula.bortnik@megafy.net"
+    },
+    {
+      "nombre": "Freakie Dogs ERP",
+      "sponsorship": "NO",
+      "contactos": "freakiedogs@gmail.com"
+    },
+    {
+      "nombre": "Control Facilito",
+      "sponsorship": "NO",
+      "contactos": "vinarancibia@gmail.com, soporte@easycorp.cloud"
+    },
+    {
+      "nombre": "Shily",
+      "sponsorship": "NO",
+      "contactos": "almirallmat@gmail.com"
+    },
+    {
+      "nombre": "Manducar",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo: it@manduc.ar\r\nSoporte técnico: soporte@manduc.ar\r\nEmergencias: guardia@manduc.ar"
+    },
+    {
+      "nombre": "NubeFood",
+      "sponsorship": "NO",
+      "contactos": "gherrera@lumarketo.com"
+    },
+    {
+      "nombre": "Restonline",
+      "sponsorship": "NO",
+      "contactos": "hola@restonline.com.ar"
+    },
+    {
+      "nombre": "EnjoySTI",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo: enjoystisa@gmail.com\n\nSoporte tecnico: info@enjoysti.com.ar\n\nEmergencias: enjoystisa@gmail.com"
+    },
+    {
+      "nombre": "Conflux / Odoo POS La Alemana",
+      "sponsorship": "NO",
+      "contactos": "gortega@conflux,pe, dvillavicencio@conflux.pe, emamani@conflux.pe"
+    },
+    {
+      "nombre": "Hexium / Burgery",
+      "sponsorship": "NO",
+      "contactos": "emilce.villanueva@hexium.com.ar, agustina.linares@hexium.com.ar, cristian.ruppert@hexium.com.ar"
+    },
+    {
+      "nombre": "Agencia Monstera",
+      "sponsorship": "NO",
+      "contactos": "- Contacto de desarrollo: Fojedai47@gmail.com y contacto@agenciamonstera.com (SIEMPRE ENVIAR A AMBOS CORREOS POR FAVOR)\r\n- Soporte técnico: contacto@agenciamonstera.com\r\n- Emergencias: contacto@agenciamonstera.com"
+    },
+    {
+      "nombre": "Tach Agency",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo: tach.bsas@gmail.com\r\nSoporte técnico: tach.bsas@gmail.com\r\nEmergencias: tach.bsas@gmail.com"
+    },
+    {
+      "nombre": "Terceariza",
+      "sponsorship": "NO",
+      "contactos": "Desarrollo / contacto técnico:  \r\ngerencia@terceariza.com\r\n\r\nSoporte técnico:  \r\ngerencia@terceariza.com\r\n\r\nAtención de emergencias:  \r\ngerencia@terceariza.com"
+    },
+    {
+      "nombre": "Spondylus",
+      "sponsorship": "NO",
+      "contactos": "Contacto de desarrollo: brayan.naunay@spondylus.net\r\nContacto de soporte técnico: soporte@spondylus.net\r\nContacto de emergencias: alexbra200117@gmail.com"
+    },
+    {
+      "nombre": "Atiendo / Rudy Burgers",
+      "sponsorship": "NO",
+      "contactos": "matias@atiendo.com => CEO\r\nfacundo@atiendo.com => COO\r\njuanmanuel@atiendo.com => Desarrollo\r\npaulina@atiendo.com => Desarrollo\r\njosefina@atiendo.com => Project Manager\r\n\r\nAnte emergencia escribir a los 5."
+    },
+    {
+      "nombre": "Pendiente",
+      "sponsorship": "NO",
+      "contactos": ""
     }
   ],
   "paises": [
@@ -1238,7 +1552,8 @@
     "Upgrade/Upsell Cambio de comisión",
     "Legal Form Change",
     "Switch",
-    "Sin oportunidad"
+    "Sin oportunidad",
+    "Nueva"
   ],
   "assets": [
     "Integración",

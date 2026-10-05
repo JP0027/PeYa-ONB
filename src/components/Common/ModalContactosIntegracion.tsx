@@ -1,0 +1,248 @@
+import React, { useState } from 'react';
+
+export interface ModalContactosIntegracionProps {
+  integracionNombre: string;
+  contactosRaw?: string;
+  sponsorship?: string;
+  onCerrar: () => void;
+  correosOnboarding?: string[];
+  kamEmail?: string;
+  onCopiarTexto?: (txt: string, mensaje?: string) => void;
+}
+
+export default function ModalContactosIntegracion({
+  integracionNombre,
+  contactosRaw = '',
+  sponsorship = 'NO',
+  onCerrar,
+  correosOnboarding = [],
+  kamEmail,
+  onCopiarTexto
+}: ModalContactosIntegracionProps) {
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
+
+  const esPendiente = String(integracionNombre || '').toLowerCase().trim().includes('pendiente');
+
+  // Separar contactos de la integración por coma, punto y coma o salto de línea
+  const listaContactos = (contactosRaw || '')
+    .split(/[,;\n\r]+/)
+    .map(c => c.trim())
+    .filter(c => c.length > 0);
+
+  const copiar = (texto: string, id: string, msg: string = 'Copiado al portapapeles') => {
+    if (!texto) return;
+    navigator.clipboard.writeText(texto);
+    setCopiadoId(id);
+    if (onCopiarTexto) {
+      onCopiarTexto(texto, msg);
+    }
+    setTimeout(() => {
+      setCopiadoId(null);
+    }, 2000);
+  };
+
+  const copiarTodosContactos = () => {
+    if (listaContactos.length === 0) return;
+    copiar(listaContactos.join(', '), 'todos_contactos', 'Todos los contactos de la integración copiados');
+  };
+
+  const copiarTodosOnboarding = () => {
+    if (correosOnboarding.length === 0) return;
+    copiar(correosOnboarding.join(', '), 'todos_onb', 'Todos los correos de Onboarding copiados');
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
+      onClick={onCerrar}
+    >
+      <div 
+        className="bg-[#161925] border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-gray-800 bg-[#12141e] flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-pink-600/20 border border-pink-500/40 flex items-center justify-center text-pink-400 font-bold text-sm">
+              ✉️
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white font-mono truncate max-w-[260px]" title={integracionNombre}>
+                  {integracionNombre || 'Sin Integración'}
+                </h3>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                  sponsorship === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-gray-800 text-gray-400'
+                }`}>
+                  Sponsorship: {sponsorship}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400">Contactos para ticket de seguimiento</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 text-base transition cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Cuerpo */}
+        <div className="p-4 overflow-y-auto space-y-4 text-xs">
+          
+          {/* Caso Pendiente: Advertencia oficial */}
+          {esPendiente ? (
+            <div className="bg-amber-950/40 border border-amber-700/70 rounded-xl p-3 text-amber-300 flex items-start gap-2.5">
+              <span className="text-base mt-0.5">⚠️</span>
+              <div className="space-y-1">
+                <p className="font-bold text-xs">Integración en estado Pendiente</p>
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  Para esta opción <strong>solo deben copiar los correos del equipo de onboarding</strong> para el envío del ticket de seguimiento.
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Contactos de la Integración (Columna C de Integraciones_Sponsorship) */
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-white flex items-center gap-1.5">
+                  <span>🔌</span>
+                  <span>Contactos de la Integración ({listaContactos.length})</span>
+                </h4>
+                {listaContactos.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={copiarTodosContactos}
+                    className="text-[10px] bg-pink-950 hover:bg-pink-900 text-pink-300 border border-pink-700/60 px-2 py-0.5 rounded font-semibold cursor-pointer transition active:scale-95"
+                  >
+                    {copiadoId === 'todos_contactos' ? '✅ ¡Copiados todos!' : '📋 Copiar todos'}
+                  </button>
+                )}
+              </div>
+
+              {listaContactos.length === 0 ? (
+                <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-3.5 text-center text-gray-400 italic">
+                  ℹ️ No hay contactos registrados para esta integración en la hoja oficial.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {listaContactos.map((contacto, idx) => {
+                    const idItem = `cont_${idx}`;
+                    const esCopiado = copiadoId === idItem;
+                    return (
+                      <div 
+                        key={idx}
+                        className="bg-[#0f111a] border border-gray-800 hover:border-gray-700 rounded-lg p-2 flex items-center justify-between gap-2 transition"
+                      >
+                        <span className="font-mono text-cyan-300 select-all truncate text-[11px]" title={contacto}>
+                          {contacto}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copiar(contacto, idItem, `Contacto copiado: ${contacto}`)}
+                          className={`text-[10px] px-2 py-1 rounded font-semibold transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                            esCopiado 
+                              ? 'bg-emerald-600 text-white shadow' 
+                              : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
+                          }`}
+                        >
+                          <span>{esCopiado ? '✅' : '📋'}</span>
+                          <span>{esCopiado ? '¡Copiado!' : 'Copiar'}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contacto del KAM si está disponible */}
+          {kamEmail && (
+            <div className="space-y-1.5 pt-2 border-t border-gray-800">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-white flex items-center gap-1.5">
+                  <span>💼</span>
+                  <span>Ejecutivo Comercial / KAM del Local</span>
+                </h4>
+              </div>
+              <div className="bg-[#0f111a] border border-gray-800 rounded-lg p-2 flex items-center justify-between gap-2">
+                <span className="font-mono text-amber-300 select-all truncate text-[11px]" title={kamEmail}>
+                  {kamEmail}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copiar(kamEmail, 'kam_email', `Correo KAM copiado: ${kamEmail}`)}
+                  className={`text-[10px] px-2 py-1 rounded font-semibold transition shrink-0 cursor-pointer flex items-center gap-1 ${
+                    copiadoId === 'kam_email'
+                      ? 'bg-emerald-600 text-white shadow'
+                      : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
+                  }`}
+                >
+                  <span>{copiadoId === 'kam_email' ? '✅' : '📋'}</span>
+                  <span>{copiadoId === 'kam_email' ? '¡Copiado!' : 'Copiar'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Correos del Equipo de Onboarding */}
+          {correosOnboarding.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-gray-800">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-white flex items-center gap-1.5">
+                  <span>👥</span>
+                  <span>Equipo de Onboarding (Agentes y TL)</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={copiarTodosOnboarding}
+                  className="text-[10px] bg-pink-950 hover:bg-pink-900 text-pink-300 border border-pink-700/60 px-2 py-0.5 rounded font-semibold cursor-pointer transition active:scale-95"
+                >
+                  {copiadoId === 'todos_onb' ? '✅ ¡Copiados todos!' : '📋 Copiar todos'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {correosOnboarding.map((correo, idx) => {
+                  const idOnb = `onb_${idx}`;
+                  const esCopiado = copiadoId === idOnb;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => copiar(correo, idOnb, `Correo copiado: ${correo}`)}
+                      className={`text-left p-1.5 rounded-lg border font-mono text-[10px] transition flex items-center justify-between gap-1 cursor-pointer truncate ${
+                        esCopiado
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow'
+                          : 'bg-[#0f111a] hover:bg-gray-800 text-gray-300 hover:text-white border-gray-800'
+                      }`}
+                      title={`Clic para copiar ${correo}`}
+                    >
+                      <span className="truncate">{correo}</span>
+                      <span className="shrink-0 text-[10px]">{esCopiado ? '✅' : '📋'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-3 border-t border-gray-800 bg-[#12141e] flex justify-end">
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold rounded-lg cursor-pointer transition"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

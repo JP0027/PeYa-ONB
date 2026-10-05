@@ -36,6 +36,14 @@ export interface ModalDetalleCasoProps {
   integraciones?: string[];
 }
 
+/** Formatea la fecha si existe; si está vacía la mantiene vacía (formatearFechaHora('') devolvería la fecha actual) */
+function fmtFechaOVacio(valor: any): string {
+  if (valor === undefined || valor === null) return '';
+  const str = String(valor).trim();
+  if (!str) return '';
+  return formatearFechaHora(str);
+}
+
 export default function ModalDetalleCaso({ 
   caso, 
   alCerrar, 
@@ -80,20 +88,20 @@ export default function ModalDetalleCaso({
     comentarios: caso?.comentarios || '',
     estado: caso?.estado || 'En progreso',
     etapa: limpiarTextoEtapa(caso?.etapa, caso?.comentarios, caso?.integracion),
-    fechaCreacion: formatearFechaHora(caso?.fechaCreacion || ''),
-    fechaCierre: formatearFechaHora(caso?.fechaCierre || ''),
+    fechaCreacion: fmtFechaOVacio(caso?.fechaCreacion),
+    fechaCierre: fmtFechaOVacio(caso?.fechaCierre),
     
     // Seguimiento POS API
-    fechaInicioPos: formatearFechaHora(caso?.fechaInicioPos || ''),
-    fechaPushPos: formatearFechaHora(caso?.fechaPushPos || ''),
+    fechaInicioPos: fmtFechaOVacio(caso?.fechaInicioPos),
+    fechaPushPos: fmtFechaOVacio(caso?.fechaPushPos),
     respuestaPos: normalizarRespuesta(caso?.respuestaPos),
     pushKamPos: esPushKamRealizado(caso?.pushKamPos),
     freezePos: caso?.fechaFreezePos || caso?.freezePos || '',
     fechaFreezePos: caso?.fechaFreezePos || caso?.freezePos || '',
     
     // Seguimiento Catálogo
-    fechaInicioCat: formatearFechaHora(caso?.fechaInicioCat || ''),
-    fechaPushCat: formatearFechaHora(caso?.fechaPushCat || ''),
+    fechaInicioCat: fmtFechaOVacio(caso?.fechaInicioCat),
+    fechaPushCat: fmtFechaOVacio(caso?.fechaPushCat),
     respuestaCat: normalizarRespuesta(caso?.respuestaCat),
     pushKamCat: esPushKamRealizado(caso?.pushKamCat),
     freezeCat: caso?.fechaFreezeCat || caso?.freezeCat || '',
@@ -105,6 +113,7 @@ export default function ModalDetalleCaso({
   const [guardando, setGuardando] = useState<boolean>(false);
   const [tabActiva, setTabActiva] = useState<'datos' | 'seguimiento'>('datos');
   const [cambioDetectado, setCambioDetectado] = useState<boolean>(false);
+  const [mensajeGuardado, setMensajeGuardado] = useState<string | null>(null);
 
   useEffect(() => {
     if (caso) {
@@ -213,6 +222,8 @@ export default function ModalDetalleCaso({
       }
       await alActualizar(casoFinal);
       setCambioDetectado(false);
+      setMensajeGuardado('¡Caso actualizado correctamente!');
+      setTimeout(() => setMensajeGuardado(null), 3500);
     } catch (err) {
       console.error('Error guardando cambios del caso:', err);
     } finally {
@@ -228,7 +239,9 @@ export default function ModalDetalleCaso({
       kam: form.kam,
       integracion: form.integracion,
       oportunidad: form.oportunidad,
-      asset: form.asset
+      asset: form.asset,
+      etapa: form.etapa,
+      comentarios: form.comentarios
     });
     alCerrar();
   };
@@ -239,6 +252,23 @@ export default function ModalDetalleCaso({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
       <div className="bg-[#161925] border border-gray-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
         
+        {/* Banner de confirmación de guardado visible delante del modal */}
+        {mensajeGuardado && (
+          <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 flex items-center justify-between shadow-xl animate-fadeIn">
+            <span className="flex items-center gap-2">
+              <span className="text-base">✅</span>
+              <span>{mensajeGuardado}</span>
+            </span>
+            <button 
+              type="button" 
+              onClick={() => setMensajeGuardado(null)} 
+              className="text-white hover:text-emerald-200 text-sm font-bold px-2 py-0.5 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* HEADER MODAL - Simple y elegante */}
         <div className="p-4 sm:p-5 border-b border-gray-800 bg-[#12141e] flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -344,6 +374,9 @@ export default function ModalDetalleCaso({
                   name="casoOp"
                   value={form.casoOp} 
                   onChange={manejarCambio}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="Pendiente (vacío si no tiene OP)..."
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-pink-400 font-mono focus:border-pink-500 placeholder-gray-600"
                 />
@@ -356,6 +389,9 @@ export default function ModalDetalleCaso({
                   name="vendorId" 
                   value={form.vendorId} 
                   onChange={manejarCambio}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white font-mono focus:border-pink-500"
                 />
               </div>
@@ -367,6 +403,9 @@ export default function ModalDetalleCaso({
                   name="tienda" 
                   value={form.tienda} 
                   onChange={manejarCambio}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500 font-medium"
                 />
               </div>
@@ -391,6 +430,9 @@ export default function ModalDetalleCaso({
                   name="kam" 
                   value={form.kam} 
                   onChange={manejarCambio}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className="w-full bg-[#0f111a] border border-gray-700 rounded-lg p-2.5 text-white focus:border-pink-500"
                 />
               </div>
