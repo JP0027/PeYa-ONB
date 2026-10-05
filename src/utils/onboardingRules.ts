@@ -323,8 +323,16 @@ export function aplicarReglaAvanceLineal(nuevaEtapa: any, casoActual: any, nueva
   const etapaStr = String(nuevaEtapa || '').trim().toLowerCase();
 
   // --- POS API ---
-  const tieneInicioRealPos = casoActual.fechaInicioPos && casoActual.fechaInicioPos.trim() !== '' && casoActual.fechaInicioPos !== 'S/V' && casoActual.fechaInicioPos !== '-';
+  const pushPos = nuevaFechaPushPos !== undefined ? nuevaFechaPushPos : casoActual.fechaPushPos;
+  const hayPushPos = Boolean(pushPos && pushPos.trim() !== '' && pushPos !== 'S/V' && pushPos !== '-');
+  const inicioPrevioPos = Boolean(casoActual.fechaInicioPos && casoActual.fechaInicioPos.trim() !== '' && casoActual.fechaInicioPos !== 'S/V' && casoActual.fechaInicioPos !== '-');
+  const tieneInicioRealPos = inicioPrevioPos || hayPushPos;
+
   if (tieneInicioRealPos) {
+    if (!inicioPrevioPos && hayPushPos) {
+      cambios.fechaInicioPos = casoActual.sla_inicio || casoActual.fechaCreacion || pushPos;
+    }
+
     const etapasEsperaPos = ['sin integración confirmada', 'sin integracion confirmada', 'en proceso de seteo'];
     const esEsperaPos = etapasEsperaPos.some(e => etapaStr.includes(e));
 
@@ -332,31 +340,33 @@ export function aplicarReglaAvanceLineal(nuevaEtapa: any, casoActual: any, nueva
       // Si la etapa avanza a cualquier fase que NO sea "Sin integración confirmada" o "En proceso de seteo":
       // El sistema deduce que ya consiguieron el dato y cambia la Respuesta automáticamente a "Si"
       cambios.respuestaPos = 'Si';
-    } else if (esEsperaPos) {
-      // Si se mantiene en espera y se coloca una Fecha de Push: deduce que se pidió dato pero no lo dan -> "No"
-      // Si NO hay fecha de push registrada, NO se deduce "No" (permanece vacía)
-      const pushPos = nuevaFechaPushPos !== undefined ? nuevaFechaPushPos : casoActual.fechaPushPos;
-      if (pushPos && pushPos.trim() !== '' && pushPos !== 'S/V' && pushPos !== '-') {
-        cambios.respuestaPos = 'No';
-      }
+    } else if (esEsperaPos && hayPushPos) {
+      // Si la etapa se mantiene en espera ("Sin integración confirmada" o "En proceso de seteo") y se coloca una Fecha de Push:
+      // El sistema deduce que se pidió el dato pero aún no lo dan, y cambia la Respuesta a "No"
+      cambios.respuestaPos = 'No';
     }
   }
 
   // --- Catálogo ---
-  const tieneInicioRealCat = casoActual.fechaInicioCat && casoActual.fechaInicioCat.trim() !== '' && casoActual.fechaInicioCat !== 'S/V' && casoActual.fechaInicioCat !== '-';
+  const pushCat = nuevaFechaPushCat !== undefined ? nuevaFechaPushCat : casoActual.fechaPushCat;
+  const hayPushCat = Boolean(pushCat && pushCat.trim() !== '' && pushCat !== 'S/V' && pushCat !== '-');
+  const inicioPrevioCat = Boolean(casoActual.fechaInicioCat && casoActual.fechaInicioCat.trim() !== '' && casoActual.fechaInicioCat !== 'S/V' && casoActual.fechaInicioCat !== '-');
+  const tieneInicioRealCat = inicioPrevioCat || hayPushCat;
+
   if (tieneInicioRealCat) {
+    if (!inicioPrevioCat && hayPushCat) {
+      cambios.fechaInicioCat = casoActual.sla_inicio || casoActual.fechaCreacion || pushCat;
+    }
+
     const esFinalCat = esEtapaSinSeguimiento(etapaStr) || ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaStr.includes(e));
+    const esEsperaCat = etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo') || etapaStr.includes('carga de catálogo') || etapaStr.includes('carga de catalogo');
 
     if (esFinalCat) {
       // Si la etapa avanza a fases finales: cambia automáticamente a "Si"
       cambios.respuestaCat = 'Si';
-    } else if (etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo') || etapaStr.includes('carga de catálogo') || etapaStr.includes('carga de catalogo')) {
+    } else if (esEsperaCat && hayPushCat) {
       // Si se mantiene en espera y se coloca una Fecha de Push: cambia Respuesta a "No"
-      // Si NO hay fecha de push registrada, NO se deduce "No" (permanece vacía)
-      const pushCat = nuevaFechaPushCat !== undefined ? nuevaFechaPushCat : casoActual.fechaPushCat;
-      if (pushCat && pushCat.trim() !== '' && pushCat !== 'S/V' && pushCat !== '-') {
-        cambios.respuestaCat = 'No';
-      }
+      cambios.respuestaCat = 'No';
     }
   }
 
@@ -382,10 +392,10 @@ export function aplicarReglaRespuestaDirecta(tipo: string, respuesta: any, casoA
     cambios[pushKamKey] = true;
     // Si no había Fecha de Push, se le coloca "S/V"
     const fechaActualPush = casoActual[fechaPushKey];
-    if (!fechaActualPush || fechaActualPush.trim() === '') {
+    if (!fechaActualPush || fechaActualPush.trim() === '' || fechaActualPush === '-') {
       cambios[fechaPushKey] = 'S/V';
     }
-    // Se estampa la fecha exacta en la columna oculta de Freeze (Ancla) -> formato fecha estándar para Sheets
+    // Se estampa la fecha exacta en la columna oculta de Freeze (Ancla) -> formato dd/mm/aaaa hh:mm
     const freezeVal = casoActual[freezeKey] || casoActual[fechaFreezeKey] || formatearFechaHora(new Date());
     cambios[freezeKey] = freezeVal;
     cambios[fechaFreezeKey] = freezeVal;
@@ -405,7 +415,7 @@ export function aplicarReglaRespuestaDirecta(tipo: string, respuesta: any, casoA
     cambios[pushKamKey] = true;
     // Si no había Fecha de Push, se rellena con "S/V"
     const fechaActualPush = casoActual[fechaPushKey];
-    if (!fechaActualPush || fechaActualPush.trim() === '') {
+    if (!fechaActualPush || fechaActualPush.trim() === '' || fechaActualPush === '-') {
       cambios[fechaPushKey] = 'S/V';
     }
     // Se borra la fecha oculta de Freeze -> SLA no se congela (no aplica)
@@ -498,15 +508,14 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   // 1. Regla de Cierre de OP
   resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre);
 
-  // 2. Regla de Salto de Etapa y Etapas sin seguimiento (S/V automático)
-  const etapaActualLower = String(resultado.etapa || '').toLowerCase();
-  const esEtapaSinSeg = esEtapaSinSeguimiento(etapaActualLower) || ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaActualLower.includes(e));
-  if (esEtapaSinSeg || (nuevosValores.etapa && nuevosValores.etapa !== casoAnterior.etapa)) {
-    const cambiosSalto = aplicarReglaSaltoEtapa(resultado.etapa, resultado);
-    resultado = { ...resultado, ...cambiosSalto };
-  }
+  // Reglas estrictas de fechas base por etapa de Onboarding
+  resultado = aplicarFechasPorEtapaOnboarding(resultado);
 
-  // 3. Regla de Avance Lineal
+  // 2. Regla de Salto de Etapa y Etapas sin seguimiento (S/V automático)
+  const cambiosSalto = aplicarReglaSaltoEtapa(resultado.etapa, resultado);
+  resultado = { ...resultado, ...cambiosSalto };
+
+  // 3. Regla de Avance Lineal (Autollenado de Respuestas)
   const cambiosAvance = aplicarReglaAvanceLineal(
     resultado.etapa, 
     resultado, 
@@ -515,33 +524,34 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   );
   resultado = { ...resultado, ...cambiosAvance };
 
-  // 4. Reglas Directas sobre Respuestas (POS y Catálogo) solo si la respuesta cambió o fue generada por avance lineal
-  const respPosCambio = nuevosValores.respuestaPos !== undefined && normalizarRespuesta(nuevosValores.respuestaPos) !== normalizarRespuesta(casoAnterior?.respuestaPos);
-  const respPosGenerada = cambiosAvance.respuestaPos && normalizarRespuesta(cambiosAvance.respuestaPos) !== normalizarRespuesta(casoAnterior?.respuestaPos);
-  if ((respPosCambio || respPosGenerada) && resultado.respuestaPos) {
+  // 4. Reglas Directas sobre Respuestas (POS y Catálogo)
+  // Se detona si la respuesta fue enviada explícitamente, o fue generada por avance lineal, o si se colocó fecha de push
+  const respPosCambio = nuevosValores.respuestaPos !== undefined;
+  const respPosGenerada = cambiosAvance.respuestaPos !== undefined;
+  const pushPosColocado = nuevosValores.fechaPushPos !== undefined;
+
+  if (resultado.respuestaPos && (respPosCambio || respPosGenerada || pushPosColocado)) {
     resultado.respuestaPos = normalizarRespuesta(resultado.respuestaPos);
     const cambiosRespPos = aplicarReglaRespuestaDirecta('pos', resultado.respuestaPos, resultado);
     resultado = { ...resultado, ...cambiosRespPos };
+  } else if (nuevosValores.pushKamPos !== undefined && esPushKamRealizado(nuevosValores.pushKamPos) !== esPushKamRealizado(casoAnterior?.pushKamPos)) {
+    resultado.pushKamPos = esPushKamRealizado(nuevosValores.pushKamPos);
   } else if (resultado.respuestaPos) {
     resultado.respuestaPos = normalizarRespuesta(resultado.respuestaPos);
   }
 
-  const respCatCambio = nuevosValores.respuestaCat !== undefined && normalizarRespuesta(nuevosValores.respuestaCat) !== normalizarRespuesta(casoAnterior?.respuestaCat);
-  const respCatGenerada = cambiosAvance.respuestaCat && normalizarRespuesta(cambiosAvance.respuestaCat) !== normalizarRespuesta(casoAnterior?.respuestaCat);
-  if ((respCatCambio || respCatGenerada) && resultado.respuestaCat) {
+  const respCatCambio = nuevosValores.respuestaCat !== undefined;
+  const respCatGenerada = cambiosAvance.respuestaCat !== undefined;
+  const pushCatColocado = nuevosValores.fechaPushCat !== undefined;
+
+  if (resultado.respuestaCat && (respCatCambio || respCatGenerada || pushCatColocado)) {
     resultado.respuestaCat = normalizarRespuesta(resultado.respuestaCat);
     const cambiosRespCat = aplicarReglaRespuestaDirecta('cat', resultado.respuestaCat, resultado);
     resultado = { ...resultado, ...cambiosRespCat };
+  } else if (nuevosValores.pushKamCat !== undefined && esPushKamRealizado(nuevosValores.pushKamCat) !== esPushKamRealizado(casoAnterior?.pushKamCat)) {
+    resultado.pushKamCat = esPushKamRealizado(nuevosValores.pushKamCat);
   } else if (resultado.respuestaCat) {
     resultado.respuestaCat = normalizarRespuesta(resultado.respuestaCat);
-  }
-
-  // Preservar SIEMPRE la selección explícita del usuario en Push KAM
-  if (nuevosValores.pushKamPos !== undefined) {
-    resultado.pushKamPos = esPushKamRealizado(nuevosValores.pushKamPos);
-  }
-  if (nuevosValores.pushKamCat !== undefined) {
-    resultado.pushKamCat = esPushKamRealizado(nuevosValores.pushKamCat);
   }
 
   // Asignar automáticamente sponsorship según la integración
@@ -550,9 +560,6 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
     resultado.sponsorship = spon;
     resultado.descuentosBajoEstructuraSponsorship = spon;
   }
-
-  // Reglas estrictas de fechas por etapa de Onboarding
-  resultado = aplicarFechasPorEtapaOnboarding(resultado);
 
   // Cálculo de indicador activo según Estado Oficial
   resultado.esActivo = esEstadoActivoOficial(resultado.estado);

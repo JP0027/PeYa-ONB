@@ -895,12 +895,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       });
       casoFinal.esNuevo = false;
       
-      if (casoActualizado.pushKamPos !== undefined) {
-        casoFinal.pushKamPos = Boolean(casoActualizado.pushKamPos);
-      }
-      if (casoActualizado.pushKamCat !== undefined) {
-        casoFinal.pushKamCat = Boolean(casoActualizado.pushKamCat);
-      }
       if (filaNum) {
         casoFinal.filaNumero = filaNum;
       }
@@ -966,28 +960,31 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const fechaSheet = formatearFechaHora(new Date());
       const idBuscado = String(caso.casoOp || caso.id).trim();
 
-      const cambios: Record<string, any> = {};
+      const cambiosRaw: Record<string, any> = {};
       if (tipo === 'pos') {
-        cambios.fechaPushPos = fechaSheet;
+        cambiosRaw.fechaPushPos = fechaSheet;
       } else if (tipo === 'cat') {
-        cambios.fechaPushCat = fechaSheet;
+        cambiosRaw.fechaPushCat = fechaSheet;
       } else if (tipo === 'kam_pos') {
-        cambios.pushKamPos = 'TRUE';
+        cambiosRaw.pushKamPos = true;
       } else if (tipo === 'kam_cat') {
-        cambios.pushKamCat = 'TRUE';
+        cambiosRaw.pushKamCat = true;
       }
 
-      const casoActualizado = {
-        ...caso,
-        ...cambios
-      };
+      // Procesar todas las 4 casuísticas del flujo de Onboarding
+      const casoActualizado = procesarActualizacionCaso(caso, cambiosRaw);
+      casoActualizado.esNuevo = false;
+      if (caso.filaNumero) casoActualizado.filaNumero = caso.filaNumero;
+      if (caso.id) casoActualizado.id = caso.id;
 
       // 1. Actualización inmediata local
-      setCasosSheets(prev => prev.map(c => 
-        (String(c.id).trim() === idBuscado || String(c.casoOp).trim() === idBuscado || (caso.casoOp && String(c.casoOp).trim() === String(caso.casoOp).trim()))
-          ? { ...c, ...cambios }
-          : c
-      ));
+      const coincideCaso = (c: any) => 
+        (String(c.id).trim() === idBuscado || 
+         String(c.casoOp || '').trim() === idBuscado || 
+         (caso.casoOp && String(c.casoOp).trim() === String(caso.casoOp).trim()) ||
+         (caso.filaNumero && Number(c.filaNumero) === Number(caso.filaNumero)));
+
+      setCasosSheets(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoActualizado } : c));
 
       // 2. Sincronizar directamente con Backend y Google Sheets
       try {
@@ -999,7 +996,15 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             casoOp: caso.casoOp, 
             filaNumero: caso.filaNumero, 
             fecha: fechaSheet, 
-            tipo 
+            tipo,
+            respuestaPos: casoActualizado.respuestaPos,
+            pushKamPos: casoActualizado.pushKamPos,
+            fechaInicioPos: casoActualizado.fechaInicioPos,
+            freezePos: casoActualizado.freezePos || '',
+            respuestaCat: casoActualizado.respuestaCat,
+            pushKamCat: casoActualizado.pushKamCat,
+            fechaInicioCat: casoActualizado.fechaInicioCat,
+            freezeCat: casoActualizado.freezeCat || ''
           })
         });
 

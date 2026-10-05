@@ -206,20 +206,22 @@ export default function ModalDetalleCaso({
       if (form.id || caso?.id) {
         casoFinal.id = form.id || caso?.id;
       }
-      if (form.freezePos || form.fechaFreezePos) {
-        casoFinal.fechaFreezePos = form.fechaFreezePos || form.freezePos;
+      if (normalizarRespuesta(casoFinal.respuestaPos) === 'Si') {
+        casoFinal.fechaFreezePos = casoFinal.fechaFreezePos || casoFinal.freezePos || form.fechaFreezePos || form.freezePos || formatearFechaHora(new Date());
         casoFinal.freezePos = casoFinal.fechaFreezePos;
+      } else {
+        casoFinal.fechaFreezePos = '';
+        casoFinal.freezePos = '';
       }
-      if (form.freezeCat || form.fechaFreezeCat) {
-        casoFinal.fechaFreezeCat = form.fechaFreezeCat || form.freezeCat;
+
+      if (normalizarRespuesta(casoFinal.respuestaCat) === 'Si') {
+        casoFinal.fechaFreezeCat = casoFinal.fechaFreezeCat || casoFinal.freezeCat || form.fechaFreezeCat || form.freezeCat || formatearFechaHora(new Date());
         casoFinal.freezeCat = casoFinal.fechaFreezeCat;
+      } else {
+        casoFinal.fechaFreezeCat = '';
+        casoFinal.freezeCat = '';
       }
-      if (form.pushKamPos !== undefined) {
-        casoFinal.pushKamPos = Boolean(form.pushKamPos);
-      }
-      if (form.pushKamCat !== undefined) {
-        casoFinal.pushKamCat = Boolean(form.pushKamCat);
-      }
+
       await alActualizar(casoFinal);
       setCambioDetectado(false);
       setMensajeGuardado('¡Caso actualizado correctamente!');

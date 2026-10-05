@@ -36,7 +36,21 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { casoId, casoOp, filaNumero, fecha, tipo } = req.body || {};
+    const { 
+      casoId, 
+      casoOp, 
+      filaNumero, 
+      fecha, 
+      tipo,
+      respuestaPos,
+      pushKamPos,
+      fechaInicioPos,
+      freezePos,
+      respuestaCat,
+      pushKamCat,
+      fechaInicioCat,
+      freezeCat
+    } = req.body || {};
     const idBusqueda = String(casoOp || casoId || '').trim();
 
     if (!idBusqueda) {
@@ -45,31 +59,11 @@ export default async function handler(req: any, res: any) {
 
     const token = await getToken();
 
-    // 1. Determinar columna y valor exacto
-    let colLetra = '';
-    let nuevoValor = '';
-    if (tipo === 'pos') {
-      colLetra = 'U';
-      nuevoValor = String(fecha || '').trim();
-    } else if (tipo === 'cat') {
-      colLetra = 'Y';
-      nuevoValor = String(fecha || '').trim();
-    } else if (tipo === 'kam_pos') {
-      colLetra = 'W';
-      nuevoValor = 'TRUE';
-    } else if (tipo === 'kam_cat') {
-      colLetra = 'AA';
-      nuevoValor = 'TRUE';
-    }
-
-    if (!colLetra) {
-      return res.status(400).json({ success: false, error: `Tipo de push desconocido: ${tipo}` });
-    }
-
-    // 2. Buscar fila exacta de abajo hacia arriba por casoOp en Google Sheets
+    // 1. Consultar hoja completa A2:AO para detectar la fila y los valores actuales
     let filaTarget = (typeof filaNumero === 'number' && filaNumero >= 2) ? filaNumero : 0;
+    let targetRowData: any[] = [];
 
-    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
+    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AO?valueRenderOption=FORMATTED_VALUE`;
     const resCols = await fetch(urlCols, {
       headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
     });
@@ -78,16 +72,30 @@ export default async function handler(req: any, res: any) {
       const dataCols = await resCols.json();
       const rows = dataCols.values || [];
 
-      // Buscar de abajo hacia arriba tomando el último registrado
-      for (let i = rows.length - 1; i >= 0; i--) {
-        const op = String(rows[i]?.[0] || '').trim();
-        const ven = String(rows[i]?.[1] || '').trim();
-        if (
-          (op && op !== 'Sin caso OP' && op !== '-' && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
-          (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
-        ) {
-          filaTarget = i + 2;
-          break;
+      if (filaTarget >= 2 && (filaTarget - 2) < rows.length) {
+        const r = rows[filaTarget - 2] || [];
+        const op = String(r[0] || '').trim();
+        const ven = String(r[1] || '').trim();
+        if (op === idBusqueda || ven === idBusqueda || idBusqueda.startsWith(op + '_') || idBusqueda.startsWith(ven + '_')) {
+          targetRowData = r;
+        } else {
+          filaTarget = 0;
+        }
+      }
+
+      if (!filaTarget) {
+        // Buscar de abajo hacia arriba tomando el último registrado
+        for (let i = rows.length - 1; i >= 0; i--) {
+          const op = String(rows[i]?.[0] || '').trim();
+          const ven = String(rows[i]?.[1] || '').trim();
+          if (
+            (op && op !== 'Sin caso OP' && op !== '-' && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
+            (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
+          ) {
+            filaTarget = i + 2;
+            targetRowData = rows[i] || [];
+            break;
+          }
         }
       }
     }
@@ -96,19 +104,115 @@ export default async function handler(req: any, res: any) {
       return res.status(404).json({ success: false, error: `Caso OP ${idBusqueda} no encontrado en Google Sheets.` });
     }
 
-    // 3. Actualizar ÚNICAMENTE la celda requerida (sin insertar ni sobreescribir otras filas)
-    const celda = `'Onboarding_New'!${colLetra}${filaTarget}`;
-    const urlPut = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(celda)}?valueInputOption=USER_ENTERED`;
-    
-    const apiRes = await fetch(urlPut, {
-      method: 'PUT',
+    // 2. Preparar actualizaciones según las 4 reglas oficiales
+    const dataUpdates: any[] = [];
+    const fechaHoraPush = String(fecha || '').trim();
+
+    if (tipo === 'pos') {
+      // Index 15 = Etapa (Col P)
+      const etapaLower = String(targetRowData[15] || '').toLowerCase().trim();
+      const esEsperaPos = etapaLower.includes('sin integración confirmada') || etapaLower.includes('sin integracion confirmada') || etapaLower.includes('en proceso de seteo');
+      
+      // Regla 3: Si está en espera y se coloca push -> respuesta = "No"
+      let respPosFinal = respuestaPos ? String(respuestaPos).trim() : (esEsperaPos ? 'No' : 'Si');
+      if (respPosFinal.toLowerCase() === 'si' || respPosFinal.toLowerCase() === 'sí') respPosFinal = 'Si';
+      else if (respPosFinal.toUpperCase() === 'S/V') respPosFinal = 'S/V';
+      else respPosFinal = 'No';
+
+      // Regla 4: Si respuesta es "No" -> pushKam = FALSE, freeze = ''
+      //          Si respuesta es "Si" -> pushKam = TRUE, freeze = ancla
+      //          Si respuesta es "S/V" -> pushKam = TRUE, freeze = ''
+      let pushKamPosStr = 'FALSE';
+      let freezePosFinal = '';
+      if (respPosFinal === 'Si') {
+        pushKamPosStr = 'TRUE';
+        freezePosFinal = freezePos || fechaHoraPush;
+      } else if (respPosFinal === 'S/V') {
+        pushKamPosStr = 'TRUE';
+        freezePosFinal = '';
+      } else {
+        pushKamPosStr = 'FALSE';
+        freezePosFinal = '';
+      }
+
+      // Fecha de inicio: Col T (Index 19). Si no tenía, se inicializa
+      const inicioActual = String(targetRowData[19] || '').trim();
+      const tieneInicio = inicioActual && inicioActual !== '-' && inicioActual !== 'S/V';
+      const fInicioFinal = tieneInicio ? inicioActual : (fechaInicioPos || targetRowData[17] || targetRowData[16] || fechaHoraPush);
+
+      dataUpdates.push({
+        range: `'Onboarding_New'!T${filaTarget}:W${filaTarget}`,
+        values: [[fInicioFinal, fechaHoraPush, respPosFinal, pushKamPosStr]]
+      });
+
+      dataUpdates.push({
+        range: `'Onboarding_New'!AN${filaTarget}`,
+        values: [[freezePosFinal]]
+      });
+
+    } else if (tipo === 'cat') {
+      const etapaLower = String(targetRowData[15] || '').toLowerCase().trim();
+      const esEsperaCat = etapaLower.includes('verificación de catálogo') || etapaLower.includes('verificacion de catalogo') || etapaLower.includes('carga de catálogo') || etapaLower.includes('carga de catalogo');
+
+      // Regla 3: Si se mantiene en espera de catálogo y se coloca push -> respuesta = "No"
+      let respCatFinal = respuestaCat ? String(respuestaCat).trim() : (esEsperaCat ? 'No' : 'Si');
+      if (respCatFinal.toLowerCase() === 'si' || respCatFinal.toLowerCase() === 'sí') respCatFinal = 'Si';
+      else if (respCatFinal.toUpperCase() === 'S/V') respCatFinal = 'S/V';
+      else respCatFinal = 'No';
+
+      let pushKamCatStr = 'FALSE';
+      let freezeCatFinal = '';
+      if (respCatFinal === 'Si') {
+        pushKamCatStr = 'TRUE';
+        freezeCatFinal = freezeCat || fechaHoraPush;
+      } else if (respCatFinal === 'S/V') {
+        pushKamCatStr = 'TRUE';
+        freezeCatFinal = '';
+      } else {
+        pushKamCatStr = 'FALSE';
+        freezeCatFinal = '';
+      }
+
+      // Fecha de inicio: Col X (Index 23). Si no tenía, se inicializa
+      const inicioActualCat = String(targetRowData[23] || '').trim();
+      const tieneInicioCat = inicioActualCat && inicioActualCat !== '-' && inicioActualCat !== 'S/V';
+      const fInicioCatFinal = tieneInicioCat ? inicioActualCat : (fechaInicioCat || targetRowData[17] || targetRowData[16] || fechaHoraPush);
+
+      dataUpdates.push({
+        range: `'Onboarding_New'!X${filaTarget}:AA${filaTarget}`,
+        values: [[fInicioCatFinal, fechaHoraPush, respCatFinal, pushKamCatStr]]
+      });
+
+      dataUpdates.push({
+        range: `'Onboarding_New'!AO${filaTarget}`,
+        values: [[freezeCatFinal]]
+      });
+
+    } else if (tipo === 'kam_pos') {
+      dataUpdates.push({
+        range: `'Onboarding_New'!W${filaTarget}`,
+        values: [['TRUE']]
+      });
+    } else if (tipo === 'kam_cat') {
+      dataUpdates.push({
+        range: `'Onboarding_New'!AA${filaTarget}`,
+        values: [['TRUE']]
+      });
+    } else {
+      return res.status(400).json({ success: false, error: `Tipo de push desconocido: ${tipo}` });
+    }
+
+    // 3. Ejecutar batchUpdate atómico
+    const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+    const apiRes = await fetch(urlBatch, {
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        range: celda,
-        values: [[nuevoValor]]
+        valueInputOption: 'USER_ENTERED',
+        data: dataUpdates
       })
     });
 
@@ -120,10 +224,10 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({
       success: true,
       filaNumero: filaTarget,
-      celda,
       tipo,
-      valor: nuevoValor,
-      message: `Push ${tipo} registrado en celda ${celda} de Google Sheets.`
+      fecha: fechaHoraPush,
+      updates: dataUpdates,
+      message: `Push ${tipo} y reglas automáticas registradas exitosamente en fila #${filaTarget}.`
     });
   } catch (err: any) {
     console.error('[API registrar-push] Error:', err);

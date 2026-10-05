@@ -91,8 +91,8 @@ function mapearCasoAColumnasSheet(c: any): any[] {
   const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' || String(c.pushKamCat).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' || String(c.pushKamCat).toUpperCase() === 'FALSO' ? 'FALSE' : '');
   const sponsorship = c.sponsorship || c.descuentosBajoEstructuraSponsorship || 'NO';
 
-  const fechaCreacionStr = formatearFechaHoraSheet(c.fechaCreacion || new Date());
-  const slaInicioStr = formatearFechaHoraSheet(c.sla_inicio || c.fechaInicioSeguimientoOP || c.fechaCreacion || new Date());
+  const fechaCreacionStr = c.fechaCreacion ? formatearFechaHoraSheet(c.fechaCreacion) : '';
+  const slaInicioStr = c.sla_inicio || c.fechaInicioSeguimientoOP ? formatearFechaHoraSheet(c.sla_inicio || c.fechaInicioSeguimientoOP) : (fechaCreacionStr || '');
   const fechaCierreStr = c.fechaCierre && c.fechaCierre !== '-' ? formatearFechaHoraSheet(c.fechaCierre) : (c.fechaCierre || '');
   const fechaInicioPosStr = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' ? formatearFechaHoraSheet(c.fechaInicioPos) : (c.fechaInicioPos || '');
   const fechaPushPosStr = c.fechaPushPos && c.fechaPushPos !== 'S/V' ? formatearFechaHoraSheet(c.fechaPushPos) : (c.fechaPushPos || '');
@@ -237,12 +237,11 @@ export default async function handler(req: any, res: any) {
         }
       ];
 
-      if (valFreezePos || valFreezeCat) {
-        dataUpdates.push({
-          range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
-          values: [[valFreezePos, valFreezeCat]]
-        });
-      }
+      // SIEMPRE sincronizar AN:AO para que al cambiar respuesta a No o S/V, se borre el freeze en Google Sheets
+      dataUpdates.push({
+        range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
+        values: [[valFreezePos, valFreezeCat]]
+      });
 
       const apiRes = await fetch(urlBatch, {
         method: 'POST',
