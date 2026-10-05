@@ -623,7 +623,7 @@ export function analizarAlertasCaso(caso: any): any {
   if (esActivo && tieneTrackPos && !respPosOk && !esSvPos) {
     if (!tienePushPos) {
       requierePushPos = true;
-      motivoPushPos = 'Falta realizar Push POS API';
+      motivoPushPos = 'No realizo push';
     } else {
       motivoPushPos = `Push POS registrado: ${caso.fechaPushPos}`;
     }
@@ -646,7 +646,7 @@ export function analizarAlertasCaso(caso: any): any {
   if (esActivo && tieneTrackCat && !respCatOk && !esSvCat) {
     if (!tienePushCat) {
       requierePushCat = true;
-      motivoPushCat = 'Falta realizar Push Catálogo';
+      motivoPushCat = 'No realizo push';
     } else {
       motivoPushCat = `Push Catálogo registrado: ${caso.fechaPushCat}`;
     }

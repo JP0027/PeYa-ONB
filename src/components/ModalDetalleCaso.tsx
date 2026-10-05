@@ -595,7 +595,7 @@ export default function ModalDetalleCaso({
                   </div>
                   {alertas.requierePushPos && (
                     <span className="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px]">
-                      ⚠️ Push Requerido
+                      ⚠️ No realizo push
                     </span>
                   )}
                 </div>
@@ -687,7 +687,7 @@ export default function ModalDetalleCaso({
                   </div>
                   {alertas.requierePushCat && (
                     <span className="bg-pink-950 text-pink-400 border border-pink-800 px-2 py-0.5 rounded text-[10px]">
-                      📦 Push Requerido
+                      📦 No realizo push
                     </span>
                   )}
                 </div>

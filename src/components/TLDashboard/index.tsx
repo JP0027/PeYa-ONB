@@ -67,12 +67,16 @@ export default function TLDashboard({
       const tieneInicioPos = Boolean(c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-');
       const tienePushPos = Boolean(c.fechaPushPos && c.fechaPushPos !== 'S/V' && c.fechaPushPos !== '-');
       const respNoPos = normalizarRespuesta(c.respuestaPos) === 'No';
+      const respPosOk = respNoPos ? false : (normalizarRespuesta(c.respuestaPos) === 'Si' || normalizarRespuesta(c.respuestaPos) === 'S/V');
+      const noRealizoPushPos = esActivo && tieneInicioPos && !tienePushPos && !respPosOk;
       const kamPosHecho = tieneInicioPos && tienePushPos && esPushKamRealizado(c.pushKamPos);
       const faltaKamPos = esActivo && tieneInicioPos && tienePushPos && respNoPos && !esPushKamRealizado(c.pushKamPos);
 
       const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
       const tienePushCat = Boolean(c.fechaPushCat && c.fechaPushCat !== 'S/V' && c.fechaPushCat !== '-');
       const respNoCat = normalizarRespuesta(c.respuestaCat) === 'No';
+      const respCatOk = respNoCat ? false : (normalizarRespuesta(c.respuestaCat) === 'Si' || normalizarRespuesta(c.respuestaCat) === 'S/V');
+      const noRealizoPushCat = esActivo && tieneInicioCat && !tienePushCat && !respCatOk;
       const kamCatHecho = tieneInicioCat && tienePushCat && esPushKamRealizado(c.pushKamCat);
       const faltaKamCat = esActivo && tieneInicioCat && tienePushCat && respNoCat && !esPushKamRealizado(c.pushKamCat);
 
@@ -100,6 +104,12 @@ export default function TLDashboard({
         agenteACargo: normalizedAgent,
         colorClass: alertas.colorClass || 'bg-gray-800',
         esActivo,
+        tieneInicioPos,
+        tieneInicioCat,
+        tienePushPos,
+        tienePushCat,
+        noRealizoPushPos,
+        noRealizoPushCat,
         tieneSeguimientoAplicable,
         faltaKamPos,
         faltaKamCat,
@@ -186,8 +196,9 @@ export default function TLDashboard({
     const idLocal = c.vendorId || c.vendor_id || 'N/A';
     const pais = c.pais || 'Sin país';
     const numCasoOnb = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : 'Sin caso OP';
+    const numCasoSeguimiento = (c.casoSeguimiento && c.casoSeguimiento !== '-' && String(c.casoSeguimiento).trim() !== '') ? c.casoSeguimiento : 'Sin caso de seguimiento';
 
-    const texto = `Nombre de local: ${nombreLocal}\nId de local: ${idLocal}\nPais: ${pais}\nNumero de caso onb: ${numCasoOnb}`;
+    const texto = `Nombre de local: ${nombreLocal}\nId de local: ${idLocal}\nPais: ${pais}\nNumero de caso onb: ${numCasoOnb}\nN° de caso de seguimiento: ${numCasoSeguimiento}`;
     navigator.clipboard.writeText(texto);
     
     setCopiadoId(c.id || c.casoOp);
@@ -388,7 +399,7 @@ export default function TLDashboard({
                     <th className="py-2.5 px-3">Agente</th>
                     <th className="py-2.5 px-3">Etapa</th>
                     <th className="py-2.5 px-3">SLA (Rango OP)</th>
-                    <th className="py-2.5 px-3">Push KAM</th>
+                    <th className="py-2.5 px-3">Push / Seguimiento</th>
                     <th className="py-2.5 px-3 text-center">Acciones</th>
                   </tr>
                 </thead>
@@ -460,10 +471,24 @@ export default function TLDashboard({
                               <span className="text-[10px] text-gray-500 font-mono" title="Etapa sin seguimiento de Push POS/Catálogo (S/V)">No aplica (S/V)</span>
                             ) : (
                               <>
+                                {/* Alerta agente no realizó push en POS API */}
+                                {c.noRealizoPushPos && (
+                                  <span className="text-[10px] text-rose-300 bg-rose-950/80 border border-rose-800/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1" title="El agente no realizó push de seguimiento POS API">
+                                    <span>⚠️</span> No realizo push {c.tieneInicioCat ? '(POS)' : ''}
+                                  </span>
+                                )}
+
+                                {/* Alerta agente no realizó push en Catálogo */}
+                                {c.noRealizoPushCat && (
+                                  <span className="text-[10px] text-rose-300 bg-rose-950/80 border border-rose-800/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1" title="El agente no realizó push de seguimiento Catálogo">
+                                    <span>📦</span> No realizo push {c.tieneInicioPos ? '(Cat)' : ''}
+                                  </span>
+                                )}
+
                                 {/* Push KAM Estado */}
                                 {c.faltaKamPos ? (
                                   <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1" title="Requiere Push KAM POS (>24h y respuesta NO)">
-                                    <span>⚠️</span> Falta KAM POS
+                                    <span>⚡</span> Falta KAM POS
                                   </span>
                                 ) : c.kamPosHecho ? (
                                   <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM POS registrado">
@@ -473,7 +498,7 @@ export default function TLDashboard({
 
                                 {c.faltaKamCat ? (
                                   <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700/80 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1" title="Requiere Push KAM Catálogo (>24h y respuesta NO)">
-                                    <span>⚠️</span> Falta KAM Cat
+                                    <span>⚡</span> Falta KAM Cat
                                   </span>
                                 ) : c.kamCatHecho ? (
                                   <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-1.5 py-0.5 rounded font-mono inline-flex items-center gap-1" title="Push KAM Catálogo registrado">
@@ -481,7 +506,7 @@ export default function TLDashboard({
                                   </span>
                                 ) : null}
 
-                                {!c.faltaKamPos && !c.faltaKamCat && (
+                                {!c.noRealizoPushPos && !c.noRealizoPushCat && !c.faltaKamPos && !c.faltaKamCat && (
                                   (c.kamPosHecho || c.kamCatHecho) ? (
                                     <span className="text-[10px] text-emerald-400 font-medium">✅ Al día</span>
                                   ) : (
@@ -555,7 +580,7 @@ export default function TLDashboard({
                                   ? 'bg-emerald-600 text-white border-emerald-500 shadow'
                                   : 'bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border-gray-700'
                               }`}
-                              title="Copiar datos del caso (Nombre local, ID, País, Caso OP)"
+                              title="Copiar datos del caso (Nombre local, ID, País, Caso OP, Caso Seguimiento)"
                             >
                               <span>{copiadoId === (c.id || c.casoOp) ? '✅' : '📋'}</span>
                               <span>{copiadoId === (c.id || c.casoOp) ? '¡Copiado!' : 'Copiar Push'}</span>
