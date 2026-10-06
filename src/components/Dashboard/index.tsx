@@ -108,89 +108,64 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
   const horaTexto = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const resultados: AlertaPush[] = [];
 
-  if (esRolSupervisor) {
-    casosActivos.forEach(c => {
-      const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
-      const tiendaLabel = c.tienda || 'Sin tienda';
+  // Filtrar casos según el rol del usuario (Supervisor ve todos, Agente ve sus casos asignados)
+  const casosAExaminar = esRolSupervisor 
+    ? casosActivos 
+    : casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
 
-      // 1. Falta Push KAM en POS API: Si tiene fecha de inicio, fecha de push, en respuesta dice NO y Push KAM no está hecho
-      const tieneInicioPos = Boolean(c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-');
-      const tienePushPos = Boolean(c.fechaPushPos && c.fechaPushPos !== 'S/V' && c.fechaPushPos !== '-');
-      const respNoPos = normalizarRespuesta(c.respuestaPos) === 'No';
-      const faltaKamPos = tieneInicioPos && tienePushPos && respNoPos && !esPushKamRealizado(c.pushKamPos);
-      const esMasDe24Pos = esCasoMayorA24Horas(c, 'pos');
+  casosAExaminar.forEach(c => {
+    const alertas = analizarAlertasCaso(c);
+    const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
+    const tiendaLabel = c.tienda || 'Sin tienda';
 
-      if (faltaKamPos && esMasDe24Pos) {
-        resultados.push({
-          id: `kam_pos_${c.id || c.casoOp}`,
-          caso: c,
-          tipo: 'kam_pos',
-          titulo: 'Push KAM POS Pendiente',
-          hora: horaTexto,
-          mensaje: `Falta push con KAM (>24 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-        });
-      }
+    // 1. Falta Push KAM POS API (para supervisores o cuando aplique >24h)
+    if (alertas.requierePushKamPos) {
+      resultados.push({
+        id: `kam_pos_${c.id || c.casoOp}`,
+        caso: c,
+        tipo: 'kam_pos',
+        titulo: 'Push KAM POS Pendiente',
+        hora: horaTexto,
+        mensaje: `Falta push con KAM (>24 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+      });
+    }
 
-      // 2. Falta Push KAM en Catálogo: Si tiene fecha de inicio, fecha de push, en respuesta dice NO y Push KAM no está hecho
-      const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
-      const tienePushCat = Boolean(c.fechaPushCat && c.fechaPushCat !== 'S/V' && c.fechaPushCat !== '-');
-      const respNoCat = normalizarRespuesta(c.respuestaCat) === 'No';
-      const faltaKamCat = tieneInicioCat && tienePushCat && respNoCat && !esPushKamRealizado(c.pushKamCat);
-      const esMasDe24Cat = esCasoMayorA24Horas(c, 'cat');
+    // 2. Falta Push KAM Catálogo (>24h)
+    if (alertas.requierePushKamCat) {
+      resultados.push({
+        id: `kam_cat_${c.id || c.casoOp}`,
+        caso: c,
+        tipo: 'kam_cat',
+        titulo: 'Push KAM Catálogo Pendiente',
+        hora: horaTexto,
+        mensaje: `Falta push con KAM (>24 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+      });
+    }
 
-      if (faltaKamCat && esMasDe24Cat) {
-        resultados.push({
-          id: `kam_cat_${c.id || c.casoOp}`,
-          caso: c,
-          tipo: 'kam_cat',
-          titulo: 'Push KAM Catálogo Pendiente',
-          hora: horaTexto,
-          mensaje: `Falta push con KAM (>24 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-        });
-      }
-    });
-  } else {
-    const misCasos = casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
-    misCasos.forEach(c => {
-      const tiempos = analizarTiemposCaso(c);
-      const horasOp = tiempos?.totalHorasOp ?? 0;
-      const horasPos = (tiempos?.totalHorasPos && tiempos.totalHorasPos > 0) ? tiempos.totalHorasPos : horasOp;
-      const horasCat = (tiempos?.totalHorasCat && tiempos.totalHorasCat > 0) ? tiempos.totalHorasCat : horasOp;
+    // 3. Falta Push de Seguimiento POS (≥ 4 hrs)
+    if (alertas.requierePushPos) {
+      resultados.push({
+        id: `push_pos_${c.id || c.casoOp}`,
+        caso: c,
+        tipo: 'push_pos',
+        titulo: 'Push de Seguimiento POS Pendiente',
+        hora: horaTexto,
+        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+      });
+    }
 
-      const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
-      const tiendaLabel = c.tienda || 'Sin tienda';
-
-      // Falta push de seguimiento en POS API (Solo si transcurrieron 4 horas o más)
-      const tieneInicioPos = Boolean(c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-');
-      const faltaPushPos = !c.fechaPushPos || c.fechaPushPos === '' || c.fechaPushPos === '-';
-      const noResueltoPos = c.respuestaPos !== 'Sí' && c.respuestaPos !== 'Si' && c.respuestaPos !== 'S/V';
-      if (tieneInicioPos && faltaPushPos && noResueltoPos && horasPos >= 4) {
-        resultados.push({
-          id: `push_pos_${c.id || c.casoOp}`,
-          caso: c,
-          tipo: 'push_pos',
-          titulo: 'Push de Seguimiento POS Pendiente',
-          hora: horaTexto,
-          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-        });
-      }
-
-      // Falta push de seguimiento en Catálogo (Solo si transcurrieron 4 horas o más)
-      const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
-      const faltaPushCat = !c.fechaPushCat || c.fechaPushCat === '' || c.fechaPushCat === '-';
-      const noResueltoCat = c.respuestaCat !== 'Sí' && c.respuestaCat !== 'Si' && c.respuestaCat !== 'S/V';
-      if (tieneInicioCat && faltaPushCat && noResueltoCat && horasCat >= 4) {
-        resultados.push({
-          id: `push_cat_${c.id || c.casoOp}`,
-          caso: c,
-          tipo: 'push_cat',
-          titulo: 'Push de Seguimiento Catálogo Pendiente',
-          hora: horaTexto,
-          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-        });
-      }
-    });
-  }
+    // 4. Falta Push de Seguimiento Catálogo (≥ 4 hrs)
+    if (alertas.requierePushCat) {
+      resultados.push({
+        id: `push_cat_${c.id || c.casoOp}`,
+        caso: c,
+        tipo: 'push_cat',
+        titulo: 'Push de Seguimiento Catálogo Pendiente',
+        hora: horaTexto,
+        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+      });
+    }
+  });
 
   return resultados;
 }
