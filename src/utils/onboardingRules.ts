@@ -614,15 +614,24 @@ export function analizarAlertasCaso(caso: any): any {
     return false;
   };
 
-  // 2. Alerta Push POS API (EXIGE: Fecha de Inicio real, falta de push y >= 4 horas)
+  // 2. Alerta Push POS API (EXIGE: Fecha de Inicio real o deducida por etapa, falta de push y >= 4 horas)
   const esPushValido = (f: any) => Boolean(f && String(f).trim() !== '' && String(f).trim() !== '-' && String(f).trim().toUpperCase() !== 'NULL');
   const esSV = (f: any) => String(f).trim().toUpperCase() === 'S/V';
 
+  const etapaLower = String(caso.etapa || '').toLowerCase().trim();
+  const esEtapaPos = etapaLower.includes('sin integración') || 
+                     etapaLower.includes('sin integracion') || 
+                     etapaLower.includes('seteo');
+
+  const fInicioPosEfectiva = (caso.fechaInicioPos && caso.fechaInicioPos !== '-' && !esSV(caso.fechaInicioPos))
+    ? caso.fechaInicioPos
+    : (esEtapaPos ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
+
   const tieneInicioPos = Boolean(
-    caso.fechaInicioPos && 
-    String(caso.fechaInicioPos).trim() !== '' && 
-    String(caso.fechaInicioPos).trim() !== '-' && 
-    !esSV(caso.fechaInicioPos)
+    fInicioPosEfectiva && 
+    String(fInicioPosEfectiva).trim() !== '' && 
+    String(fInicioPosEfectiva).trim() !== '-' && 
+    !esSV(fInicioPosEfectiva)
   );
 
   const tienePushPos = esPushValido(caso.fechaPushPos);
@@ -630,7 +639,8 @@ export function analizarAlertasCaso(caso: any): any {
   const esSvPos = esSV(caso.fechaPushPos) || esSV(caso.fechaInicioPos) || respPosNorm === 'S/V';
   const respPosOk = respPosNorm === 'Si' || esSvPos;
 
-  const horasPos = tiempos.totalHorasPos ?? 0;
+  const horasPosCalculadas = fInicioPosEfectiva ? calcularTiempoLaboralLV(fInicioPosEfectiva, null).totalHoras : 0;
+  const horasPos = (tiempos.totalHorasPos && tiempos.totalHorasPos > 0) ? tiempos.totalHorasPos : (horasPosCalculadas > 0 ? horasPosCalculadas : tiempos.totalHorasOp);
   const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, caso.rangoSlaPos);
 
   let requierePushPos = false;
@@ -649,12 +659,21 @@ export function analizarAlertasCaso(caso: any): any {
     }
   }
 
-  // 3. Alerta Push Catálogo (EXIGE: Fecha de Inicio real, falta de push y >= 4 horas)
+  // 3. Alerta Push Catálogo (EXIGE: Fecha de Inicio real o deducida por etapa, falta de push y >= 4 horas)
+  const esEtapaCat = etapaLower.includes('verificación de catálogo') || 
+                     etapaLower.includes('verificacion de catalogo') || 
+                     etapaLower.includes('carga de catálogo') ||
+                     etapaLower.includes('carga de catalogo');
+
+  const fInicioCatEfectiva = (caso.fechaInicioCat && caso.fechaInicioCat !== '-' && !esSV(caso.fechaInicioCat))
+    ? caso.fechaInicioCat
+    : (esEtapaCat ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
+
   const tieneInicioCat = Boolean(
-    caso.fechaInicioCat && 
-    String(caso.fechaInicioCat).trim() !== '' && 
-    String(caso.fechaInicioCat).trim() !== '-' && 
-    !esSV(caso.fechaInicioCat)
+    fInicioCatEfectiva && 
+    String(fInicioCatEfectiva).trim() !== '' && 
+    String(fInicioCatEfectiva).trim() !== '-' && 
+    !esSV(fInicioCatEfectiva)
   );
 
   const tienePushCat = esPushValido(caso.fechaPushCat);
@@ -662,7 +681,8 @@ export function analizarAlertasCaso(caso: any): any {
   const esSvCat = esSV(caso.fechaPushCat) || esSV(caso.fechaInicioCat) || respCatNorm === 'S/V';
   const respCatOk = respCatNorm === 'Si' || esSvCat;
 
-  const horasCat = tiempos.totalHorasCat ?? 0;
+  const horasCatCalculadas = fInicioCatEfectiva ? calcularTiempoLaboralLV(fInicioCatEfectiva, null).totalHoras : 0;
+  const horasCat = (tiempos.totalHorasCat && tiempos.totalHorasCat > 0) ? tiempos.totalHorasCat : (horasCatCalculadas > 0 ? horasCatCalculadas : tiempos.totalHorasOp);
   const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, caso.rangoSlaCat);
 
   let requierePushCat = false;
