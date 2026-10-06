@@ -130,7 +130,7 @@ export function calcularTiempoLaboralLV(fechaInicioRaw: any, fechaFinRaw: any = 
       horas: 0,
       minutos: 0,
       rango: '',
-      colorClass: 'bg-gray-800 text-gray-400 border-gray-700'
+      colorClass: 'bg-[#2C2C32] text-[#B3B3B3] border-[#3A3A3E]'
     };
   }
 
@@ -234,10 +234,10 @@ export function obtenerRangoSLA(totalHoras: number | null | undefined): string {
  */
 export function obtenerColorRangoSLA(totalHoras: number | null | undefined, esActivo: boolean = true): string {
   if (typeof totalHoras !== 'number' || isNaN(totalHoras)) {
-    return 'bg-gray-800 text-gray-400 border-gray-700';
+    return 'bg-[#2C2C32] text-[#B3B3B3] border-[#3A3A3E]';
   }
   if (!esActivo) {
-    return 'bg-gray-800/80 text-gray-300 border-gray-700';
+    return 'bg-[#2C2C32]/80 text-[#D1D5DB] border-[#3A3A3E]';
   }
   if (totalHoras >= 96) {
     return 'bg-rose-950/80 text-rose-300 border-rose-800 font-bold animate-pulse';

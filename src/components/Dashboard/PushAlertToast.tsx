@@ -71,7 +71,7 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
       onClick={() => onClic(alerta)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="bg-[#161925]/95 backdrop-blur-md border border-amber-500/70 hover:border-amber-400 rounded-xl p-3.5 shadow-2xl shadow-black/80 cursor-pointer relative overflow-hidden group select-none shrink-0"
+      className="bg-[#202024]/95 backdrop-blur-md border border-amber-500/70 hover:border-amber-400 rounded-xl p-3.5 shadow-2xl shadow-black/80 cursor-pointer relative overflow-hidden group select-none shrink-0"
       style={{
         minWidth: '320px',
         maxWidth: '380px',
@@ -101,7 +101,7 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
               <span>{alerta.titulo}</span>
             </h4>
           </div>
-          <p className="text-[11px] text-gray-300 mt-1 leading-snug">
+          <p className="text-[11px] text-[#D1D5DB] mt-1 leading-snug">
             <span className="font-mono text-amber-400 font-semibold">{alerta.hora}</span> - {alerta.mensaje}
           </p>
           <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-400/90 font-medium">
@@ -115,7 +115,7 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
             e.stopPropagation();
             onCerrar(alerta.id);
           }}
-          className="text-gray-400 hover:text-white p-1 rounded transition text-xs shrink-0 cursor-pointer"
+          className="text-[#B3B3B3] hover:text-white p-1 rounded transition text-xs shrink-0 cursor-pointer"
           title="Cerrar notificación"
         >
           ✕
@@ -150,7 +150,7 @@ export default function PushAlertContainer({ alertas, onCerrarAlerta, onCerrarTo
       }}
     >
       {alertas.length > 2 && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-[#161925]/95 border border-amber-500/50 rounded-xl text-xs text-amber-300 backdrop-blur-md shadow-lg shrink-0">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-[#202024]/95 border border-amber-500/50 rounded-xl text-xs text-amber-300 backdrop-blur-md shadow-lg shrink-0">
           <div className="flex items-center gap-1.5 font-bold">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
             <span>{alertas.length} alertas push pendientes</span>
@@ -158,7 +158,7 @@ export default function PushAlertContainer({ alertas, onCerrarAlerta, onCerrarTo
           {onCerrarTodas && (
             <button
               onClick={onCerrarTodas}
-              className="text-[11px] text-gray-400 hover:text-white bg-gray-800/80 hover:bg-gray-700 px-2 py-0.5 rounded transition cursor-pointer font-medium"
+              className="text-[11px] text-[#B3B3B3] hover:text-white bg-[#2C2C32]/80 hover:bg-[#3A3A3E] px-2 py-0.5 rounded transition cursor-pointer font-medium"
             >
               Cerrar todas
             </button>

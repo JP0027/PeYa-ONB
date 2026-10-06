@@ -52,14 +52,8 @@ export function obtenerTextoCasoOp(caso: any): string {
  * Normaliza y formatea asegurando SIEMPRE Fecha y Hora en formato oficial: dd/mm/aaaa hh:mm
  */
 export function formatearFechaHora(fecha?: Date | string | number | null): string {
-  if (!fecha) {
-    const d = new Date();
-    const dia = String(d.getDate()).padStart(2, '0');
-    const mes = String(d.getMonth() + 1).padStart(2, '0');
-    const anio = d.getFullYear();
-    const hora = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${dia}/${mes}/${anio} ${hora}:${min}`;
+  if (fecha === '' || fecha === null || fecha === undefined) {
+    return '';
   }
 
   if (typeof fecha === 'string') {
@@ -584,7 +578,7 @@ export function analizarAlertasCaso(caso: any): any {
       horasTranscurridas: 0,
       tiempoTexto: '-',
       rangoSla: '',
-      colorClass: 'bg-gray-800 text-gray-400 border-gray-700',
+      colorClass: 'bg-[#2C2C32] text-[#B3B3B3] border-[#3A3A3E]',
       esVencido: false,
       esCritico: false,
       esProximoVencer: false,

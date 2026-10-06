@@ -21,12 +21,12 @@ export default function FilterControls({
   nombreUsuario
 }: FilterControlsProps) {
   return (
-    <div className="bg-[#161925] border border-gray-800 rounded-xl p-3 flex items-center gap-3">
-      <label className="text-xs font-bold text-gray-400 whitespace-nowrap">👤 Vista de Agente:</label>
+    <div className="bg-[#202024] border border-[#3A3A3E] rounded-xl p-3 flex items-center gap-3">
+      <label className="text-xs font-bold text-[#B3B3B3] whitespace-nowrap">👤 Vista de Agente:</label>
       <select
         value={agenteFiltro}
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onCambiarAgente(e.target.value)}
-        className="bg-[#0f111a] border border-gray-700 rounded-lg p-2 text-xs text-white focus:border-pink-500 min-w-[200px]"
+        className="bg-[#121212] border border-[#3A3A3E] rounded-lg p-2 text-xs text-white focus:border-[#E85A80] min-w-[200px]"
       >
         <option value="auto">Automático ({nombreUsuario || 'Mi Cuenta'})</option>
         <option value="todos">Todos los casos (Equipo)</option>

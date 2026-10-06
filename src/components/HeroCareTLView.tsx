@@ -150,7 +150,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
   return (
     <div className="space-y-6">
       {/* HEADER HERO CARE TL */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#3A3A3E] pb-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-xl shadow-lg shadow-orange-950/40">
             📦
@@ -162,18 +162,18 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                 Supervisión & Escalamiento
               </span>
             </h1>
-            <p className="text-xs text-gray-400">Control operativo de SLAs, push de catálogos y escalamiento en tiempo real</p>
+            <p className="text-xs text-[#B3B3B3]">Control operativo de SLAs, push de catálogos y escalamiento en tiempo real</p>
           </div>
         </div>
 
         {/* SUB-TABS: Dashboard Global | Rendimiento Agentes */}
-        <div className="flex items-center gap-2 bg-[#121420] p-1 rounded-xl border border-gray-800">
+        <div className="flex items-center gap-2 bg-[#121420] p-1 rounded-xl border border-[#3A3A3E]">
           <button
             onClick={() => setSubTab('global')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
               subTab === 'global'
                 ? 'bg-[#00e5ff] text-black shadow-md shadow-cyan-500/20'
-                : 'text-gray-400 hover:text-white'
+                : 'text-[#B3B3B3] hover:text-white'
             }`}
           >
             <span>📊</span> Dashboard Global
@@ -183,7 +183,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
             className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
               subTab === 'rendimiento'
                 ? 'bg-[#00e5ff] text-black shadow-md shadow-cyan-500/20'
-                : 'text-gray-400 hover:text-white'
+                : 'text-[#B3B3B3] hover:text-white'
             }`}
           >
             <span>👥</span> Rendimiento Agentes
@@ -194,14 +194,14 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
       {/* TOP KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Card 1: Total Casos Activos */}
-        <div className="bg-[#151824] border border-[#262a3b] rounded-2xl p-5 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
+        <div className="bg-[#1A1A1C] border border-[#262a3b] rounded-2xl p-5 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-gray-700 to-gray-500" />
-          <span className="text-xs text-gray-400 font-medium mb-1">Total Casos Activos (Equipo)</span>
+          <span className="text-xs text-[#B3B3B3] font-medium mb-1">Total Casos Activos (Equipo)</span>
           <span className="text-4xl sm:text-5xl font-black text-white">{totalActivos}</span>
         </div>
 
         {/* Card 2: Riesgo Crítico (≥ 96h) */}
-        <div className="bg-[#151824] border-2 border-red-500/80 rounded-2xl p-5 flex flex-col items-center justify-center text-center shadow-lg shadow-red-950/30 relative overflow-hidden">
+        <div className="bg-[#1A1A1C] border-2 border-red-500/80 rounded-2xl p-5 flex flex-col items-center justify-center text-center shadow-lg shadow-red-950/30 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-red-500" />
           <span className="text-xs text-red-400 font-bold mb-1 flex items-center gap-1">
             <span>⚠️</span> Riesgo Crítico (≥ 96h)
@@ -210,7 +210,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
         </div>
 
         {/* Card 3: Atención Requerida (≥ 4h) */}
-        <div className="bg-[#151824] border-2 border-amber-500/80 rounded-2xl p-5 flex flex-col items-center justify-center text-center shadow-lg shadow-amber-950/30 relative overflow-hidden">
+        <div className="bg-[#1A1A1C] border-2 border-amber-500/80 rounded-2xl p-5 flex flex-col items-center justify-center text-center shadow-lg shadow-amber-950/30 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
           <span className="text-xs text-amber-400 font-bold mb-1 flex items-center gap-1">
             <span>⏱️</span> Atención Requerida (≥ 4h)
@@ -221,12 +221,12 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
 
       {subTab === 'global' ? (
         /* TAB: DASHBOARD GLOBAL */
-        <div className="bg-[#151824] border border-[#232738] rounded-2xl p-5 space-y-4 shadow-xl">
+        <div className="bg-[#1A1A1C] border border-[#232738] rounded-2xl p-5 space-y-4 shadow-xl">
           {/* Header de la tabla */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-800 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#3A3A3E] pb-4">
             <div>
               <h2 className="text-lg font-bold text-white tracking-wide">Monitoreo de SLA Global</h2>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-[#B3B3B3]">
                 Visualizando casos de todo el equipo ONB. Los casos cerrados o fallidos se ocultan automáticamente.
               </p>
             </div>
@@ -236,7 +236,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
               <select
                 value={filtroAgente}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFiltroAgente(e.target.value)}
-                className="bg-[#0f111a] border border-gray-700 text-xs text-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-400 outline-none"
+                className="bg-[#121212] border border-[#3A3A3E] text-xs text-gray-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-cyan-400 outline-none"
               >
                 <option value="todos">Todos los Agentes</option>
                 {estadisticasAgentes.map(ag => (
@@ -247,7 +247,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
               {/* Botón Descargar Casos Críticos */}
               <button
                 onClick={descargarCasosCriticos}
-                className="bg-[#10b981] hover:bg-[#059669] text-black font-black px-4 py-2 rounded-lg text-xs transition flex items-center gap-2 shadow-lg shadow-emerald-950/40"
+                className="bg-[#10b981] hover:bg-[#059669] text-black font-black px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-emerald-950/40 min-h-[44px]"
               >
                 <span>📥</span> Descargar Casos Críticos (.CSV)
               </button>
@@ -256,8 +256,8 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
 
           {/* Tabla Global */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-gray-300">
-              <thead className="bg-[#0f111a] text-gray-400 uppercase text-[11px] font-bold border-b border-gray-800 tracking-wider">
+            <table className="w-full text-left text-xs text-[#D1D5DB]">
+              <thead className="bg-[#121212] text-[#B3B3B3] uppercase text-[11px] font-bold border-b border-[#3A3A3E] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">N° CASO</th>
                   <th className="py-3 px-4">ID LOCAL</th>
@@ -271,7 +271,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
               <tbody className="divide-y divide-gray-800/60 font-sans">
                 {casosFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-gray-500">
+                    <td colSpan={7} className="py-8 text-center text-[#9CA3AF]">
                       No hay casos activos con los filtros seleccionados.
                     </td>
                   </tr>
@@ -279,7 +279,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                   casosFiltrados.map((caso, idx) => (
                     <tr 
                       key={caso.casoOp || caso.id || idx}
-                      className="hover:bg-gray-800/40 transition group"
+                      className="hover:bg-[#2C2C32]/40 transition group"
                     >
                       {/* N° CASO */}
                       <td className="py-3.5 px-4 font-mono font-bold text-white whitespace-nowrap">
@@ -293,7 +293,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                       </td>
 
                       {/* ID LOCAL */}
-                      <td className="py-3.5 px-4 font-mono text-gray-300 whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-mono text-[#D1D5DB] whitespace-nowrap">
                         {caso.vendorId || caso.id}
                       </td>
 
@@ -312,12 +312,12 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                       {/* TIEMPO SLA */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex flex-col gap-0.5">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border w-fit ${caso.colorClass || 'bg-gray-800 text-gray-300 border-gray-700'}`}>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border w-fit ${caso.colorClass || 'bg-[#2C2C32] text-[#D1D5DB] border-[#3A3A3E]'}`}>
                             {caso.estaCongelado && <span>❄️</span>}
                             <span>{caso.horasSLA}h</span>
                             <span className="font-normal opacity-90">• {caso.tiempoTexto}</span>
                           </span>
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-[#B3B3B3]">
                             {caso.estaCongelado ? `Pausado (${caso.congeladoTrack || 'Freeze'})` : caso.tiempoLargoTexto}
                           </span>
                         </div>
@@ -333,7 +333,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => copiarSlack(caso)}
-                            className="bg-[#121420] hover:bg-gray-800 text-gray-200 border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow"
+                            className="bg-[#121420] hover:bg-[#2C2C32] text-gray-200 border border-[#3A3A3E] hover:border-gray-500 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow"
                             title="Copiar mensaje formateado para canal de Slack"
                           >
                             <span>📋</span> 1. Copiar Slack
@@ -356,17 +356,17 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
         </div>
       ) : (
         /* TAB: RENDIMIENTO AGENTES */
-        <div className="bg-[#151824] border border-[#232738] rounded-2xl p-5 space-y-4 shadow-xl">
-          <div className="border-b border-gray-800 pb-4">
+        <div className="bg-[#1A1A1C] border border-[#232738] rounded-2xl p-5 space-y-4 shadow-xl">
+          <div className="border-b border-[#3A3A3E] pb-4">
             <h2 className="text-lg font-bold text-white tracking-wide">Rendimiento y Cumplimiento de SLA por Agente</h2>
-            <p className="text-xs text-gray-400">Distribución de carga de trabajo y casos en riesgo por miembro del equipo.</p>
+            <p className="text-xs text-[#B3B3B3]">Distribución de carga de trabajo y casos en riesgo por miembro del equipo.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {estadisticasAgentes.map(ag => (
               <div 
                 key={ag.nombre}
-                className="bg-[#0f111a] border border-gray-800 rounded-xl p-4 space-y-3 hover:border-cyan-500/50 transition"
+                className="bg-[#121212] border border-[#3A3A3E] rounded-xl p-4 space-y-3 hover:border-cyan-500/50 transition"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-white text-sm">{ag.nombre}</span>
@@ -378,8 +378,8 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="bg-gray-900/80 p-2 rounded-lg border border-gray-800">
-                    <span className="text-gray-400 block text-[10px]">Activos</span>
+                  <div className="bg-[#202024]/80 p-2 rounded-lg border border-[#3A3A3E]">
+                    <span className="text-[#B3B3B3] block text-[10px]">Activos</span>
                     <span className="text-white font-bold text-base">{ag.total}</span>
                   </div>
                   <div className="bg-red-950/30 p-2 rounded-lg border border-red-900/50">
@@ -397,7 +397,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
                     setFiltroAgente(ag.nombre);
                     setSubTab('global');
                   }}
-                  className="w-full bg-gray-800 hover:bg-gray-700 text-cyan-300 text-xs py-1.5 rounded-lg font-semibold transition"
+                  className="w-full bg-[#2C2C32] hover:bg-[#3A3A3E] text-cyan-300 text-xs py-1.5 rounded-lg font-semibold transition"
                 >
                   Ver casos de {ag.nombre} →
                 </button>
@@ -408,10 +408,10 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
       )}
 
       {/* FOOTER USER ROLE */}
-      <div className="pt-2 text-xs text-gray-500 flex items-center justify-between">
+      <div className="pt-2 text-xs text-[#9CA3AF] flex items-center justify-between">
         <div>
           Iniciaste sesión como: <span className="font-bold text-cyan-400">{rolUsuario || 'Supervisor / TL'}</span>
-          {nombreUsuario && <span className="text-gray-400"> ({nombreUsuario})</span>}
+          {nombreUsuario && <span className="text-[#B3B3B3]"> ({nombreUsuario})</span>}
         </div>
         <div className="text-[11px] text-gray-600">
           HeroCare TL • PedidosYa Onboarding System

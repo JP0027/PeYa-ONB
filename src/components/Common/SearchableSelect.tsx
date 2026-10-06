@@ -110,7 +110,7 @@ export default function SearchableSelect({
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>
-      {label && <label className="text-gray-400 block mb-1 font-medium text-xs sm:text-sm">{label}</label>}
+      {label && <label className="text-[#B3B3B3] block mb-1 font-medium text-xs sm:text-sm">{label}</label>}
 
       {/* Botón visual que simula el selector */}
       <button
@@ -119,26 +119,26 @@ export default function SearchableSelect({
         onClick={() => {
           if (!disabled) setAbierto(!abierto);
         }}
-        className={`w-full bg-[#0f111a] border ${
-          abierto ? 'border-pink-500 ring-1 ring-pink-500/50' : 'border-gray-700 hover:border-gray-600'
+        className={`w-full bg-[#121212] border ${
+          abierto ? 'border-[#E85A80] ring-1 ring-pink-500/50' : 'border-[#3A3A3E] hover:border-gray-600'
         } rounded-lg p-2.5 text-left text-sm flex items-center justify-between transition-all focus:outline-none ${
           disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
         }`}
       >
-        <span className={`truncate ${value ? 'text-white font-medium' : 'text-gray-500'}`}>
+        <span className={`truncate ${value ? 'text-white font-medium' : 'text-[#9CA3AF]'}`}>
           {etiquetaSeleccionada || placeholder}
         </span>
-        <span className="ml-2 text-gray-400 text-xs shrink-0 transition-transform duration-200">
+        <span className="ml-2 text-[#B3B3B3] text-xs shrink-0 transition-transform duration-200">
           {abierto ? '▲' : '▼'}
         </span>
       </button>
 
       {/* Menú desplegable flotante con buscador */}
       {abierto && (
-        <div className="absolute z-50 mt-1 w-full bg-[#161925] border border-gray-700 rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
+        <div className="absolute z-50 mt-1 w-full bg-[#202024] border border-[#3A3A3E] rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
           {/* Campo buscador */}
-          <div className="p-2 border-b border-gray-800 bg-[#12141e] flex items-center gap-2">
-            <span className="text-gray-400 text-xs">🔍</span>
+          <div className="p-2 border-b border-[#3A3A3E] bg-[#161618] flex items-center gap-2">
+            <span className="text-[#B3B3B3] text-xs">🔍</span>
             <input
               ref={inputBusquedaRef}
               type="text"
@@ -163,7 +163,7 @@ export default function SearchableSelect({
               <button
                 type="button"
                 onClick={() => setBusqueda('')}
-                className="text-gray-500 hover:text-gray-300 text-xs px-1"
+                className="text-[#9CA3AF] hover:text-[#D1D5DB] text-xs px-1"
                 title="Limpiar búsqueda"
               >
                 ✕
@@ -174,7 +174,7 @@ export default function SearchableSelect({
           {/* Lista de opciones filtradas */}
           <div className="max-h-56 overflow-y-auto divide-y divide-gray-800/40 text-xs custom-scrollbar">
             {opcionesFiltradas.length === 0 ? (
-              <div className="p-3 text-center text-gray-500 italic">
+              <div className="p-3 text-center text-[#9CA3AF] italic">
                 No se encontraron coincidencias para &quot;{busqueda}&quot;
               </div>
             ) : (
@@ -186,15 +186,15 @@ export default function SearchableSelect({
                     onClick={() => seleccionarOpcion(op.value)}
                     className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors cursor-pointer ${
                       esSeleccionado
-                        ? 'bg-pink-600/20 text-pink-300 font-semibold'
-                        : 'text-gray-300 hover:bg-gray-800/70 hover:text-white'
+                        ? 'bg-[#E85A80]/20 text-pink-300 font-semibold'
+                        : 'text-[#D1D5DB] hover:bg-[#2C2C32]/70 hover:text-white'
                     }`}
                   >
                     <span className="truncate">{op.label}</span>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       {op.badge && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                          op.badge === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-gray-800 text-gray-400'
+                          op.badge === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-[#2C2C32] text-[#B3B3B3]'
                         }`}>
                           {op.badge}
                         </span>
@@ -207,7 +207,7 @@ export default function SearchableSelect({
                             e.stopPropagation();
                             onVerContactos(op);
                           }}
-                          className="p-1 hover:bg-pink-600/40 text-pink-400 hover:text-white rounded transition cursor-pointer text-xs flex items-center justify-center border border-pink-500/30 hover:border-pink-500"
+                          className="p-1 hover:bg-[#E85A80]/40 text-[#F46C8E] hover:text-white rounded transition cursor-pointer text-xs flex items-center justify-center border border-[#E85A80]/30 hover:border-[#E85A80]"
                           title={`Ver contactos de ${op.label}`}
                         >
                           ↗️
@@ -221,7 +221,7 @@ export default function SearchableSelect({
           </div>
 
           {/* Footer de ayuda rápida */}
-          <div className="px-3 py-1.5 bg-[#0e1017] border-t border-gray-800 text-[10px] text-gray-500 flex justify-between items-center">
+          <div className="px-3 py-1.5 bg-[#0e1017] border-t border-[#3A3A3E] text-[10px] text-[#9CA3AF] flex justify-between items-center">
             <span>{opcionesFiltradas.length} opciones disponibles</span>
             <span>Esc para cerrar</span>
           </div>

@@ -326,23 +326,23 @@ export default function AdminCatalogoView({
   return (
     <div className="space-y-6 w-full">
       {/* Encabezado */}
-      <div className="bg-[#151824] border border-gray-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-6 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500" />
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-pink-950/60 border border-pink-800/60 text-pink-400 text-xs font-bold mb-2">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-pink-950/60 border border-pink-800/60 text-[#F46C8E] text-xs font-bold mb-2">
               📊 Datos: Catálogos de Onboarding
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">Datos y Seleccionables</h1>
-            <p className="text-xs text-gray-400 mt-1 max-w-2xl">
-              Información oficial de casos de <strong className="text-pink-400 font-mono">Onboarding_New</strong> y valores seleccionables sincronizados con Google Sheets.
+            <p className="text-xs text-[#B3B3B3] mt-1 max-w-2xl">
+              Información oficial de casos de <strong className="text-[#F46C8E] font-mono">Onboarding_New</strong> y valores seleccionables sincronizados con Google Sheets.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <button
               onClick={recargarDesdeSheets}
               disabled={recargandoSheets || sincronizando || guardando}
-              className="bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              className="bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 text-sm font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
               title="Recargar los datos directamente desde la hoja de Google Sheets"
             >
               <span className={recargandoSheets || sincronizando ? 'animate-spin' : ''}>🔄</span>
@@ -351,7 +351,7 @@ export default function AdminCatalogoView({
             <button
               onClick={manejarRestaurar}
               disabled={guardando}
-              className="bg-gray-800/80 hover:bg-gray-700 text-gray-400 border border-gray-700 text-xs font-semibold px-3 py-2 rounded-xl transition cursor-pointer"
+              className="bg-[#2C2C32]/80 hover:bg-[#3A3A3E] text-[#B3B3B3] border border-[#3A3A3E] text-sm font-semibold px-3 py-2 rounded-xl transition cursor-pointer min-h-[44px]"
               title="Restaurar todos los catálogos a valores de fábrica"
             >
               Restaurar Valores Iniciales
@@ -360,7 +360,7 @@ export default function AdminCatalogoView({
         </div>
 
         {/* Selector de Categorías (Pills) */}
-        <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-gray-800/80">
+        <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-[#3A3A3E]/80">
           {CATEGORIAS.map(cat => {
             const esActiva = categoriaActiva === cat.id;
             const count = cat.id === 'onboarding' ? casos.length : (catalogos[cat.id] || []).length;
@@ -374,12 +374,12 @@ export default function AdminCatalogoView({
                 }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
                   esActiva
-                    ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/40 border border-pink-500'
-                    : 'bg-[#0f111a] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+                    ? 'bg-[#E85A80] text-white shadow-lg shadow-pink-900/40 border border-[#E85A80]'
+                    : 'bg-[#121212] text-[#B3B3B3] hover:text-white hover:bg-[#2C2C32] border border-[#3A3A3E]'
                 }`}
               >
                 <span>{cat.label}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${esActiva ? 'bg-white/20 text-white' : 'bg-gray-800 text-gray-400'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${esActiva ? 'bg-white/20 text-white' : 'bg-[#2C2C32] text-[#B3B3B3]'}`}>
                   {count}
                 </span>
               </button>
@@ -405,14 +405,14 @@ export default function AdminCatalogoView({
         <div className="lg:col-span-2 space-y-4">
           
           {/* Barra de Búsqueda y Agregar */}
-          <div className="bg-[#151824] border border-gray-800 rounded-2xl p-4 shadow-lg space-y-4">
+          <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-4 shadow-lg space-y-4">
             <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-white flex items-center gap-2">
                   <span>{categoriaMeta?.label}</span>
-                  <span className="text-xs text-gray-500 font-normal">({listaFiltrada.length} de {listaActual.length})</span>
+                  <span className="text-xs text-[#9CA3AF] font-normal">({listaFiltrada.length} de {listaActual.length})</span>
                 </h2>
-                <p className="text-[11px] text-gray-400">{categoriaMeta?.desc}</p>
+                <p className="text-[11px] text-[#B3B3B3]">{categoriaMeta?.desc}</p>
               </div>
 
               {/* Input de filtro dentro de la categoría */}
@@ -422,27 +422,27 @@ export default function AdminCatalogoView({
                   value={busqueda}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBusqueda(e.target.value)}
                   placeholder={`Buscar en ${categoriaMeta?.label}...`}
-                  className="w-full bg-[#0f111a] border border-gray-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-pink-500"
+                  className="w-full bg-[#121212] border border-[#3A3A3E] rounded-xl px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#E85A80]"
                 />
               </div>
             </div>
 
             {/* Formulario de Adición Rápida */}
-            <div className="pt-3 border-t border-gray-800/80 flex flex-col sm:flex-row gap-2">
+            <div className="pt-3 border-t border-[#3A3A3E]/80 flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={nuevoValor}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNuevoValor(e.target.value)}
                 onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && manejarAgregar()}
                 placeholder={`Nuevo valor para ${categoriaMeta?.label}...`}
-                className="flex-1 bg-[#0f111a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                className="flex-1 bg-[#121212] border border-[#3A3A3E] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
               />
 
               {categoriaActiva === 'integraciones' && (
                 <select
                   value={nuevoSponsorship}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNuevoSponsorship(e.target.value)}
-                  className="bg-[#0f111a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-cyan-400 font-bold focus:outline-none"
+                  className="bg-[#121212] border border-[#3A3A3E] rounded-xl px-3 py-2 text-xs text-cyan-400 font-bold focus:outline-none"
                   title="¿Tiene estructura de Sponsorship?"
                 >
                   <option value="NO">Sponsorship: NO</option>
@@ -453,7 +453,7 @@ export default function AdminCatalogoView({
               <button
                 onClick={manejarAgregar}
                 disabled={guardando || !nuevoValor.trim()}
-                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 shadow-md shadow-cyan-900/30"
+                className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl text-sm transition flex items-center justify-center gap-1 shadow-md shadow-cyan-900/30"
               >
                 <span>➕ Agregar</span>
               </button>
@@ -461,10 +461,10 @@ export default function AdminCatalogoView({
           </div>
 
           {/* Tabla / Lista de Elementos */}
-          <div className="bg-[#151824] border border-gray-800 rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl overflow-hidden shadow-lg">
             <div className="max-h-[500px] overflow-y-auto">
               <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-[#0f111a] text-gray-400 sticky top-0 uppercase tracking-wider border-b border-gray-800">
+                <thead className="bg-[#121212] text-[#B3B3B3] sticky top-0 uppercase tracking-wider border-b border-[#3A3A3E]">
                   <tr>
                     <th className="p-3 w-12 text-center">#</th>
                     <th className="p-3">Nombre / Valor</th>
@@ -484,7 +484,7 @@ export default function AdminCatalogoView({
 
                     return (
                       <tr key={idxOriginal} className="hover:bg-[#1a1d27]/70 transition">
-                        <td className="p-3 text-center text-gray-500 font-mono text-[10px]">
+                        <td className="p-3 text-center text-[#9CA3AF] font-mono text-[10px]">
                           {idxOriginal + 1}
                         </td>
 
@@ -494,7 +494,7 @@ export default function AdminCatalogoView({
                               type="text"
                               value={valorEditado}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setValorEditado(e.target.value)}
-                              className="w-full bg-[#0f111a] border border-pink-500 rounded px-2 py-1 text-xs text-white"
+                              className="w-full bg-[#121212] border border-[#E85A80] rounded px-2 py-1 text-xs text-white"
                               autoFocus
                             />
                           ) : (
@@ -508,7 +508,7 @@ export default function AdminCatalogoView({
                               <select
                                 value={sponEditado}
                                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSponEditado(e.target.value)}
-                                className="bg-[#0f111a] border border-pink-500 rounded px-2 py-1 text-xs text-cyan-400 font-bold"
+                                className="bg-[#121212] border border-[#E85A80] rounded px-2 py-1 text-xs text-cyan-400 font-bold"
                               >
                                 <option value="NO">NO</option>
                                 <option value="SI">SI</option>
@@ -518,7 +518,7 @@ export default function AdminCatalogoView({
                                 className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                   spon === 'SI'
                                     ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
-                                    : 'bg-gray-800/60 text-gray-400 border border-gray-700/50'
+                                    : 'bg-[#2C2C32]/60 text-[#B3B3B3] border border-[#3A3A3E]/50'
                                 }`}
                               >
                                 {spon === 'SI' ? '✓ SI' : '✗ NO'}
@@ -538,7 +538,7 @@ export default function AdminCatalogoView({
                               </button>
                               <button
                                 onClick={() => setEditandoIdx(null)}
-                                className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded text-[10px]"
+                                className="bg-gray-700 hover:bg-gray-600 text-[#D1D5DB] px-2 py-1 rounded text-[10px]"
                               >
                                 Cancelar
                               </button>
@@ -547,14 +547,14 @@ export default function AdminCatalogoView({
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => iniciarEdicion(idxOriginal, item)}
-                                className="text-gray-400 hover:text-cyan-400 p-1 rounded hover:bg-gray-800 transition cursor-pointer"
+                                className="text-[#B3B3B3] hover:text-cyan-400 p-1 rounded hover:bg-[#2C2C32] transition cursor-pointer"
                                 title="Editar"
                               >
                                 ✏️
                               </button>
                               <button
                                 onClick={() => manejarEliminar(idxOriginal)}
-                                className="text-gray-400 hover:text-rose-400 p-1 rounded hover:bg-gray-800 transition cursor-pointer"
+                                className="text-[#B3B3B3] hover:text-rose-400 p-1 rounded hover:bg-[#2C2C32] transition cursor-pointer"
                                 title="Eliminar"
                               >
                                 🗑️
@@ -568,7 +568,7 @@ export default function AdminCatalogoView({
 
                   {listaFiltrada.length === 0 && (
                     <tr>
-                      <td colSpan={categoriaActiva === 'integraciones' ? 4 : 3} className="p-8 text-center text-gray-500">
+                      <td colSpan={categoriaActiva === 'integraciones' ? 4 : 3} className="p-8 text-center text-[#9CA3AF]">
                         {busqueda ? 'No se encontraron coincidencias para la búsqueda.' : 'No hay elementos en esta categoría.'}
                       </td>
                     </tr>
@@ -583,14 +583,14 @@ export default function AdminCatalogoView({
         <div className="space-y-4">
           
           {/* Tarjeta de Importación CSV */}
-          <div className="bg-[#151824] border border-gray-800 rounded-2xl p-5 shadow-lg space-y-4">
+          <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-5 shadow-lg space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>📁 Importar / Exportar CSV</span>
               </h3>
               <button
                 onClick={manejarDescargarCSV}
-                className="text-[11px] text-pink-400 hover:text-pink-300 font-semibold flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-[#F46C8E] hover:text-pink-300 font-semibold flex items-center gap-1 cursor-pointer"
                 title="Descargar copia de respaldo en formato CSV"
               >
                 <span>📤 Exportar CSV</span>
@@ -607,26 +607,26 @@ export default function AdminCatalogoView({
               </p>
 
               {categoriaActiva === 'integraciones' ? (
-                <div className="bg-[#0f111a] border border-amber-900/50 p-2.5 rounded-lg text-[11px] font-mono text-gray-300 space-y-1">
-                  <div className="text-pink-400 font-bold">Columnas requeridas (2 columnas):</div>
+                <div className="bg-[#121212] border border-amber-900/50 p-2.5 rounded-lg text-[11px] font-mono text-[#D1D5DB] space-y-1">
+                  <div className="text-[#F46C8E] font-bold">Columnas requeridas (2 columnas):</div>
                   <div className="text-cyan-300">nombre,sponsorship</div>
-                  <div className="text-gray-400 text-[10px] mt-1">Ejemplo:</div>
-                  <div className="text-gray-400">Datalive,NO</div>
-                  <div className="text-gray-400">Deliverect,SI</div>
-                  <div className="text-gray-400">InvuPos,SI</div>
+                  <div className="text-[#B3B3B3] text-[10px] mt-1">Ejemplo:</div>
+                  <div className="text-[#B3B3B3]">Datalive,NO</div>
+                  <div className="text-[#B3B3B3]">Deliverect,SI</div>
+                  <div className="text-[#B3B3B3]">InvuPos,SI</div>
                 </div>
               ) : (
-                <div className="bg-[#0f111a] border border-amber-900/50 p-2.5 rounded-lg text-[11px] font-mono text-gray-300 space-y-1">
-                  <div className="text-pink-400 font-bold">Columna requerida (1 columna):</div>
+                <div className="bg-[#121212] border border-amber-900/50 p-2.5 rounded-lg text-[11px] font-mono text-[#D1D5DB] space-y-1">
+                  <div className="text-[#F46C8E] font-bold">Columna requerida (1 columna):</div>
                   <div className="text-cyan-300">valor</div>
-                  <div className="text-gray-400 text-[10px] mt-1">Ejemplo:</div>
-                  <div className="text-gray-400">Opción 1</div>
-                  <div className="text-gray-400">Opción 2</div>
-                  <div className="text-gray-400">Opción 3</div>
+                  <div className="text-[#B3B3B3] text-[10px] mt-1">Ejemplo:</div>
+                  <div className="text-[#B3B3B3]">Opción 1</div>
+                  <div className="text-[#B3B3B3]">Opción 2</div>
+                  <div className="text-[#B3B3B3]">Opción 3</div>
                 </div>
               )}
 
-              <p className="text-[10px] text-gray-400">
+              <p className="text-[10px] text-[#B3B3B3]">
                 • Los duplicados se filtran automáticamente.<br />
                 • Se admite separador por coma (,) o punto y coma (;).
               </p>
@@ -634,20 +634,20 @@ export default function AdminCatalogoView({
 
             {/* Input de archivo CSV */}
             <div>
-              <label className="block text-[11px] text-gray-400 mb-1.5 font-medium">
+              <label className="block text-[11px] text-[#B3B3B3] mb-1.5 font-medium">
                 Subir archivo .csv:
               </label>
               <input
                 type="file"
                 accept=".csv,.txt"
                 onChange={manejarArchivoCSV}
-                className="w-full text-xs text-gray-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-800 file:text-pink-400 hover:file:bg-gray-700 cursor-pointer"
+                className="w-full text-xs text-[#B3B3B3] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#2C2C32] file:text-[#F46C8E] hover:file:bg-gray-700 cursor-pointer min-h-[44px]"
               />
             </div>
 
             {/* Textarea para pegar CSV */}
             <div>
-              <label className="block text-[11px] text-gray-400 mb-1.5 font-medium">
+              <label className="block text-[11px] text-[#B3B3B3] mb-1.5 font-medium">
                 O pega el texto CSV directamente aquí:
               </label>
               <textarea
@@ -659,7 +659,7 @@ export default function AdminCatalogoView({
                     ? "nombre,sponsorship\nMi Integracion,SI\nOtra Integracion,NO"
                     : "valor\nNuevo Elemento 1\nNuevo Elemento 2"
                 }
-                className="w-full bg-[#0f111a] border border-gray-800 rounded-xl p-2.5 text-xs text-gray-200 font-mono placeholder-gray-600 focus:outline-none focus:border-pink-500"
+                className="w-full bg-[#121212] border border-[#3A3A3E] rounded-xl p-2.5 text-xs text-gray-200 font-mono placeholder-gray-600 focus:outline-none focus:border-[#E85A80]"
               />
             </div>
 
@@ -669,7 +669,7 @@ export default function AdminCatalogoView({
                 <button
                   onClick={() => manejarImportarCSV(false)}
                   disabled={guardando}
-                  className="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 shadow-md shadow-pink-900/30 cursor-pointer"
+                  className="w-full bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 shadow-md shadow-pink-900/30 cursor-pointer"
                 >
                   <span>📥 Agregar a los existentes</span>
                 </button>
@@ -691,7 +691,7 @@ export default function AdminCatalogoView({
       {/* Overlay Fallback de Carga */}
       {guardando && !setCargandoOperacion && (
         <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-white animate-fadeIn">
-          <div className="w-14 h-14 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-14 h-14 border-4 border-[#E85A80] border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm font-bold tracking-wide animate-pulse">Guardando cambios en catálogo...</p>
         </div>
       )}

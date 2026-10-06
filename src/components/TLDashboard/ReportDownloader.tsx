@@ -56,7 +56,7 @@ export default function ReportDownloader({ casos }: ReportDownloaderProps) {
   return (
     <button 
       onClick={descargarReporte}
-      className="bg-pink-600 hover:bg-pink-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition flex items-center gap-2 shadow-lg shadow-pink-900/40"
+      className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-pink-900/40 min-h-[44px]"
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>

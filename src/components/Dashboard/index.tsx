@@ -156,11 +156,11 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
       const rPos = String(c.rangoSlaPos || '').toLowerCase();
       const rCat = String(c.rangoSlaCat || '').toLowerCase();
 
-      const enRango4a6 = (horas >= 4 && horas <= 6) ||
-                         rOp.includes('4h') || rOp.includes('6h') || rOp.includes('≥4') ||
-                         rPos.includes('4h') || rPos.includes('6h') || rPos.includes('≥4') ||
-                         rCat.includes('4h') || rCat.includes('6h') || rCat.includes('≥4');
-      if (!enRango4a6) return;
+      const requiereAlertaPush = horas >= 4 ||
+                         rOp.includes('4h') || rOp.includes('6h') || rOp.includes('≥4') || rOp.includes('fuera de sla') ||
+                         rPos.includes('4h') || rPos.includes('6h') || rPos.includes('≥4') || rPos.includes('fuera de sla') ||
+                         rCat.includes('4h') || rCat.includes('6h') || rCat.includes('≥4') || rCat.includes('fuera de sla');
+      if (!requiereAlertaPush) return;
 
       const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
       const tiendaLabel = c.tienda || 'Sin tienda';
@@ -689,7 +689,22 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (!busquedaId.trim()) return;
     setCargandoBusqueda(true);
     const term = busquedaId.trim().toLowerCase();
-    const resultadosLocales = casosTotales.filter(c => 
+    
+    // Obtener data en tiempo real desde Google Sheets (evita depender del caché local)
+    let casosFrescos = casosTotales;
+    try {
+      const res = await fetch('/api/sheets/casos?forceRefresh=true'); // Forzar refresh si es posible, o simplemente fetch
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.casos) {
+          casosFrescos = json.casos;
+        }
+      }
+    } catch (err) {
+      console.warn("Fallo búsqueda en tiempo real, usando caché local", err);
+    }
+
+    const resultadosLocales = casosFrescos.filter(c => 
       String(c.vendor_id || c.vendorId || '').toLowerCase() === term ||
       String(c.casoOp || c.id || '').toLowerCase() === term ||
       String(c.tienda || '').toLowerCase().includes(term)
@@ -1066,7 +1081,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   };
 
   return (
-    <div className="flex h-screen bg-[#0f111a] text-gray-200 font-sans">
+    <div className="flex h-screen bg-[#121212] text-gray-200 font-sans">
       <audio ref={audioRef} src="/ding.mp3" preload="auto" />
       
       {/* Alertas Push Flotantes Tipo Captura */}
@@ -1082,7 +1097,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         <button
           type="button"
           onClick={() => setSidebarMovilAbierto(true)}
-          className="w-12 h-12 bg-pink-600 hover:bg-pink-500 text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition transform active:scale-95 border-2 border-pink-400 cursor-pointer"
+          className="w-12 h-12 bg-[#E85A80] hover:bg-[#F46C8E] text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition transform active:scale-95 border-2 border-pink-400 cursor-pointer"
           title="Abrir opciones del menú"
         >
           ☰
@@ -1096,12 +1111,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
             onClick={() => setSidebarMovilAbierto(false)}
           />
-          <div className="relative w-72 bg-[#161925] border-r border-gray-800 flex flex-col h-full shadow-2xl z-10 animate-slideRight">
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-              <h1 className="text-xl font-black text-pink-500 tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+          <div className="relative w-72 bg-[#202024] border-r border-[#3A3A3E] flex flex-col h-full shadow-2xl z-10 animate-slideRight">
+            <div className="p-4 border-b border-[#3A3A3E] flex items-center justify-between">
+              <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
               <button 
                 onClick={() => setSidebarMovilAbierto(false)} 
-                className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 text-lg cursor-pointer"
+                className="text-[#B3B3B3] hover:text-white p-1.5 rounded-lg hover:bg-[#2C2C32] text-lg cursor-pointer"
               >
                 ✕
               </button>
@@ -1118,8 +1133,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                       isActive 
-                        ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                        ? 'bg-[#E85A80]/20 text-[#F46C8E] border border-[#E85A80]/30 font-bold' 
+                        : 'text-[#B3B3B3] hover:bg-[#2C2C32] hover:text-gray-200'
                     }`}
                   >
                     <span className="text-base">{tab.icono}</span>
@@ -1128,12 +1143,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 );
               })}
             </div>
-            <div className="p-4 border-t border-gray-800">
+            <div className="p-4 border-t border-[#3A3A3E]">
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">⚙️ Configuración</button>
-              <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">⚙️ Configuración</button>
+              <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
-                <button onClick={manejarLogout} className="hover:text-pink-400 cursor-pointer">Salir</button>
+                <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
               </div>
             </div>
           </div>
@@ -1141,17 +1156,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       )}
 
       {/* Sidebar de escritorio: colapsable y responsivo */}
-      <div className={`${sidebarColapsado ? 'w-20' : 'w-64'} bg-[#161925] border-r border-gray-800 flex flex-col hidden min-[1037px]:flex transition-all duration-300 select-none`}>
-        <div className={`p-4 border-b border-gray-800 flex items-center ${sidebarColapsado ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
+      <div className={`${sidebarColapsado ? 'w-20' : 'w-64'} bg-[#202024] border-r border-[#3A3A3E] flex flex-col hidden min-[1037px]:flex transition-all duration-300 select-none`}>
+        <div className={`p-4 border-b border-[#3A3A3E] flex items-center ${sidebarColapsado ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
           {!sidebarColapsado ? (
-            <h1 className="text-xl font-black text-pink-500 tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+            <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
           ) : (
-            <span className="text-sm font-black text-pink-500">PY</span>
+            <span className="text-sm font-black text-[#E85A80]">PY</span>
           )}
           <button
             type="button"
             onClick={() => setSidebarColapsado(prev => !prev)}
-            className="text-gray-400 hover:text-white bg-transparent border-0 text-base font-mono font-bold px-1.5 py-0.5 transition cursor-pointer select-none"
+            className="text-[#B3B3B3] hover:text-white bg-transparent border-0 text-base font-mono font-bold px-1.5 py-0.5 transition cursor-pointer select-none"
             title={sidebarColapsado ? 'Expandir barra lateral' : 'Comprimir barra lateral'}
           >
             {sidebarColapsado ? '>' : '<'}
@@ -1168,8 +1183,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 title={sidebarColapsado ? tab.label : undefined}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                   isActive 
-                    ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30 font-bold' 
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                    ? 'bg-[#E85A80]/20 text-[#F46C8E] border border-[#E85A80]/30 font-bold' 
+                    : 'text-[#B3B3B3] hover:bg-[#2C2C32] hover:text-gray-200'
                 } ${sidebarColapsado ? 'justify-center px-1' : ''}`}
               >
                 <span className="text-base">{tab.icono}</span>
@@ -1179,14 +1194,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           })}
         </div>
 
-        <div className="p-3 border-t border-gray-800">
+        <div className="p-3 border-t border-[#3A3A3E]">
           {!sidebarColapsado ? (
             <>
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">⚙️ Configuración</button>
-              <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">⚙️ Configuración</button>
+              <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
-                <button onClick={manejarLogout} className="hover:text-pink-400 cursor-pointer">Salir</button>
+                <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
               </div>
             </>
           ) : (
@@ -1194,21 +1209,21 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               <button 
                 onClick={() => cargarCasosGoogleSheets()} 
                 title="Sincronizar desde Sheets"
-                className="text-gray-400 hover:text-pink-400 text-base cursor-pointer"
+                className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer"
               >
                 🔄
               </button>
               <button 
                 onClick={() => setMostrarModalCreds(true)} 
                 title="Configuración"
-                className="text-gray-400 hover:text-white text-base cursor-pointer"
+                className="text-[#B3B3B3] hover:text-white text-base cursor-pointer"
               >
                 ⚙️
               </button>
               <button 
                 onClick={manejarLogout} 
                 title="Cerrar sesión"
-                className="text-gray-400 hover:text-pink-400 text-base cursor-pointer"
+                className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer min-h-[44px]"
               >
                 🚪
               </button>
@@ -1254,12 +1269,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           {activeTab === 'nuevo' && puedeVerTab('nuevo') && (
             <div className="space-y-5 w-full">
               {/* Barra superior de correos del equipo de Onboarding para tickets */}
-              <div className="bg-[#151824] border border-gray-800 rounded-2xl p-3 sm:p-3.5 shadow-lg">
+              <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-3 sm:p-3.5 shadow-lg">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-pink-400 text-sm">✉️</span>
+                    <span className="text-[#F46C8E] text-sm">✉️</span>
                     <span className="text-xs font-bold text-gray-200">Equipo Onboarding:</span>
-                    <span className="text-[11px] text-gray-400 font-normal hidden sm:inline">
+                    <span className="text-[11px] text-[#B3B3B3] font-normal hidden sm:inline">
                       (1 clic para copiar a ticket de seguimiento)
                     </span>
                   </div>
@@ -1272,7 +1287,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         className={`px-2 py-1 rounded-lg text-[11px] font-mono transition flex items-center gap-1 cursor-pointer border ${
                           correoCopiado === correo
                             ? 'bg-emerald-600 text-white border-emerald-500 font-bold'
-                            : 'bg-[#0f111a] hover:bg-gray-800 text-gray-300 hover:text-white border-gray-700/80 hover:border-pink-500/60'
+                            : 'bg-[#121212] hover:bg-[#2C2C32] text-[#D1D5DB] hover:text-white border-[#3A3A3E]/80 hover:border-[#E85A80]/60'
                         }`}
                         title={`Clic para copiar ${correo}`}
                       >
@@ -1298,20 +1313,20 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               </div>
 
               {/* Barra de Sub-pestañas: Búsqueda vs Agregar Caso */}
-              <div className="bg-[#151824] border border-gray-800 rounded-2xl p-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setSubTabNuevo('busqueda')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                       subTabNuevo === 'busqueda'
-                        ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/40 border border-pink-500'
-                        : 'bg-[#0f111a] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+                        ? 'bg-[#E85A80] text-white shadow-lg shadow-pink-900/40 border border-[#E85A80]'
+                        : 'bg-[#121212] text-[#B3B3B3] hover:text-white hover:bg-[#2C2C32] border border-[#3A3A3E]'
                     }`}
                   >
                     <span>🔍</span>
                     <span>Búsqueda de Casos</span>
                     {busquedaResultados && busquedaResultados.length > 0 && (
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${subTabNuevo === 'busqueda' ? 'bg-white/20 text-white' : 'bg-pink-950 text-pink-400 border border-pink-800'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${subTabNuevo === 'busqueda' ? 'bg-white/20 text-white' : 'bg-pink-950 text-[#F46C8E] border border-pink-800'}`}>
                         {busquedaResultados.length}
                       </span>
                     )}
@@ -1321,21 +1336,21 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     onClick={() => setSubTabNuevo('registro')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                       subTabNuevo === 'registro'
-                        ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/40 border border-pink-500'
-                        : 'bg-[#0f111a] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+                        ? 'bg-[#E85A80] text-white shadow-lg shadow-pink-900/40 border border-[#E85A80]'
+                        : 'bg-[#121212] text-[#B3B3B3] hover:text-white hover:bg-[#2C2C32] border border-[#3A3A3E]'
                     }`}
                   >
                     <span>➕</span>
                     <span>Agregar Caso (Nuevo Registro)</span>
                     {formulario.vendorId && (
-                      <span className="text-[10px] text-pink-400 font-mono hidden sm:inline">
+                      <span className="text-[10px] text-[#F46C8E] font-mono hidden sm:inline">
                         ({formulario.tienda ? formulario.tienda.slice(0, 18) + '...' : formulario.vendorId})
                       </span>
                     )}
                   </button>
                 </div>
 
-                <div className="text-xs text-gray-400 px-3 hidden md:block">
+                <div className="text-xs text-[#B3B3B3] px-3 hidden md:block">
                   {subTabNuevo === 'busqueda' 
                     ? 'Busca por Vendor ID, OP o Tienda y replica antecedentes con 1 clic' 
                     : 'Ingresa los datos para registrar un nuevo caso en Firebase y Google Sheets'}
@@ -1396,8 +1411,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     onClick={() => setTipoOrdenMisCasos('sla')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
                       tipoOrdenMisCasos === 'sla'
-                        ? 'bg-pink-600 text-white border-pink-500 shadow-sm font-bold'
-                        : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'
+                        ? 'bg-[#E85A80] text-white border-[#E85A80] shadow-sm font-bold'
+                        : 'bg-[#2C2C32] text-[#D1D5DB] border-[#3A3A3E] hover:bg-[#3A3A3E] hover:text-white'
                     }`}
                     title="Ordenar casos por SLA y prioridad"
                   >
@@ -1417,8 +1432,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
                       tipoOrdenMisCasos === 'tienda'
-                        ? 'bg-pink-600 text-white border-pink-500 shadow-sm font-bold'
-                        : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'
+                        ? 'bg-[#E85A80] text-white border-[#E85A80] shadow-sm font-bold'
+                        : 'bg-[#2C2C32] text-[#D1D5DB] border-[#3A3A3E] hover:bg-[#3A3A3E] hover:text-white'
                     }`}
                     title="Ordenar alfabéticamente por tienda (A-Z o Z-A)"
                   >
@@ -1433,8 +1448,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     disabled={cargandoSheets}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
                       cargandoSheets
-                        ? 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'
-                        : 'bg-gray-800/90 hover:bg-gray-700 text-pink-400 hover:text-pink-300 border-pink-500/40 hover:border-pink-500 shadow-sm cursor-pointer'
+                        ? 'bg-[#2C2C32] text-[#9CA3AF] border-[#3A3A3E] cursor-not-allowed'
+                        : 'bg-[#2C2C32]/90 hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border-[#E85A80]/40 hover:border-[#E85A80] shadow-sm cursor-pointer'
                     }`}
                     title="Actualizar datos desde Google Sheets"
                   >
@@ -1451,14 +1466,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               </div>
 
               {/* Tabla de Mis Casos con columnas redimensionables */}
-              <div className="bg-[#161925] border border-gray-800 rounded-xl overflow-hidden shadow-lg">
+              <div className="bg-[#202024] border border-[#3A3A3E] rounded-xl overflow-hidden shadow-lg">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
-                      <tr className="bg-[#0f111a] border-b border-gray-800 text-xs text-gray-400 font-bold uppercase tracking-wider select-none">
+                      <tr className="bg-[#121212] border-b border-[#3A3A3E] text-xs text-[#B3B3B3] font-bold uppercase tracking-wider select-none">
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.op, minWidth: colWidthsMisCasos.op }}>
                           <span>OP</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('op', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('op', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1468,7 +1483,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                               setSentidoTienda(prev => prev === 'asc' ? 'desc' : 'asc');
                             }
                           }}
-                          className="p-3 cursor-pointer hover:text-pink-400 transition relative" 
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
                           title="Clic para ordenar alfabéticamente por tienda"
                           style={{ width: colWidthsMisCasos.tienda, minWidth: colWidthsMisCasos.tienda }}
                         >
@@ -1478,39 +1493,39 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                               {tipoOrdenMisCasos === 'tienda' ? (sentidoTienda === 'asc' ? '🔼 (A-Z)' : '🔽 (Z-A)') : '↕️'}
                             </span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.pais, minWidth: colWidthsMisCasos.pais }}>
                           <span>País/KAM</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pais', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pais', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.integracion, minWidth: colWidthsMisCasos.integracion }}>
                           <span>Integración</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('integracion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('integracion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.estado, minWidth: colWidthsMisCasos.estado }}>
                           <span>Estado / Etapa</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('estado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('estado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.pushPos, minWidth: colWidthsMisCasos.pushPos }}>
                           <span>Push POS</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushPos', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushPos', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.pushCat, minWidth: colWidthsMisCasos.pushCat }}>
                           <span>Push Catálogo</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushCat', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushCat', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.sla, minWidth: colWidthsMisCasos.sla }}>
                           <span>SLA</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('sla', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('sla', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.asignado, minWidth: colWidthsMisCasos.asignado }}>
                           <span>Asignado</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('asignado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('asignado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.accion, minWidth: colWidthsMisCasos.accion }}>
                           <span>Acción</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500 transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                       </tr>
                     </thead>
@@ -1563,7 +1578,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       {/* Overlay Global de Carga con Spinner */}
       {cargandoOperacion && (
         <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-white animate-fadeIn">
-          <div className="w-14 h-14 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-14 h-14 border-4 border-[#E85A80] border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm font-bold tracking-wide animate-pulse">{cargandoOperacion}</p>
         </div>
       )}
@@ -1589,7 +1604,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       {/* Notificación de confirmación: capa superior, visible incluso con modales abiertos */}
       {notificacion && (
-        <div className={`fixed top-4 right-4 z-[10000] px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce pointer-events-none ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : notificacion.tipo === 'info' ? 'bg-sky-600 text-white' : 'bg-emerald-600 text-white'}`}>
+        <div className={`fixed top-4 right-4 z-[99999] px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce pointer-events-none ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : notificacion.tipo === 'info' ? 'bg-sky-600 text-white' : 'bg-emerald-600 text-white'}`}>
           {notificacion.texto}
         </div>
       )}

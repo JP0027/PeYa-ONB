@@ -37,8 +37,8 @@ export function useAlerts(casos: any[] = []) {
       return { ...caso, ...analisis };
     });
 
-    // Filtramos casos activos que necesiten atención
-    const filtrados = list.filter(c => c.esActivo && (c.requierePushPos || c.requierePushCat || c.horasTranscurridas >= 4));
+    // Filtramos casos activos que necesiten atención y tengan >= 4 horas sin push
+    const filtrados = list.filter(c => c.esActivo && (c.requierePushPos || c.requierePushCat) && c.horasTranscurridas >= 4);
 
     // Ordenamiento por gravedad SLA:
     // 96h+ primero, luego 24-96h, luego 4-6h, luego 0-4h

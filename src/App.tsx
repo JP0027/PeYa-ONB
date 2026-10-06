@@ -231,7 +231,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0f111a] text-white">
+      <div className="flex h-screen items-center justify-center bg-[#121212] text-white">
         Cargando validación...
       </div>
     );
@@ -239,12 +239,12 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0f111a] text-white p-4 py-8">
-        <div className="w-16 h-16 bg-pink-600 rounded-2xl flex items-center justify-center font-black text-white text-2xl mb-4 shadow-lg shadow-pink-900/40">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#121212] text-white p-4 py-8">
+        <div className="w-16 h-16 bg-[#E85A80] rounded-2xl flex items-center justify-center font-black text-white text-2xl mb-4 shadow-lg shadow-pink-900/40">
           PY
         </div>
-        <h1 className="text-3xl sm:text-4xl font-black mb-1 text-pink-500 text-center tracking-tight">PeYa ONB</h1>
-        <p className="text-gray-400 mb-8 text-center max-w-sm text-sm">
+        <h1 className="text-3xl sm:text-4xl font-black mb-1 text-[#E85A80] text-center tracking-tight">PeYa ONB</h1>
+        <p className="text-[#B3B3B3] mb-8 text-center max-w-sm text-sm">
           Sistema de gestión operativa de Onboarding para PedidosYa
         </p>
 
@@ -252,7 +252,7 @@ export default function App() {
           {/* BOTÓN ÚNICO DE GOOGLE AUTH */}
           <button 
             onClick={login} 
-            className="w-full bg-[#151824] border border-gray-700 hover:border-pink-500 px-6 py-3.5 rounded-xl font-semibold hover:bg-gray-800 transition flex items-center justify-center gap-3 text-sm shadow-xl cursor-pointer"
+            className="w-full bg-[#1A1A1C] border border-[#3A3A3E] hover:border-[#E85A80] px-6 py-3.5 rounded-xl font-semibold hover:bg-[#2C2C32] transition flex items-center justify-center gap-3 text-base shadow-xl cursor-pointer min-h-[44px]"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
@@ -264,28 +264,28 @@ export default function App() {
           </button>
 
           <div className="flex items-center gap-2 my-1">
-            <div className="flex-1 h-px bg-gray-800"></div>
-            <span className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold">o probar demo</span>
-            <div className="flex-1 h-px bg-gray-800"></div>
+            <div className="flex-1 h-px bg-[#2C2C32]"></div>
+            <span className="text-[11px] text-[#9CA3AF] uppercase tracking-wider font-semibold">o probar demo</span>
+            <div className="flex-1 h-px bg-[#2C2C32]"></div>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleDemoLogin('Supervisor / TL')}
-              className="bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-pink-500/50 text-pink-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
+              className="bg-[#2C2C32]/80 hover:bg-[#3A3A3E] border border-[#3A3A3E] hover:border-[#E85A80]/50 text-pink-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
               title="Ingresar como Supervisor Demo con acceso completo"
             >
               <span>👑 Demo Supervisor</span>
-              <span className="text-[10px] text-gray-400 font-normal">Todas las opciones</span>
+              <span className="text-[10px] text-[#B3B3B3] font-normal">Todas las opciones</span>
             </button>
 
             <button
               onClick={() => handleDemoLogin('Agente')}
-              className="bg-gray-800/80 hover:bg-gray-700 border border-gray-700 hover:border-blue-500/50 text-blue-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
+              className="bg-[#2C2C32]/80 hover:bg-[#3A3A3E] border border-[#3A3A3E] hover:border-blue-500/50 text-blue-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
               title="Ingresar como Agente Demo con vista operativa"
             >
               <span>👤 Demo Agente</span>
-              <span className="text-[10px] text-gray-400 font-normal">Vista operativa</span>
+              <span className="text-[10px] text-[#B3B3B3] font-normal">Vista operativa</span>
             </button>
           </div>
         </div>

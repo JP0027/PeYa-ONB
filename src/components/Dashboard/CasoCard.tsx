@@ -48,14 +48,14 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
       className={`border-b transition cursor-pointer ${
         estaResaltado 
           ? 'bg-amber-500/25 ring-2 ring-amber-400 border-amber-400 shadow-xl shadow-amber-500/30 animate-pulse' 
-          : 'border-gray-800 hover:bg-[#1a1d27]'
+          : 'border-[#3A3A3E] hover:bg-[#1a1d27]'
       }`}
     >
       <td className="p-3 text-xs">
         {(() => {
           const textoOp = obtenerTextoCasoOp(caso);
           return (
-            <span className={`font-mono font-semibold ${textoOp === 'Sin caso OP' ? 'text-gray-500 italic' : 'text-pink-400'}`}>
+            <span className={`font-mono font-semibold ${textoOp === 'Sin caso OP' ? 'text-[#9CA3AF] italic' : 'text-[#F46C8E]'}`}>
               {textoOp}
             </span>
           );
@@ -63,11 +63,11 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
       </td>
       <td className="p-3">
         <div className="text-xs font-semibold text-white">{caso.tienda || 'Sin tienda'}</div>
-        <div className="text-[10px] text-gray-500 font-mono mt-0.5">{caso.vendorId || caso.vendor_id}</div>
+        <div className="text-[10px] text-[#9CA3AF] font-mono mt-0.5">{caso.vendorId || caso.vendor_id}</div>
       </td>
       <td className="p-3">
-        <div className="text-[11px] text-gray-300">{caso.pais}</div>
-        <div className="text-[10px] text-gray-500 mt-0.5">{caso.kam || '-'}</div>
+        <div className="text-[11px] text-[#D1D5DB]">{caso.pais}</div>
+        <div className="text-[10px] text-[#9CA3AF] mt-0.5">{caso.kam || '-'}</div>
       </td>
       <td className="p-3 text-[11px] text-cyan-300 font-medium">
         {caso.integracion}
@@ -102,7 +102,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
           }
           return <div className="text-[11px] font-semibold text-white truncate max-w-[150px]" title={caso.estado}>{caso.estado}</div>;
         })()}
-        <div className="text-[10px] text-gray-500 truncate max-w-[150px] mt-1" title={caso.etapa}>{caso.etapa}</div>
+        <div className="text-[10px] text-[#9CA3AF] truncate max-w-[150px] mt-1" title={caso.etapa}>{caso.etapa}</div>
       </td>
       <td className="p-3">
         {alertas.requierePushPos ? (
@@ -124,7 +124,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
                 <span>✅</span> {caso.fechaPushPos}
               </span>
             ) : caso.respuestaPos ? (
-              <span className="text-gray-400 font-mono">{caso.respuestaPos}</span>
+              <span className="text-[#B3B3B3] font-mono">{caso.respuestaPos}</span>
             ) : (
               <span className="text-gray-600">-</span>
             )}
@@ -135,7 +135,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
         {alertas.requierePushCat ? (
           <button 
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); onRegistrarPush(caso, 'cat'); }}
-            className="text-[10px] bg-pink-600 hover:bg-pink-500 text-white font-bold px-2.5 py-1 rounded shadow-md transition flex items-center gap-1 cursor-pointer"
+            className="text-[10px] bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-2.5 py-1 rounded shadow-md transition flex items-center gap-1 cursor-pointer"
             title="Registrar push de catálogo con 1 solo clic"
           >
             <span>📦</span> Push Cat
@@ -151,7 +151,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
                 <span>✅</span> {caso.fechaPushCat}
               </span>
             ) : caso.respuestaCat ? (
-              <span className="text-gray-400 font-mono">{caso.respuestaCat}</span>
+              <span className="text-[#B3B3B3] font-mono">{caso.respuestaCat}</span>
             ) : (
               <span className="text-gray-600">-</span>
             )}
@@ -164,7 +164,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
           {alertas.horasTranscurridas}h
         </span>
       </td>
-      <td className="p-3 text-[10px] text-gray-400">
+      <td className="p-3 text-[10px] text-[#B3B3B3]">
         {caso.propietarioTicket || caso.agente}
       </td>
       <td className="p-3">

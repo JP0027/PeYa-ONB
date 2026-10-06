@@ -25,6 +25,7 @@ export default function TablaOnboardingCasos({
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroPais, setFiltroPais] = useState<string>('todos');
+  const [filtroAsset, setFiltroAsset] = useState<string>('todos');
   const [paginaActual, setPaginaActual] = useState<number>(1);
   const [casosPorPagina, setCasosPorPagina] = useState<number>(10);
 
@@ -150,6 +151,17 @@ export default function TablaOnboardingCasos({
     });
     return Array.from(setP).sort();
   }, [casos]);
+  
+  // Lista única de assets para el selector de filtro
+  const listaAssets = useMemo(() => {
+    const setA = new Set<string>();
+    casos.forEach(c => {
+      if (c.asset && c.asset !== '-' && c.asset !== 'S/V') {
+        setA.add(c.asset.trim());
+      }
+    });
+    return Array.from(setA).sort();
+  }, [casos]);
 
   // Filtrado y ordenamiento de casos en tiempo real
   const casosFiltrados = useMemo(() => {
@@ -205,6 +217,11 @@ export default function TablaOnboardingCasos({
       // 3. Filtro de país
       if (filtroPais !== 'todos') {
         if (String(c.pais || '').toLowerCase() !== filtroPais.toLowerCase()) return false;
+      }
+      
+      // 4. Filtro de asset
+      if (filtroAsset !== 'todos') {
+        if (String(c.asset || '').toLowerCase() !== filtroAsset.toLowerCase()) return false;
       }
 
       return true;
@@ -372,7 +389,7 @@ export default function TablaOnboardingCasos({
       <th 
         onClick={() => handleOrdenar(colKey)}
         style={{ width: colWidths[anchoKey], minWidth: colWidths[anchoKey] }} 
-        className={`py-3 px-3 relative select-none cursor-pointer hover:text-pink-400 transition ${alinear === 'center' ? 'text-center' : 'text-left'} ${activo ? 'text-pink-400 font-bold' : ''}`}
+        className={`py-3 px-3 relative select-none cursor-pointer hover:text-[#F46C8E] transition ${alinear === 'center' ? 'text-center' : 'text-left'} ${activo ? 'text-[#F46C8E] font-bold' : ''}`}
         title={`Clic para ordenar por ${titulo}`}
       >
         <div className={`flex items-center gap-1 ${alinear === 'center' ? 'justify-center' : 'justify-start'}`}>
@@ -384,7 +401,7 @@ export default function TablaOnboardingCasos({
         <div 
           onMouseDown={(e) => iniciarRedimensionar(anchoKey, e)} 
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500/60 select-none" 
+          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E]/60 select-none" 
         />
       </th>
     );
@@ -393,11 +410,11 @@ export default function TablaOnboardingCasos({
   return (
     <div className="w-full space-y-4">
       {/* Barra de Búsqueda y Selectores de Estado, País y Paginación */}
-      <div className="bg-[#151824] border border-gray-800 rounded-2xl p-4 shadow-lg space-y-3">
+      <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-4 shadow-lg space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
           {/* Input de Búsqueda */}
           <div className="relative w-full md:w-96">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 pointer-events-none">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#9CA3AF] pointer-events-none">
               🔍
             </span>
             <input
@@ -408,12 +425,12 @@ export default function TablaOnboardingCasos({
                 setPaginaActual(1);
               }}
               placeholder="Buscar por Caso OP, Vendor, Tienda, Agente, Integración..."
-              className="w-full bg-[#0f111a] border border-gray-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-pink-500 transition"
+              className="w-full bg-[#121212] border border-[#3A3A3E] rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#E85A80] transition"
             />
             {busqueda && (
               <button
                 onClick={() => setBusqueda('')}
-                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-gray-400 hover:text-white text-xs cursor-pointer"
+                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-[#B3B3B3] hover:text-white text-xs cursor-pointer"
               >
                 ✕
               </button>
@@ -424,14 +441,14 @@ export default function TablaOnboardingCasos({
           <div className="flex flex-wrap gap-2.5 items-center w-full md:w-auto">
             {/* Filtro Estado del Caso */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-gray-400">Estado:</span>
+              <span className="text-[11px] text-[#B3B3B3]">Estado:</span>
               <select
                 value={filtroEstado}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   setFiltroEstado(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-pink-500 font-semibold cursor-pointer"
+                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
               >
                 <option value="todos">Todos los Estados ({conteos.todos})</option>
                 <option value="activos">Todos los Activos ({conteos.activos})</option>
@@ -447,14 +464,14 @@ export default function TablaOnboardingCasos({
 
             {/* Filtro País */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-gray-400">País:</span>
+              <span className="text-[11px] text-[#B3B3B3]">País:</span>
               <select
                 value={filtroPais}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   setFiltroPais(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-pink-500 cursor-pointer"
+                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
               >
                 <option value="todos">Todos los Países ({listaPaises.length})</option>
                 {listaPaises.map(p => (
@@ -463,16 +480,34 @@ export default function TablaOnboardingCasos({
               </select>
             </div>
 
+            {/* Filtro Asset */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-[#B3B3B3]">Asset:</span>
+              <select
+                value={filtroAsset}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  setFiltroAsset(e.target.value);
+                  setPaginaActual(1);
+                }}
+                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+              >
+                <option value="todos">Todos los Assets ({listaAssets.length})</option>
+                {listaAssets.map(a => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Cantidad por página: 10, 15, 20 */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-gray-400">Mostrar:</span>
+              <span className="text-[11px] text-[#B3B3B3]">Mostrar:</span>
               <select
                 value={casosPorPagina}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   setCasosPorPagina(Number(e.target.value));
                   setPaginaActual(1);
                 }}
-                className="bg-[#0f111a] border border-gray-800 text-gray-300 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-pink-500 cursor-pointer"
+                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
               >
                 <option value={10}>10 por pág.</option>
                 <option value={15}>15 por pág.</option>
@@ -485,8 +520,8 @@ export default function TablaOnboardingCasos({
               onClick={() => handleOrdenar('tienda')}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
                 columnaOrden === 'tienda'
-                  ? 'bg-pink-600/30 text-pink-300 border-pink-500 shadow-sm'
-                  : 'bg-[#0f111a] border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800'
+                  ? 'bg-[#E85A80]/30 text-pink-300 border-[#E85A80] shadow-sm'
+                  : 'bg-[#121212] border-[#3A3A3E] text-[#D1D5DB] hover:text-white hover:bg-[#2C2C32]'
               }`}
               title="Ordenar locales alfabéticamente A-Z o Z-A"
             >
@@ -501,7 +536,7 @@ export default function TablaOnboardingCasos({
             {/* Botón Descargar Excel según filtros actuales */}
             <button
               onClick={descargarExcel}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5 shadow-md shadow-emerald-950/50 cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-1.5 rounded-xl text-sm transition flex items-center gap-1.5 shadow-md shadow-emerald-950/50 cursor-pointer"
               title="Descargar los casos filtrados en formato Excel (.xlsx)"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -514,9 +549,9 @@ export default function TablaOnboardingCasos({
 
 
         {/* Resumen de resultados */}
-        <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-800/80">
+        <div className="flex items-center justify-between text-xs text-[#B3B3B3] pt-2 border-t border-[#3A3A3E]/80">
           <div>
-            Mostrando <strong className="text-white">{casosPaginados.length}</strong> de <strong className="text-pink-400">{casosFiltrados.length}</strong> casos filtrados (<span className="text-gray-300 font-mono">{casos.length}</span> casos totales registrados en Onboarding)
+            Mostrando <strong className="text-white">{casosPaginados.length}</strong> de <strong className="text-[#F46C8E]">{casosFiltrados.length}</strong> casos filtrados (<span className="text-[#D1D5DB] font-mono">{casos.length}</span> casos totales registrados en Onboarding)
           </div>
           <div className="flex items-center gap-2">
             <span>Página <strong className="text-white">{paginaSegura}</strong> de <strong className="text-white">{totalPaginas}</strong></span>
@@ -525,7 +560,7 @@ export default function TablaOnboardingCasos({
       </div>
 
       {/* 3. Tabla Reducida de Casos Totales (Ancho completo) */}
-      <div className="bg-[#151824] border border-gray-800 rounded-2xl overflow-hidden shadow-xl w-full">
+      <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl overflow-hidden shadow-xl w-full">
         {cargando && (
           <div className="bg-emerald-950/60 border-b border-emerald-800/70 px-4 py-2.5 flex items-center justify-between animate-pulse">
             <div className="flex items-center gap-2.5 text-xs text-emerald-300 font-semibold">
@@ -538,7 +573,7 @@ export default function TablaOnboardingCasos({
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-gray-900/80 border-b border-gray-800 text-gray-400 uppercase font-mono text-[10px] tracking-wider whitespace-nowrap">
+              <tr className="bg-[#202024]/80 border-b border-[#3A3A3E] text-[#B3B3B3] uppercase font-mono text-[10px] tracking-wider whitespace-nowrap">
                 {renderHeader('num', '#', 'num', 'center')}
                 {renderHeader('casoOp', 'Caso OP', 'casoOp')}
                 {renderHeader('vendorId', 'Vendor ID', 'vendorId')}
@@ -554,7 +589,7 @@ export default function TablaOnboardingCasos({
                   <div 
                     onMouseDown={(e) => iniciarRedimensionar('acciones', e)} 
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-pink-500/60 select-none" 
+                    className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E]/60 select-none" 
                   />
                 </th>
               </tr>
@@ -562,7 +597,7 @@ export default function TablaOnboardingCasos({
             <tbody className="divide-y divide-gray-800/80">
               {casosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-gray-500">
+                  <td colSpan={11} className="py-42 text-center text-[#9CA3AF]">
                     No se encontraron casos con los filtros aplicados.
                   </td>
                 </tr>
@@ -576,20 +611,20 @@ export default function TablaOnboardingCasos({
                   return (
                     <tr
                       key={c.id || c.casoOp || idx}
-                      className="hover:bg-gray-800/50 transition group"
+                      className="hover:bg-[#2C2C32]/50 transition group"
                     >
                       {/* # / Fila */}
-                      <td className="py-2.5 px-3 text-center text-gray-500 font-mono text-[11px]">
+                      <td className="py-4 px-3 text-center text-[#9CA3AF] font-mono text-[11px]">
                         {filaNumeroVisual}
                       </td>
 
                       {/* Caso OP */}
-                      <td className="py-2.5 px-3 font-mono font-bold">
+                      <td className="py-4 px-3 font-mono font-bold">
                         <button
                           onClick={() => onEditarCaso && onEditarCaso(c)}
                           className={`hover:underline text-left cursor-pointer ${
                             textoOp === 'Sin caso OP'
-                              ? 'text-gray-500 italic'
+                              ? 'text-[#9CA3AF] italic'
                               : 'text-cyan-400 hover:text-cyan-300'
                           }`}
                           title="Clic para ampliar y ver todos los datos del caso"
@@ -599,39 +634,39 @@ export default function TablaOnboardingCasos({
                       </td>
 
                       {/* Vendor ID */}
-                      <td className="py-2.5 px-3 font-mono text-gray-300">
+                      <td className="py-4 px-3 font-mono text-[#D1D5DB]">
                         {c.vendorId || c.vendor_id || '-'}
                       </td>
 
                       {/* Tienda */}
-                      <td className="py-2.5 px-4 font-semibold text-white max-w-[220px] truncate" title={c.tienda}>
+                      <td className="py-4 px-4 font-semibold text-white max-w-[220px] truncate" title={c.tienda}>
                         {c.tienda || '-'}
                       </td>
 
                       {/* País */}
-                      <td className="py-2.5 px-3 text-gray-300">
-                        <span className="px-1.5 py-0.5 rounded bg-gray-800 text-[10px] text-gray-300 font-medium whitespace-nowrap">
+                      <td className="py-4 px-3 text-[#D1D5DB]">
+                        <span className="px-1.5 py-0.5 rounded bg-[#2C2C32] text-[10px] text-[#D1D5DB] font-medium whitespace-nowrap">
                           {c.pais || '-'}
                         </span>
                       </td>
 
                       {/* Propietario Oportunidad */}
-                      <td className="py-2.5 px-3 text-gray-300 max-w-[160px] truncate" title={c.propietarioOportunidad}>
+                      <td className="py-4 px-3 text-[#D1D5DB] max-w-[160px] truncate" title={c.propietarioOportunidad}>
                         {c.propietarioOportunidad || '-'}
                       </td>
 
                       {/* Integración */}
-                      <td className="py-2.5 px-3 text-gray-300 max-w-[140px] truncate" title={c.integracion}>
+                      <td className="py-4 px-3 text-[#D1D5DB] max-w-[140px] truncate" title={c.integracion}>
                         {c.integracion || '-'}
                       </td>
 
                       {/* Oportunidad */}
-                      <td className="py-2.5 px-3 text-gray-400 max-w-[140px] truncate" title={c.oportunidad}>
+                      <td className="py-4 px-3 text-[#B3B3B3] max-w-[140px] truncate" title={c.oportunidad}>
                         {c.oportunidad || '-'}
                       </td>
 
                       {/* Estado */}
-                      <td className="py-2.5 px-3 whitespace-nowrap">
+                      <td className="py-4 px-3 whitespace-nowrap">
                         <span
                           className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             !esCerrado
@@ -640,7 +675,7 @@ export default function TablaOnboardingCasos({
                                 : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
                               : estLower.includes('satisfactorio')
                                 ? 'bg-fuchsia-950/80 text-fuchsia-300 border border-fuchsia-800/80'
-                                : 'bg-gray-800/90 text-gray-300 border border-gray-700'
+                                : 'bg-[#2C2C32]/90 text-[#D1D5DB] border border-[#3A3A3E]'
                           }`}
                         >
                           {c.estado || 'En progreso'}
@@ -648,17 +683,17 @@ export default function TablaOnboardingCasos({
                       </td>
 
                       {/* Etapa */}
-                      <td className="py-2.5 px-3 text-gray-400 text-[11px] max-w-[160px] truncate" title={c.etapa}>
+                      <td className="py-4 px-3 text-[#B3B3B3] text-[11px] max-w-[160px] truncate" title={c.etapa}>
                         {c.etapa || '-'}
                       </td>
 
                       {/* Acciones: Solo iconos para ahorrar espacio */}
-                      <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                      <td className="py-4 px-2 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
                           {/* Botón Editar / Ampliar (Solo icono) */}
                           <button
                             onClick={() => onEditarCaso && onEditarCaso(c)}
-                            className="p-1.5 bg-pink-600/20 hover:bg-pink-600 text-pink-300 hover:text-white border border-pink-500/40 rounded-lg transition flex items-center justify-center cursor-pointer shadow-sm hover:scale-110"
+                            className="p-1.5 bg-[#E85A80]/20 hover:bg-[#E85A80] text-pink-300 hover:text-white border border-[#E85A80]/40 rounded-lg transition flex items-center justify-center cursor-pointer shadow-sm hover:scale-110"
                             title="Editar / Ampliar datos del caso"
                             aria-label="Editar caso"
                           >
@@ -686,39 +721,39 @@ export default function TablaOnboardingCasos({
 
         {/* 4. Paginación Inferior */}
         {totalPaginas > 1 && (
-          <div className="p-3.5 bg-gray-900/60 border-t border-gray-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <span className="text-gray-400">
+          <div className="p-3.5 bg-[#202024]/60 border-t border-[#3A3A3E] flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span className="text-[#B3B3B3]">
               Página <strong className="text-white">{paginaSegura}</strong> de <strong className="text-white">{totalPaginas}</strong>
             </span>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setPaginaActual(1)}
                 disabled={paginaSegura === 1}
-                className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#2C2C32] text-[#D1D5DB] hover:bg-[#3A3A3E] disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
               >
                 « Primero
               </button>
               <button
                 onClick={() => setPaginaActual(prev => Math.max(1, prev - 1))}
                 disabled={paginaSegura === 1}
-                className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#2C2C32] text-[#D1D5DB] hover:bg-[#3A3A3E] disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
               >
                 ◀ Anterior
               </button>
-              <span className="px-3 py-1 bg-pink-600 text-white font-bold rounded-lg text-xs">
+              <span className="px-3 py-1 bg-[#E85A80] text-white font-bold rounded-lg text-xs">
                 {paginaSegura}
               </span>
               <button
                 onClick={() => setPaginaActual(prev => Math.min(totalPaginas, prev + 1))}
                 disabled={paginaSegura === totalPaginas}
-                className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#2C2C32] text-[#D1D5DB] hover:bg-[#3A3A3E] disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
               >
                 Siguiente ▶
               </button>
               <button
                 onClick={() => setPaginaActual(totalPaginas)}
                 disabled={paginaSegura === totalPaginas}
-                className="px-2.5 py-1 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-[#2C2C32] text-[#D1D5DB] hover:bg-[#3A3A3E] disabled:opacity-30 disabled:cursor-not-allowed transition text-xs cursor-pointer"
               >
                 Último »
               </button>
@@ -730,34 +765,34 @@ export default function TablaOnboardingCasos({
       {/* Modal de Confirmación para Eliminar Caso */}
       {casoAEliminar && (
         <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-[#161925] border border-rose-500/60 rounded-2xl max-w-md w-full p-6 shadow-2xl shadow-rose-950/40 relative">
+          <div className="bg-[#202024] border border-rose-500/60 rounded-2xl max-w-md w-full p-6 shadow-2xl shadow-rose-950/40 relative">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-600/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-xl shrink-0">
                 ⚠️
               </div>
               <div className="flex-1">
                 <h3 className="text-base font-bold text-white">¿Eliminar caso definitivamente?</h3>
-                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  Esta acción eliminará el registro de forma permanente tanto en <strong className="text-emerald-400">Google Sheets (hoja Onboarding_New)</strong> como en <strong className="text-pink-400">Firebase Firestore</strong>.
+                <p className="text-xs text-[#B3B3B3] mt-1 leading-relaxed">
+                  Esta acción eliminará el registro de forma permanente tanto en <strong className="text-emerald-400">Google Sheets (hoja Onboarding_New)</strong> como en <strong className="text-[#F46C8E]">Firebase Firestore</strong>.
                 </p>
 
                 {/* Resumen del caso a eliminar */}
-                <div className="mt-3.5 bg-[#0f111a] border border-gray-800 rounded-xl p-3 text-xs space-y-1">
+                <div className="mt-3.5 bg-[#121212] border border-[#3A3A3E] rounded-xl p-3 text-xs space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Caso OP:</span>
+                    <span className="text-[#9CA3AF]">Caso OP:</span>
                     <span className="font-mono font-bold text-cyan-400">{casoAEliminar.casoOp || 'S/OP'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Vendor ID:</span>
-                    <span className="font-mono text-gray-300">{casoAEliminar.vendorId || casoAEliminar.vendor_id || '-'}</span>
+                    <span className="text-[#9CA3AF]">Vendor ID:</span>
+                    <span className="font-mono text-[#D1D5DB]">{casoAEliminar.vendorId || casoAEliminar.vendor_id || '-'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Tienda:</span>
+                    <span className="text-[#9CA3AF]">Tienda:</span>
                     <span className="font-semibold text-white truncate max-w-[200px]">{casoAEliminar.tienda || '-'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">País / Integración:</span>
-                    <span className="text-gray-300">{casoAEliminar.pais || '-'} • {casoAEliminar.integracion || '-'}</span>
+                    <span className="text-[#9CA3AF]">País / Integración:</span>
+                    <span className="text-[#D1D5DB]">{casoAEliminar.pais || '-'} • {casoAEliminar.integracion || '-'}</span>
                   </div>
                 </div>
 
@@ -766,14 +801,14 @@ export default function TablaOnboardingCasos({
                   <button
                     onClick={() => setCasoAEliminar(null)}
                     disabled={eliminando}
-                    className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] text-xs font-semibold transition cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={ejecutarEliminacion}
                     disabled={eliminando}
-                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-900/40 cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-900/40 cursor-pointer disabled:opacity-50"
                   >
                     <span>{eliminando ? 'Eliminando...' : '🗑️ Sí, eliminar caso'}</span>
                   </button>

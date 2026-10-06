@@ -134,13 +134,13 @@ export default function ModalContactosIntegracion({
       onClick={onCerrar}
     >
       <div 
-        className="bg-[#161925] border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in"
+        className="bg-[#202024] border border-[#3A3A3E] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b border-gray-800 bg-[#12141e] flex items-center justify-between gap-3">
+        <div className="p-4 border-b border-[#3A3A3E] bg-[#161618] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-pink-600/20 border border-pink-500/40 flex items-center justify-center text-pink-400 font-bold text-sm">
+            <div className="w-9 h-9 rounded-xl bg-[#E85A80]/20 border border-[#E85A80]/40 flex items-center justify-center text-[#F46C8E] font-bold text-sm">
               ✉️
             </div>
             <div>
@@ -149,19 +149,19 @@ export default function ModalContactosIntegracion({
                   {integracionNombre || 'Sin Integración'}
                 </h3>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                  sponsorship === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-gray-800 text-gray-400'
+                  sponsorship === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-[#2C2C32] text-[#B3B3B3]'
                 }`}>
                   Sponsorship: {sponsorship}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400">Contactos para ticket de seguimiento</p>
+              <p className="text-[11px] text-[#B3B3B3]">Contactos para ticket de seguimiento</p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onCerrar}
-            className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 text-base transition cursor-pointer"
+            className="text-[#B3B3B3] hover:text-white p-1.5 rounded-lg hover:bg-[#2C2C32] text-base transition cursor-pointer"
           >
             ✕
           </button>
@@ -201,7 +201,7 @@ export default function ModalContactosIntegracion({
               </div>
 
               {listaContactos.length === 0 ? (
-                <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-3.5 text-center text-gray-400 italic">
+                <div className="bg-[#121212] border border-[#3A3A3E] rounded-xl p-3.5 text-center text-[#B3B3B3] italic">
                   ℹ️ No hay contactos registrados para esta integración en la hoja oficial.
                 </div>
               ) : (
@@ -212,10 +212,10 @@ export default function ModalContactosIntegracion({
                     return (
                       <div 
                         key={idx}
-                        className={`bg-[#0f111a] border rounded-xl p-2.5 transition flex items-center justify-between gap-3 ${
+                        className={`bg-[#121212] border rounded-xl p-2.5 transition flex items-center justify-between gap-3 ${
                           contacto.esEmergencia 
                             ? 'border-rose-800/80 bg-rose-950/20 hover:border-rose-600' 
-                            : 'border-gray-800 hover:border-gray-700'
+                            : 'border-[#3A3A3E] hover:border-[#3A3A3E]'
                         }`}
                       >
                         <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -255,7 +255,7 @@ export default function ModalContactosIntegracion({
                               ? 'bg-emerald-600 text-white shadow' 
                               : contacto.esEmergencia
                                 ? 'bg-rose-900/70 hover:bg-rose-800 text-rose-200 border border-rose-700/80 hover:text-white'
-                                : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 hover:border-pink-500/50'
+                                : 'bg-[#2C2C32] hover:bg-[#3A3A3E] text-gray-200 border border-[#3A3A3E] hover:border-[#E85A80]/50'
                           }`}
                           title={`Copiar correo: ${contacto.email}`}
                         >
@@ -272,14 +272,14 @@ export default function ModalContactosIntegracion({
 
           {/* Contacto del KAM si está disponible */}
           {kamParsed && kamParsed.email && (
-            <div className="space-y-1.5 pt-2 border-t border-gray-800">
+            <div className="space-y-1.5 pt-2 border-t border-[#3A3A3E]">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-white flex items-center gap-1.5">
                   <span>💼</span>
                   <span>Ejecutivo Comercial / KAM del Local</span>
                 </h4>
               </div>
-              <div className="bg-[#0f111a] border border-gray-800 rounded-xl p-2.5 flex items-center justify-between gap-3">
+              <div className="bg-[#121212] border border-[#3A3A3E] rounded-xl p-2.5 flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0 flex flex-col justify-center">
                   {kamParsed.etiqueta && (
                     <div className="mb-1 flex items-center gap-1.5 select-none">
@@ -304,7 +304,7 @@ export default function ModalContactosIntegracion({
                   className={`text-[10px] px-2.5 py-1.5 rounded-lg font-semibold transition shrink-0 cursor-pointer flex items-center gap-1 ${
                     copiadoId === 'kam_email'
                       ? 'bg-emerald-600 text-white shadow'
-                      : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 hover:border-amber-500/50'
+                      : 'bg-[#2C2C32] hover:bg-[#3A3A3E] text-gray-200 border border-[#3A3A3E] hover:border-amber-500/50'
                   }`}
                   title={`Copiar correo: ${kamParsed.email}`}
                 >
@@ -317,7 +317,7 @@ export default function ModalContactosIntegracion({
 
           {/* Correos del Equipo de Onboarding */}
           {listaOnboarding.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-gray-800">
+            <div className="space-y-2 pt-2 border-t border-[#3A3A3E]">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-white flex items-center gap-1.5">
                   <span>👥</span>
@@ -344,7 +344,7 @@ export default function ModalContactosIntegracion({
                       className={`text-left p-1.5 rounded-lg border font-mono text-[10px] transition flex items-center justify-between gap-1 cursor-pointer truncate ${
                         esCopiado
                           ? 'bg-emerald-600 text-white border-emerald-500 shadow'
-                          : 'bg-[#0f111a] hover:bg-gray-800 text-gray-300 hover:text-white border-gray-800'
+                          : 'bg-[#121212] hover:bg-[#2C2C32] text-[#D1D5DB] hover:text-white border-[#3A3A3E]'
                       }`}
                       title={`Clic para copiar ${onb.email}`}
                     >
@@ -359,11 +359,11 @@ export default function ModalContactosIntegracion({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-gray-800 bg-[#12141e] flex justify-end">
+        <div className="p-3 border-t border-[#3A3A3E] bg-[#161618] flex justify-end">
           <button
             type="button"
             onClick={onCerrar}
-            className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold rounded-lg cursor-pointer transition"
+            className="px-4 py-1.5 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] text-sm font-semibold rounded-lg cursor-pointer transition min-h-[44px]"
           >
             Cerrar
           </button>

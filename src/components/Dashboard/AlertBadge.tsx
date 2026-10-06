@@ -15,7 +15,7 @@ export default function AlertBadge({ tipo, cantidad, activo, onClick }: AlertBad
       case 'todos':
         return activo 
           ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30' 
-          : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white';
+          : 'bg-[#2C2C32] text-[#B3B3B3] hover:bg-[#3A3A3E] hover:text-white';
       case 'enProgreso':
         return activo
           ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/30'
@@ -30,14 +30,14 @@ export default function AlertBadge({ tipo, cantidad, activo, onClick }: AlertBad
           : 'bg-amber-950/40 text-amber-500 border border-amber-900/50 hover:bg-amber-900/60 hover:text-white';
       case 'pushCat':
         return activo
-          ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/30'
-          : 'bg-pink-950/40 text-pink-500 border border-pink-900/50 hover:bg-pink-900/60 hover:text-white';
+          ? 'bg-[#E85A80] text-white shadow-lg shadow-pink-900/30'
+          : 'bg-pink-950/40 text-[#E85A80] border border-pink-900/50 hover:bg-pink-900/60 hover:text-white';
       case 'sla':
         return activo
           ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/30'
           : 'bg-rose-950/40 text-rose-500 border border-rose-900/50 hover:bg-rose-900/60 hover:text-white';
       default:
-        return 'bg-gray-800 text-gray-400';
+        return 'bg-[#2C2C32] text-[#B3B3B3]';
     }
   };
 

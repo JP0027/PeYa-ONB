@@ -102,7 +102,7 @@ export default function TLDashboard({
         esCritico: alertas.esCritico || horas >= 96,
         esProximoVencer: alertas.esProximoVencer || (horas >= 72 && horas < 96),
         agenteACargo: normalizedAgent,
-        colorClass: alertas.colorClass || 'bg-gray-800',
+        colorClass: alertas.colorClass || 'bg-[#2C2C32]',
         esActivo,
         tieneInicioPos,
         tieneInicioCat,
@@ -198,7 +198,15 @@ export default function TLDashboard({
     const numCasoOnb = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : 'Sin caso OP';
     const numCasoSeguimiento = (c.casoSeguimiento && c.casoSeguimiento !== '-' && String(c.casoSeguimiento).trim() !== '') ? c.casoSeguimiento : 'Sin caso de seguimiento';
 
-    const texto = `Nombre de local: ${nombreLocal}\nId de local: ${idLocal}\nPais: ${pais}\nNumero de caso onb: ${numCasoOnb}\nN° de caso de seguimiento: ${numCasoSeguimiento}`;
+    const faltaPushPos = !c.fechaPushPos || c.fechaPushPos === '-' || String(c.fechaPushPos).trim() === '';
+    const faltaPushCat = !c.fechaPushCat || c.fechaPushCat === '-' || String(c.fechaPushCat).trim() === '';
+    
+    let lineaAgente = '';
+    if (faltaPushPos || faltaPushCat) {
+      lineaAgente = '\nAgente: No realizo push';
+    }
+
+    const texto = `Nombre de local: ${nombreLocal}\nId de local: ${idLocal}\nPais: ${pais}\nNumero de caso onb: ${numCasoOnb}\nN° de caso de seguimiento: ${numCasoSeguimiento}${lineaAgente}`;
     navigator.clipboard.writeText(texto);
     
     setCopiadoId(c.id || c.casoOp);
@@ -228,10 +236,10 @@ export default function TLDashboard({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#3A3A3E] pb-4">
         <div>
           <h1 className="text-2xl font-black text-white tracking-wide">Casos en progreso global</h1>
-          <p className="text-xs text-gray-400">Supervisión de SLAs, Rendimiento y Escalamientos KAM</p>
+          <p className="text-xs text-[#B3B3B3]">Supervisión de SLAs, Rendimiento y Escalamientos KAM</p>
         </div>
         <div className="flex items-center gap-3">
           {onForzarSync && (
@@ -240,8 +248,8 @@ export default function TLDashboard({
               disabled={sincronizando}
               className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition shadow-lg ${
                 sincronizando
-                  ? 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'
-                  : 'bg-gray-800/90 hover:bg-gray-700 text-pink-400 hover:text-pink-300 border-pink-500/40 hover:border-pink-500 shadow-pink-950/20 cursor-pointer'
+                  ? 'bg-[#2C2C32] text-[#9CA3AF] border-[#3A3A3E] cursor-not-allowed'
+                  : 'bg-[#2C2C32]/90 hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border-[#E85A80]/40 hover:border-[#E85A80] shadow-pink-950/20 cursor-pointer'
               }`}
               title="Actualizar datos desde Google Sheets"
             >
@@ -255,23 +263,23 @@ export default function TLDashboard({
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div className="bg-[#151824] p-3.5 rounded-xl border border-gray-800 text-center">
-          <div className="text-gray-400 text-xs mb-1">Total Casos</div>
+        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-[#3A3A3E] text-center">
+          <div className="text-[#B3B3B3] text-xs mb-1">Total Casos</div>
           <div className="text-2xl font-bold text-white">{totalCasos}</div>
         </div>
-        <div className="bg-[#151824] p-3.5 rounded-xl border border-cyan-800 text-center">
+        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-cyan-800 text-center">
           <div className="text-cyan-400 text-xs mb-1 flex items-center justify-center gap-1"><span>💼</span> En Progreso</div>
           <div className="text-2xl font-bold text-cyan-400">{inProgressNormal}</div>
         </div>
-        <div className="bg-[#151824] p-3.5 rounded-xl border border-purple-800 text-center">
+        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-purple-800 text-center">
           <div className="text-purple-400 text-xs mb-1 flex items-center justify-center gap-1"><span>⚡</span> Sin OP</div>
           <div className="text-2xl font-bold text-purple-400">{inProgressSinOp}</div>
         </div>
-        <div className="bg-[#151824] p-3.5 rounded-xl border border-rose-800/80 bg-rose-950/20 text-center shadow-lg shadow-rose-950/30">
+        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-rose-800/80 bg-rose-950/20 text-center shadow-lg shadow-rose-950/30">
           <div className="text-rose-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA (≥96h)</div>
           <div className="text-2xl font-black text-rose-400">{fueraDeSla}</div>
         </div>
-        <div className="bg-[#151824] p-3.5 rounded-xl border border-amber-800/80 bg-amber-950/20 text-center">
+        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-amber-800/80 bg-amber-950/20 text-center">
           <div className="text-amber-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>⚠️</span> Próximos (72-96h)</div>
           <div className="text-2xl font-black text-amber-400">{proximosVencer}</div>
         </div>
@@ -282,7 +290,7 @@ export default function TLDashboard({
           className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
             filtroKamPush 
               ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500 shadow-lg shadow-amber-950/50' 
-              : 'bg-[#151824] border-amber-900 hover:border-amber-700'
+              : 'bg-[#1A1A1C] border-amber-900 hover:border-amber-700'
           }`}
           title="Clic para filtrar la tabla por casos que requieren KAM Push (24h a 96h)"
         >
@@ -312,8 +320,8 @@ export default function TLDashboard({
           </div>
 
           {/* Filters */}
-          <div className="bg-[#151824] p-4 rounded-xl border border-gray-800 flex flex-wrap gap-3 items-center">
-            <span className="text-xs text-gray-400 font-bold uppercase">Filtros:</span>
+          <div className="bg-[#1A1A1C] p-4 rounded-xl border border-[#3A3A3E] flex flex-wrap gap-3 items-center">
+            <span className="text-xs text-[#B3B3B3] font-bold uppercase">Filtros:</span>
             
             <button
               type="button"
@@ -321,26 +329,26 @@ export default function TLDashboard({
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
                 filtroKamPush
                   ? 'bg-amber-600 text-white border-amber-500 shadow-md'
-                  : 'bg-[#0f111a] text-amber-400 border-amber-900/60 hover:bg-amber-950/40'
+                  : 'bg-[#121212] text-amber-400 border-amber-900/60 hover:bg-amber-950/40'
               }`}
             >
               <span>⚠️</span>
               <span>Solo Requieren KAM Push ({kamPushTotal})</span>
             </button>
 
-            <select value={filtroAgente} onChange={e => setFiltroAgente(e.target.value)} className="bg-[#0f111a] border border-gray-700 text-xs text-white rounded px-2 py-1">
+            <select value={filtroAgente} onChange={e => setFiltroAgente(e.target.value)} className="bg-[#121212] border border-[#3A3A3E] text-xs text-white rounded px-2 py-1">
               <option value="todos">Todos los Agentes</option>
               {AGENTES_OFICIALES.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
-            <select value={filtroPais} onChange={e => setFiltroPais(e.target.value)} className="bg-[#0f111a] border border-gray-700 text-xs text-white rounded px-2 py-1">
+            <select value={filtroPais} onChange={e => setFiltroPais(e.target.value)} className="bg-[#121212] border border-[#3A3A3E] text-xs text-white rounded px-2 py-1">
               <option value="todos">Todos los Países</option>
               {PAISES_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
-            <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className="bg-[#0f111a] border border-gray-700 text-xs text-white rounded px-2 py-1 max-w-[150px]">
+            <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className="bg-[#121212] border border-[#3A3A3E] text-xs text-white rounded px-2 py-1 max-w-[150px]">
               <option value="todos">Todos los Estados</option>
               {estadosUnicos.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            <select value={filtroEtapa} onChange={e => setFiltroEtapa(e.target.value)} className="bg-[#0f111a] border border-gray-700 text-xs text-white rounded px-2 py-1 max-w-[150px]">
+            <select value={filtroEtapa} onChange={e => setFiltroEtapa(e.target.value)} className="bg-[#121212] border border-[#3A3A3E] text-xs text-white rounded px-2 py-1 max-w-[150px]">
               <option value="todos">Todas las Etapas</option>
               {etapasUnicas.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
@@ -353,7 +361,7 @@ export default function TLDashboard({
                   setFiltroEstado('todos'); 
                   setFiltroEtapa('todos'); 
                 }} 
-                className="text-xs text-pink-500 hover:underline cursor-pointer"
+                className="text-xs text-[#E85A80] hover:underline cursor-pointer"
               >
                 Limpiar
               </button>
@@ -361,11 +369,11 @@ export default function TLDashboard({
           </div>
 
           {/* Active Cases Table (Ordenados por SLA crítico arriba y con acciones de Push y Copiar) */}
-          <div className="bg-[#151824] rounded-xl border border-gray-800 overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-gray-800 bg-[#1a1d27] flex items-center justify-between">
+          <div className="bg-[#1A1A1C] rounded-xl border border-[#3A3A3E] overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-[#3A3A3E] bg-[#1a1d27] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-white">Casos Activos ({casosActivosOrdenados.length})</h2>
-                <span className="text-[11px] text-gray-400 bg-gray-800/80 px-2 py-0.5 rounded-full">
+                <span className="text-[11px] text-[#B3B3B3] bg-[#2C2C32]/80 px-2 py-0.5 rounded-full">
                   Ordenados por SLA Crítico arriba
                 </span>
                 {filtroKamPush && (
@@ -390,8 +398,8 @@ export default function TLDashboard({
               </div>
             )}
             <div className="overflow-x-auto max-h-[560px]">
-              <table className="w-full text-left text-xs text-gray-300">
-                <thead className="bg-[#0f111a] text-gray-400 uppercase sticky top-0 z-10 shadow">
+              <table className="w-full text-left text-xs text-[#D1D5DB]">
+                <thead className="bg-[#121212] text-[#B3B3B3] uppercase sticky top-0 z-10 shadow">
                   <tr>
                     <th className="py-2.5 px-3">Caso OP</th>
                     <th className="py-2.5 px-3">Tienda</th>
@@ -423,18 +431,18 @@ export default function TLDashboard({
                         className={`transition ${
                           estaResaltado
                             ? 'bg-amber-500/25 ring-2 ring-amber-400 border-amber-400 shadow-xl shadow-amber-500/30 animate-pulse'
-                            : `hover:bg-gray-800/50 ${esCritico ? 'bg-rose-950/15' : esProximo ? 'bg-amber-950/10' : ''}`
+                            : `hover:bg-[#2C2C32]/50 ${esCritico ? 'bg-rose-950/15' : esProximo ? 'bg-amber-950/10' : ''}`
                         }`}
                       >
-                        <td className="py-2.5 px-3 text-cyan-400 cursor-pointer hover:underline font-mono font-bold" onClick={() => onSeleccionarCaso && onSeleccionarCaso(c)}>
+                        <td className="py-4 px-3 text-cyan-400 cursor-pointer hover:underline font-mono font-bold" onClick={() => onSeleccionarCaso && onSeleccionarCaso(c)}>
                           <div className="flex items-center gap-1.5">
                             {esCritico && <span title="SLA Vencido (≥96h)">🚨</span>}
                             {esProximo && <span title="Próximo a Vencer (>72h)">⚠️</span>}
-                            <span className={opMostrada === 'Sin caso OP' ? 'text-gray-400 italic font-sans' : ''}>{opMostrada}</span>
+                            <span className={opMostrada === 'Sin caso OP' ? 'text-[#B3B3B3] italic font-sans' : ''}>{opMostrada}</span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 truncate max-w-[150px]" title={c.tienda}>{c.tienda}</td>
-                        <td className="py-2.5 px-3">
+                        <td className="py-4 px-3 truncate max-w-[150px]" title={c.tienda}>{c.tienda}</td>
+                        <td className="py-4 px-3">
                           {String(c.estado || '').toLowerCase().includes('sin oportunidad') ? (
                             <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm">
                               <span>⚡</span> Sin OP
@@ -445,30 +453,30 @@ export default function TLDashboard({
                             </span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 font-medium text-gray-300">{c.agenteACargo}</td>
-                        <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-gray-800 text-[10px]">{limpiarTextoEtapa(c.etapa)}</span></td>
-                        <td className="py-2.5 px-3">
+                        <td className="py-4 px-3 font-medium text-[#D1D5DB]">{c.agenteACargo}</td>
+                        <td className="py-4 px-3"><span className="px-2 py-0.5 rounded bg-[#2C2C32] text-[10px]">{limpiarTextoEtapa(c.etapa)}</span></td>
+                        <td className="py-4 px-3">
                           <div className="flex flex-col items-start gap-0.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                               esCritico 
                                 ? 'bg-rose-950 text-rose-300 border border-rose-700 font-extrabold shadow-sm'
                                 : esProximo
                                   ? 'bg-amber-950 text-amber-300 border border-amber-700 font-bold'
-                                  : c.colorClass || 'bg-gray-800 text-gray-300'
+                                  : c.colorClass || 'bg-[#2C2C32] text-[#D1D5DB]'
                             }`}>
                               {c.rangoSlaOp || `${c.horasSLA}h`}
                             </span>
                             {c.tiempoTranscurridoOp && (
-                              <span className="text-[10px] text-gray-400 font-mono" title={c.tiempoTranscurridoOp}>
+                              <span className="text-[10px] text-[#B3B3B3] font-mono" title={c.tiempoTranscurridoOp}>
                                 {c.tiempoTranscurridoOp}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-2.5 px-3">
+                        <td className="py-4 px-3">
                           <div className="flex flex-col gap-1 items-start">
                             {!c.tieneSeguimientoAplicable ? (
-                              <span className="text-[10px] text-gray-500 font-mono" title="Etapa sin seguimiento de Push POS/Catálogo (S/V)">No aplica (S/V)</span>
+                              <span className="text-[10px] text-[#9CA3AF] font-mono" title="Etapa sin seguimiento de Push POS/Catálogo (S/V)">No aplica (S/V)</span>
                             ) : (
                               <>
                                 {/* Alerta agente no realizó push en POS API */}
@@ -510,7 +518,7 @@ export default function TLDashboard({
                                   (c.kamPosHecho || c.kamCatHecho) ? (
                                     <span className="text-[10px] text-emerald-400 font-medium">✅ Al día</span>
                                   ) : (
-                                    <span className="text-[10px] text-gray-500 font-medium">Sin req. KAM</span>
+                                    <span className="text-[10px] text-[#9CA3AF] font-medium">Sin req. KAM</span>
                                   )
                                 )}
                               </>
@@ -519,7 +527,7 @@ export default function TLDashboard({
                         </td>
 
                         {/* Columna Acciones con botón exclusivo Push KAM para TL / Supervisor */}
-                        <td className="py-2.5 px-3">
+                        <td className="py-4 px-3">
                           <div className="flex items-center gap-1.5 justify-center flex-wrap">
                             {/* Botón Push KAM POS API (exclusivo TL / Supervisor) */}
                             {c.faltaKamPos && (
@@ -545,7 +553,7 @@ export default function TLDashboard({
                                   e.stopPropagation();
                                   if (onRegistrarPush) onRegistrarPush(c, 'kam_cat');
                                 }}
-                                className="bg-pink-600 hover:bg-pink-500 text-white font-bold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
+                                className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
                                 title="Hacer Push KAM para Catálogo únicamente"
                               >
                                 <span>⚡</span>
@@ -561,7 +569,7 @@ export default function TLDashboard({
                                   e.stopPropagation();
                                   if (onSeleccionarCaso) onSeleccionarCaso(c);
                                 }}
-                                className="bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-[10px] px-2 py-1 rounded transition cursor-pointer"
+                                className="bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#B3B3B3] hover:text-white text-[10px] px-2 py-1 rounded transition cursor-pointer"
                                 title="Ver detalles del caso"
                               >
                                 Ver
@@ -578,7 +586,7 @@ export default function TLDashboard({
                               className={`text-[10px] font-semibold px-2 py-1 rounded border transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95 ${
                                 copiadoId === (c.id || c.casoOp)
                                   ? 'bg-emerald-600 text-white border-emerald-500 shadow'
-                                  : 'bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border-gray-700'
+                                  : 'bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] hover:text-white border-[#3A3A3E]'
                               }`}
                               title="Copiar datos del caso (Nombre local, ID, País, Caso OP, Caso Seguimiento)"
                             >
@@ -592,7 +600,7 @@ export default function TLDashboard({
                   })}
                   {casosActivosOrdenados.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-gray-500">
+                      <td colSpan={8} className="py-8 text-center text-[#9CA3AF]">
                         No hay casos activos que coincidan con los filtros seleccionados.
                       </td>
                     </tr>
