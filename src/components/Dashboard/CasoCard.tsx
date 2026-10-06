@@ -167,6 +167,9 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
       <td className="p-3 text-[10px] text-[#B3B3B3]">
         {caso.propietarioTicket || caso.agente}
       </td>
+      <td className="p-3 text-[#D1D5DB] font-mono text-xs">
+        {caso.casoSeguimiento && caso.casoSeguimiento !== '-' ? caso.casoSeguimiento : <span className="text-[#9CA3AF] italic">S/N</span>}
+      </td>
       <td className="p-3">
         <button 
           type="button"

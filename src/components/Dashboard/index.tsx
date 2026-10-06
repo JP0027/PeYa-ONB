@@ -198,6 +198,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     pushCat: 120,
     sla: 110,
     asignado: 130,
+    seguimiento: 120,
     accion: 100
   });
 
@@ -311,8 +312,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const [filtroMisCasos, setFiltroMisCasos] = useState<string>('todos');
   
   // Ordenamiento en Mis Casos: 2 botones independientes
-  const [tipoOrdenMisCasos, setTipoOrdenMisCasos] = useState<'sla' | 'tienda'>('sla');
-  const [sentidoTienda, setSentidoTienda] = useState<'asc' | 'desc'>('asc');
+  const [columnaOrdenMisCasos, setColumnaOrdenMisCasos] = useState<string>('sla');
+  const [direccionOrdenMisCasos, setDireccionOrdenMisCasos] = useState<'asc' | 'desc'>('asc');
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   const [mostrarModalCreds, setMostrarModalCreds] = useState<boolean>(false);
   
@@ -554,7 +557,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, [casosTotales, role, email, nombreUsuarioAutenticado, reproducirCampana]);
 
-  // 2. Recordatorio continuo cada 10 minutos si aún existen casos con SLA >= 4h sin push
+  // 2. Recordatorio continuo cada 30 minutos si aún existen casos con SLA >= 4h sin push
   useEffect(() => {
     const timer = setInterval(() => {
       const casosActuales = casosTotalesRef.current || [];
@@ -562,7 +565,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       const ultimoTs = parseInt(sessionStorage.getItem('peya_ultimo_timbre_ts') || '0', 10);
       const ahora = Date.now();
-      const INTERVALO_RECORDATORIO_MS = 10 * 60 * 1000; // 10 minutos
+      const INTERVALO_RECORDATORIO_MS = 30 * 60 * 1000; // 30 minutos
 
       if (ultimoTs === 0 || ahora - ultimoTs >= INTERVALO_RECORDATORIO_MS) {
         sessionStorage.setItem('peya_ultimo_timbre_ts', String(ahora));
@@ -617,6 +620,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const totalCat = useMemo(() => casosConAlertas.filter(x => x.alertas.requierePushCat).length, [casosConAlertas]);
   const totalSla = useMemo(() => casosConAlertas.filter(x => x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico).length, [casosConAlertas]);
 
+  useEffect(() => { setCurrentPage(1); }, [filtroMisCasos, columnaOrdenMisCasos, direccionOrdenMisCasos, rowsPerPage]);
+
   const listaFiltrada = useMemo(() => {
     const filtrados = casosConAlertas.filter(x => {
       const est = String(x.caso.estado || '').toLowerCase().trim();
@@ -633,31 +638,72 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       return true;
     });
 
-    if (tipoOrdenMisCasos === 'tienda') {
-      if (sentidoTienda === 'asc') {
-        return [...filtrados].sort((a, b) => 
-          String(a.caso.tienda || '').localeCompare(String(b.caso.tienda || ''), 'es', { sensitivity: 'base' })
-        );
-      } else {
-        return [...filtrados].sort((a, b) => 
-          String(b.caso.tienda || '').localeCompare(String(a.caso.tienda || ''), 'es', { sensitivity: 'base' })
-        );
-      }
-    }
+    const valStr = (v: any) => String(v || '').toLowerCase().trim();
 
-    // Por defecto: ordenar por prioridad de SLA
     return [...filtrados].sort((a, b) => {
-      const critA = (a.alertas?.esCritico || (a.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
-      const critB = (b.alertas?.esCritico || (b.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
-      if (critA !== critB) return critB - critA;
+      let valA: any = '';
+      let valB: any = '';
 
-      const proxA = (a.alertas?.esProximoVencer || ((a.alertas?.horasTranscurridas || 0) >= 72 && (a.alertas?.horasTranscurridas || 0) < 96)) ? 1 : 0;
-      const proxB = (b.alertas?.esProximoVencer || ((b.alertas?.horasTranscurridas || 0) >= 72 && (b.alertas?.horasTranscurridas || 0) < 96)) ? 1 : 0;
-      if (proxA !== proxB) return proxB - proxA;
+      switch (columnaOrdenMisCasos) {
+        case 'op':
+          valA = valStr(a.caso.casoOp);
+          valB = valStr(b.caso.casoOp);
+          break;
+        case 'tienda':
+          valA = valStr(a.caso.tienda);
+          valB = valStr(b.caso.tienda);
+          break;
+        case 'pais':
+          valA = valStr(a.caso.pais);
+          valB = valStr(b.caso.pais);
+          break;
+        case 'integracion':
+          valA = valStr(a.caso.integracion);
+          valB = valStr(b.caso.integracion);
+          break;
+        case 'estado':
+          valA = valStr(a.caso.estado);
+          valB = valStr(b.caso.estado);
+          break;
+        case 'pushPos':
+          valA = a.alertas?.requierePushPos ? 1 : 0;
+          valB = b.alertas?.requierePushPos ? 1 : 0;
+          break;
+        case 'pushCat':
+          valA = a.alertas?.requierePushCat ? 1 : 0;
+          valB = b.alertas?.requierePushCat ? 1 : 0;
+          break;
+        case 'asignado':
+          valA = valStr(a.caso.propietarioTicket || a.caso.agente);
+          valB = valStr(b.caso.propietarioTicket || b.caso.agente);
+          break;
+        case 'sla':
+        default:
+          // Lógica por SLA
+          const critA = (a.alertas?.esCritico || (a.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
+          const critB = (b.alertas?.esCritico || (b.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
+          if (critA !== critB) return direccionOrdenMisCasos === 'asc' ? critB - critA : critA - critB;
 
-      return (b.alertas?.horasTranscurridas || 0) - (a.alertas?.horasTranscurridas || 0);
+          const proxA = (a.alertas?.esProximoVencer || ((a.alertas?.horasTranscurridas || 0) >= 72 && (a.alertas?.horasTranscurridas || 0) < 96)) ? 1 : 0;
+          const proxB = (b.alertas?.esProximoVencer || ((b.alertas?.horasTranscurridas || 0) >= 72 && (b.alertas?.horasTranscurridas || 0) < 96)) ? 1 : 0;
+          if (proxA !== proxB) return direccionOrdenMisCasos === 'asc' ? proxB - proxA : proxA - proxB;
+
+          valA = a.alertas?.horasTranscurridas || 0;
+          valB = b.alertas?.horasTranscurridas || 0;
+          break;
+      }
+
+      if (valA < valB) return direccionOrdenMisCasos === 'asc' ? -1 : 1;
+      if (valA > valB) return direccionOrdenMisCasos === 'asc' ? 1 : -1;
+      return 0;
     });
-  }, [casosConAlertas, filtroMisCasos, tipoOrdenMisCasos, sentidoTienda]);
+  }, [casosConAlertas, filtroMisCasos, columnaOrdenMisCasos, direccionOrdenMisCasos]);
+
+  const totalPages = Math.ceil(listaFiltrada.length / rowsPerPage);
+  const paginatedLista = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
+    return listaFiltrada.slice(start, start + rowsPerPage);
+  }, [listaFiltrada, currentPage, rowsPerPage]);
 
   const manejarBusqueda = async (busquedaId: string) => {
     if (!busquedaId.trim()) return;
@@ -1379,42 +1425,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 </div>
                 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* Botón 1: Ordenar por SLA */}
-                  <button
-                    type="button"
-                    onClick={() => setTipoOrdenMisCasos('sla')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                      tipoOrdenMisCasos === 'sla'
-                        ? 'bg-[#E85A80] text-white border-[#E85A80] shadow-sm font-bold'
-                        : 'bg-[#2C2C32] text-[#D1D5DB] border-[#3A3A3E] hover:bg-[#3A3A3E] hover:text-white'
-                    }`}
-                    title="Ordenar casos por SLA y prioridad"
-                  >
-                    <span>⏱️</span>
-                    <span>Ordenar por SLA</span>
-                  </button>
-
-                  {/* Botón 2: Tienda A-Z / Z-A */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (tipoOrdenMisCasos !== 'tienda') {
-                        setTipoOrdenMisCasos('tienda');
-                      } else {
-                        setSentidoTienda(prev => prev === 'asc' ? 'desc' : 'asc');
-                      }
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                      tipoOrdenMisCasos === 'tienda'
-                        ? 'bg-[#E85A80] text-white border-[#E85A80] shadow-sm font-bold'
-                        : 'bg-[#2C2C32] text-[#D1D5DB] border-[#3A3A3E] hover:bg-[#3A3A3E] hover:text-white'
-                    }`}
-                    title="Ordenar alfabéticamente por tienda (A-Z o Z-A)"
-                  >
-                    <span>🔤</span>
-                    <span>Tienda: {tipoOrdenMisCasos === 'tienda' ? (sentidoTienda === 'asc' ? 'A - Z 🔼' : 'Z - A 🔽') : 'A - Z'}</span>
-                  </button>
-
                   {/* Botón Actualizar */}
                   <button
                     type="button"
@@ -1445,57 +1455,155 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   <table className="w-full text-left border-collapse whitespace-nowrap">
                     <thead>
                       <tr className="bg-[#121212] border-b border-[#3A3A3E] text-xs text-[#B3B3B3] font-bold uppercase tracking-wider select-none">
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.op, minWidth: colWidthsMisCasos.op }}>
-                          <span>OP</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('op', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'op') { setColumnaOrdenMisCasos('op'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por OP"
+                          style={{ width: colWidthsMisCasos.op, minWidth: colWidthsMisCasos.op }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>OP</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'op' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('op', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th 
                           onClick={() => {
-                            if (tipoOrdenMisCasos !== 'tienda') {
-                              setTipoOrdenMisCasos('tienda');
-                            } else {
-                              setSentidoTienda(prev => prev === 'asc' ? 'desc' : 'asc');
-                            }
+                            if (columnaOrdenMisCasos !== 'tienda') { setColumnaOrdenMisCasos('tienda'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
                           }}
                           className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
-                          title="Clic para ordenar alfabéticamente por tienda"
+                          title="Clic para ordenar por Tienda"
                           style={{ width: colWidthsMisCasos.tienda, minWidth: colWidthsMisCasos.tienda }}
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Tienda</span>
-                            <span className="text-[11px] font-mono">
-                              {tipoOrdenMisCasos === 'tienda' ? (sentidoTienda === 'asc' ? '🔼 (A-Z)' : '🔽 (Z-A)') : '↕️'}
-                            </span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'tienda' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.pais, minWidth: colWidthsMisCasos.pais }}>
-                          <span>País/KAM</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pais', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'pais') { setColumnaOrdenMisCasos('pais'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por País/KAM"
+                          style={{ width: colWidthsMisCasos.pais, minWidth: colWidthsMisCasos.pais }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>País/KAM</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pais' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pais', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.integracion, minWidth: colWidthsMisCasos.integracion }}>
-                          <span>Integración</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('integracion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'integracion') { setColumnaOrdenMisCasos('integracion'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por Integración"
+                          style={{ width: colWidthsMisCasos.integracion, minWidth: colWidthsMisCasos.integracion }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Integración</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'integracion' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('integracion', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.estado, minWidth: colWidthsMisCasos.estado }}>
-                          <span>Estado / Etapa</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('estado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'estado') { setColumnaOrdenMisCasos('estado'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por Estado / Etapa"
+                          style={{ width: colWidthsMisCasos.estado, minWidth: colWidthsMisCasos.estado }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Estado / Etapa</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'estado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('estado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.pushPos, minWidth: colWidthsMisCasos.pushPos }}>
-                          <span>Push POS</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushPos', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'pushPos') { setColumnaOrdenMisCasos('pushPos'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por Push POS"
+                          style={{ width: colWidthsMisCasos.pushPos, minWidth: colWidthsMisCasos.pushPos }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Push POS</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushPos' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushPos', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.pushCat, minWidth: colWidthsMisCasos.pushCat }}>
-                          <span>Push Catálogo</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('pushCat', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'pushCat') { setColumnaOrdenMisCasos('pushCat'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por Push Catálogo"
+                          style={{ width: colWidthsMisCasos.pushCat, minWidth: colWidthsMisCasos.pushCat }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Push Catálogo</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushCat' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushCat', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.sla, minWidth: colWidthsMisCasos.sla }}>
-                          <span>SLA</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('sla', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'sla') { setColumnaOrdenMisCasos('sla'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por SLA"
+                          style={{ width: colWidthsMisCasos.sla, minWidth: colWidthsMisCasos.sla }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>SLA</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'sla' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('sla', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
-                        <th className="p-3 relative" style={{ width: colWidthsMisCasos.asignado, minWidth: colWidthsMisCasos.asignado }}>
-                          <span>Asignado</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('asignado', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'asignado') { setColumnaOrdenMisCasos('asignado'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por Asignado"
+                          style={{ width: colWidthsMisCasos.asignado, minWidth: colWidthsMisCasos.asignado }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Asignado</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asignado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asignado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        </th>
+                        <th 
+                          onClick={() => {
+                            if (columnaOrdenMisCasos !== 'seguimiento') { setColumnaOrdenMisCasos('seguimiento'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por Seguimiento"
+                          style={{ width: colWidthsMisCasos.seguimiento, minWidth: colWidthsMisCasos.seguimiento }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Seguimiento</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'seguimiento' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('seguimiento', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.accion, minWidth: colWidthsMisCasos.accion }}>
                           <span>Acción</span>
@@ -1504,7 +1612,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                       </tr>
                     </thead>
                     <tbody>
-                      {listaFiltrada.map((item, index) => {
+                      {paginatedLista.map((item, index) => {
                         const estaResaltado = Boolean(casoResaltadoId && (
                           String(item.caso.id) === String(casoResaltadoId) ||
                           String(item.caso.casoOp) === String(casoResaltadoId) ||
@@ -1522,9 +1630,50 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         );
                       })}
                     </tbody>
+
                   </table>
                 </div>
+                
+                {/* Pagination Controls */}
+                {listaFiltrada.length > 0 && (
+                  <div className="p-3 bg-[#121212] border-t border-[#3A3A3E] flex items-center justify-between text-xs text-[#B3B3B3]">
+                    <div className="flex items-center gap-2">
+                      <span>Mostrar:</span>
+                      <select 
+                        value={rowsPerPage} 
+                        onChange={e => setRowsPerPage(Number(e.target.value))} 
+                        className="bg-[#2C2C32] border border-[#3A3A3E] text-white rounded px-2 py-1"
+                      >
+                        <option value={10}>10</option>
+                        <option value={15}>15</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                      </select>
+                      <span>casos</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span>Página {currentPage} de {totalPages || 1}</span>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-2 py-1 bg-[#2C2C32] rounded disabled:opacity-50 hover:bg-[#3A3A3E] text-white transition cursor-pointer"
+                        >
+                          Anterior
+                        </button>
+                        <button 
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages || totalPages === 0}
+                          className="px-2 py-1 bg-[#2C2C32] rounded disabled:opacity-50 hover:bg-[#3A3A3E] text-white transition cursor-pointer"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
             </div>
           )}
 

@@ -13,6 +13,13 @@ export function useAlerts(casos: any[] = []) {
       return {};
     }
   });
+  
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000); // 1 minuto
+    return () => clearInterval(interval);
+  }, []);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -52,10 +59,16 @@ export function useAlerts(casos: any[] = []) {
       return b.horasTranscurridas - a.horasTranscurridas; // Mayor horas primero si misma categoría
     });
 
-    const pendientes = filtrados.filter(c => !alertasSilenciadas[c.casoOp]);
+    const pendientes = filtrados.filter(c => {
+      const tiempoSilenciado = alertasSilenciadas[c.casoOp];
+      // Mostrar si nunca fue silenciado o si pasaron más de 30 minutos (1800000 ms)
+      if (!tiempoSilenciado) return true;
+      if (now - tiempoSilenciado > 30 * 60 * 1000) return true;
+      return false;
+    });
 
     return { casosConAlertas: filtrados, alertasPendientes: pendientes };
-  }, [casos, alertasSilenciadas]);
+  }, [casos, alertasSilenciadas, now]);
 
   useEffect(() => {
     if (alertasPendientes.length > 0) {

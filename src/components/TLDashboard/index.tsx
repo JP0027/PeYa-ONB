@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
@@ -43,8 +43,44 @@ export default function TLDashboard({
   const [filtroPais, setFiltroPais] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todos');
-  const [filtroKamPush, setFiltroKamPush] = useState<boolean>(false);
+  const [filtroKpi, setFiltroKpi] = useState<string>('todos'); // 'todos', 'en_progreso', 'sin_op', 'fuera_sla', 'proximos', 'req_kam_push'
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
+
+  const [colWidths, setColWidths] = useState<Record<string, number>>({
+    op: 120,
+    tienda: 150,
+    estado: 120,
+    agente: 120,
+    etapa: 150,
+    seguimiento: 280,
+    sla_critico: 130,
+    push: 140,
+    acciones: 150
+  });
+
+  const [ordenCampo, setOrdenCampo] = useState<string>('sla_critico'); // default
+  const [ordenDir, setOrdenDir] = useState<'asc' | 'desc'>('desc');
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const iniciarRedimensionar = (colKey: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = colWidths[colKey] || 120;
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      setColWidths(prev => ({
+        ...prev,
+        [colKey]: Math.max(60, startWidth + delta)
+      }));
+    };
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   // Procesar casos con análisis detallado de Push KAM
   const casosProcesados = useMemo(() => {
@@ -123,7 +159,6 @@ export default function TLDashboard({
   // Aplicar filtros
   const casosFiltrados = useMemo(() => {
     return casosProcesados.filter(c => {
-      if (filtroKamPush && !c.requiereKamPush) return false;
       if (filtroAgente !== 'todos' && c.agenteACargo !== filtroAgente) return false;
       if (filtroPais !== 'todos') {
         if (filtroPais === 'Otros') {
@@ -134,31 +169,93 @@ export default function TLDashboard({
       }
       if (filtroEstado !== 'todos' && c.estado !== filtroEstado) return false;
       if (filtroEtapa !== 'todos' && c.etapa !== filtroEtapa) return false;
+
+      if (filtroKpi !== 'todos') {
+        const estLower = String(c.estado || '').toLowerCase().trim();
+        const esSinOp = estLower.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '' || String(c.casoOp).toLowerCase() === 'sin caso op';
+        
+        if (filtroKpi === 'en_progreso') {
+          if (esSinOp || (!estLower.includes('progreso') && estLower !== 'en progreso')) return false;
+        } else if (filtroKpi === 'sin_op') {
+          if (!esSinOp) return false;
+        } else if (filtroKpi === 'fuera_sla') {
+          if (!c.esActivo || c.horasSLA < 96) return false;
+        } else if (filtroKpi === 'proximos') {
+          if (!c.esActivo || !(c.horasSLA >= 72 && c.horasSLA < 96)) return false;
+        } else if (filtroKpi === 'req_kam_push') {
+          if (!c.requiereKamPush) return false;
+        }
+      }
+
       return true;
     });
-  }, [casosProcesados, filtroKamPush, filtroAgente, filtroPais, filtroEstado, filtroEtapa]);
+  }, [casosProcesados, filtroKpi, filtroAgente, filtroPais, filtroEstado, filtroEtapa]);
+
+  useEffect(() => { setCurrentPage(1); }, [filtroAgente, filtroPais, filtroEstado, filtroEtapa, filtroKpi, ordenCampo, ordenDir, rowsPerPage]);
 
   const casosActivos = useMemo(() => {
     return casosProcesados.filter(c => c.esActivo);
   }, [casosProcesados]);
 
-  // Ordenar casos activos: Críticos (≥96h) arriba de todo, luego próximos a vencer (72-96h), luego orden descendente por horasSLA
+  // Ordenar casos activos
   const casosActivosOrdenados = useMemo(() => {
-    return [...casosFiltrados.filter(c => c.esActivo)].sort((a, b) => {
-      // 1. Críticos fuera de SLA (≥96h)
-      const critA = (a.esCritico || a.horasSLA >= 96) ? 1 : 0;
-      const critB = (b.esCritico || b.horasSLA >= 96) ? 1 : 0;
-      if (critA !== critB) return critB - critA;
+    const ordenados = [...casosFiltrados.filter(c => c.esActivo)];
 
-      // 2. Próximos a vencer (72h a <96h)
-      const proxA = (a.esProximoVencer || (a.horasSLA >= 72 && a.horasSLA < 96)) ? 1 : 0;
-      const proxB = (b.esProximoVencer || (b.horasSLA >= 72 && b.horasSLA < 96)) ? 1 : 0;
-      if (proxA !== proxB) return proxB - proxA;
+    ordenados.sort((a, b) => {
+      let valA: any = 0;
+      let valB: any = 0;
 
-      // 3. Descendente por horasSLA
-      return (b.horasSLA || 0) - (a.horasSLA || 0);
+      if (ordenCampo === 'op') {
+        valA = a.casoOp || ''; valB = b.casoOp || '';
+      } else if (ordenCampo === 'tienda') {
+        valA = String(a.tienda || '').toLowerCase(); valB = String(b.tienda || '').toLowerCase();
+      } else if (ordenCampo === 'estado') {
+        valA = String(a.estado || '').toLowerCase(); valB = String(b.estado || '').toLowerCase();
+      } else if (ordenCampo === 'agente') {
+        valA = String(a.agenteACargo || '').toLowerCase(); valB = String(b.agenteACargo || '').toLowerCase();
+      } else if (ordenCampo === 'etapa') {
+        valA = String(a.etapa || '').toLowerCase(); valB = String(b.etapa || '').toLowerCase();
+      } else if (ordenCampo === 'sla') {
+        valA = a.horasSLA || 0; valB = b.horasSLA || 0;
+      } else if (ordenCampo === 'sla_critico') {
+        // Lógica especial de SLA Crítico (predeterminada)
+        const critA = (a.esCritico || a.horasSLA >= 96) ? 1 : 0;
+        const critB = (b.esCritico || b.horasSLA >= 96) ? 1 : 0;
+        if (critA !== critB) return (critB - critA) * (ordenDir === 'asc' ? -1 : 1);
+
+        const proxA = (a.esProximoVencer || (a.horasSLA >= 72 && a.horasSLA < 96)) ? 1 : 0;
+        const proxB = (b.esProximoVencer || (b.horasSLA >= 72 && b.horasSLA < 96)) ? 1 : 0;
+        if (proxA !== proxB) return (proxB - proxA) * (ordenDir === 'asc' ? -1 : 1);
+
+        valA = a.horasSLA || 0;
+        valB = b.horasSLA || 0;
+      } else if (ordenCampo === 'push') {
+        // Sort priorities for Push: 
+        // 1 = requires push KAM, 2 = missing agent push, 3 = OK, 4 = NA
+        const score = (c: any) => {
+          if (c.faltaKamPos || c.faltaKamCat) return 1;
+          if (c.noRealizoPushPos || c.noRealizoPushCat) return 2;
+          if (c.tieneSeguimientoAplicable && (c.kamPosHecho || c.kamCatHecho)) return 3;
+          if (c.tieneSeguimientoAplicable) return 4;
+          return 5;
+        };
+        valA = score(a);
+        valB = score(b);
+      }
+
+      if (valA < valB) return ordenDir === 'asc' ? -1 : 1;
+      if (valA > valB) return ordenDir === 'asc' ? 1 : -1;
+      return 0;
     });
-  }, [casosFiltrados]);
+
+    return ordenados;
+  }, [casosFiltrados, ordenCampo, ordenDir]);
+
+  const totalPages = Math.ceil(casosActivosOrdenados.length / rowsPerPage);
+  const paginatedCasos = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
+    return casosActivosOrdenados.slice(start, start + rowsPerPage);
+  }, [casosActivosOrdenados, currentPage, rowsPerPage]);
 
   // Métricas Generales
   let totalCasos = casosProcesados.length;
@@ -179,9 +276,9 @@ export default function TLDashboard({
     else if (estado === 'en progreso' || estado.includes('progreso')) inProgressNormal++;
 
     if (c.esActivo) {
-      if (c.esCritico || c.horasSLA >= 96) {
+      if (c.horasSLA >= 96) {
         fueraDeSla++;
-      } else if (c.esProximoVencer || (c.horasSLA >= 72 && c.horasSLA < 96)) {
+      } else if (c.horasSLA >= 72 && c.horasSLA < 96) {
         proximosVencer++;
       }
 
@@ -239,7 +336,7 @@ export default function TLDashboard({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#3A3A3E] pb-4">
         <div>
           <h1 className="text-2xl font-black text-white tracking-wide">Casos en progreso global</h1>
-          <p className="text-xs text-[#B3B3B3]">Supervisión de SLAs, Rendimiento y Escalamientos KAM</p>
+          <p className="text-xs text-[#B3B3B3]">Supervisión de SLAs, Rendimiento y Escalamientos KAM | Mes actual: <span className="capitalize">{mesActual}</span> {new Date().getFullYear()}</p>
         </div>
         <div className="flex items-center gap-3">
           {onForzarSync && (
@@ -257,7 +354,12 @@ export default function TLDashboard({
               <span>{sincronizando ? 'Actualizando...' : 'Actualizar'}</span>
             </button>
           )}
-          <ReportDownloader casos={casosActivos} />
+          <ReportDownloader 
+            casos={casosProcesados.filter(c => c.esActivo && c.horasSLA >= 96)} 
+            label="Reporte SLA (96h)" 
+            className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-pink-900/40 min-h-[44px] cursor-pointer"
+            icon={<span>🚨</span>}
+          />
         </div>
       </div>
 
@@ -267,75 +369,107 @@ export default function TLDashboard({
           <div className="text-[#B3B3B3] text-xs mb-1">Total Casos</div>
           <div className="text-2xl font-bold text-white">{totalCasos}</div>
         </div>
-        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-cyan-800 text-center">
+        <div 
+          onClick={() => setFiltroKpi(prev => prev === 'en_progreso' ? 'todos' : 'en_progreso')}
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+            filtroKpi === 'en_progreso' ? 'bg-cyan-950/70 border-cyan-500 ring-2 ring-cyan-500' : 'bg-[#1A1A1C] border-cyan-800 hover:border-cyan-600'
+          }`}
+        >
           <div className="text-cyan-400 text-xs mb-1 flex items-center justify-center gap-1"><span>💼</span> En Progreso</div>
           <div className="text-2xl font-bold text-cyan-400">{inProgressNormal}</div>
         </div>
-        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-purple-800 text-center">
+        <div 
+          onClick={() => setFiltroKpi(prev => prev === 'sin_op' ? 'todos' : 'sin_op')}
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+            filtroKpi === 'sin_op' ? 'bg-purple-950/70 border-purple-500 ring-2 ring-purple-500' : 'bg-[#1A1A1C] border-purple-800 hover:border-purple-600'
+          }`}
+        >
           <div className="text-purple-400 text-xs mb-1 flex items-center justify-center gap-1"><span>⚡</span> Sin OP</div>
           <div className="text-2xl font-bold text-purple-400">{inProgressSinOp}</div>
         </div>
-        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-rose-800/80 bg-rose-950/20 text-center shadow-lg shadow-rose-950/30">
+        <div 
+          onClick={() => setFiltroKpi(prev => prev === 'fuera_sla' ? 'todos' : 'fuera_sla')}
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+            filtroKpi === 'fuera_sla' ? 'bg-rose-950/70 border-rose-500 ring-2 ring-rose-500' : 'bg-rose-950/20 border-rose-800/80 hover:border-rose-600'
+          }`}
+        >
           <div className="text-rose-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA (≥96h)</div>
           <div className="text-2xl font-black text-rose-400">{fueraDeSla}</div>
         </div>
-        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-amber-800/80 bg-amber-950/20 text-center">
+        <div 
+          onClick={() => setFiltroKpi(prev => prev === 'proximos' ? 'todos' : 'proximos')}
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+            filtroKpi === 'proximos' ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500' : 'bg-amber-950/20 border-amber-800/80 hover:border-amber-600'
+          }`}
+        >
           <div className="text-amber-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>⚠️</span> Próximos (72-96h)</div>
           <div className="text-2xl font-black text-amber-400">{proximosVencer}</div>
         </div>
         
         {/* Card Req. KAM Push con filtro interactivo */}
         <div 
-          onClick={() => setFiltroKamPush(prev => !prev)}
+          onClick={() => setFiltroKpi(prev => prev === 'req_kam_push' ? 'todos' : 'req_kam_push')}
           className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
-            filtroKamPush 
+            filtroKpi === 'req_kam_push' 
               ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500 shadow-lg shadow-amber-950/50' 
               : 'bg-[#1A1A1C] border-amber-900 hover:border-amber-700'
           }`}
-          title="Clic para filtrar la tabla por casos que requieren KAM Push (24h a 96h)"
+          title="Clic para filtrar la tabla por casos que requieren KAM Push"
         >
           <div className="text-amber-300 text-xs mb-1 font-bold flex items-center justify-center gap-1">
             <span>⚠️</span> Req. KAM Push
           </div>
           <div className="text-2xl font-black text-amber-300">{kamPushTotal}</div>
           <div className="text-[10px] text-amber-400/80 mt-0.5">
-            {filtroKamPush ? '● Filtro activo (Quitar)' : 'Clic para filtrar'}
+            {filtroKpi === 'req_kam_push' ? '● Filtro activo' : 'Clic para filtrar'}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content (Left, 2 cols) */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Agent Overview */}
-          <div>
-            <h2 className="text-lg font-bold text-white mb-3">Resumen por Agente</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {AGENTES_OFICIALES.map(ag => {
-                const agentCases = casosActivos.filter(c => c.agenteACargo === ag);
-                return <AgentSummary key={ag} agente={ag} casos={agentCases} onClick={setFiltroAgente} />;
-              })}
-            </div>
+      <div className="space-y-6">
+        {/* Agent Overview */}
+        <div>
+          <h2 className="text-lg font-bold text-white mb-3">Resumen por Agente</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {AGENTES_OFICIALES.map(ag => {
+              const agentCases = casosActivos.filter(c => c.agenteACargo === ag);
+              return <AgentSummary key={ag} agente={ag} casos={agentCases} onClick={setFiltroAgente} />;
+            })}
           </div>
+        </div>
 
-          {/* Filters */}
+        {/* Gráfico de Etapas */}
+        <div className="bg-[#1A1A1C] p-4 rounded-xl border border-[#3A3A3E]">
+          <h2 className="text-sm font-bold text-white mb-3">Distribución de Etapas (En Progreso)</h2>
+          <div className="flex flex-col gap-2">
+            {Object.entries(
+              casosActivos.filter(c => {
+                const e = String(c.estado || '').toLowerCase().trim();
+                return e.includes('progreso') || e === 'en progreso';
+              }).reduce((acc: Record<string, number>, curr: any) => {
+                const etapa = limpiarTextoEtapa(curr.etapa) || 'Sin etapa';
+                acc[etapa] = (acc[etapa] || 0) + 1;
+                return acc;
+              }, {} as Record<string, number>)
+            ).sort((a, b) => b[1] - a[1]).map(([etapa, count]: [string, number], _, arr: [string, number][]) => {
+              const maxCount = arr.length > 0 ? arr[0][1] : 1;
+              return (
+                <div key={etapa} className="flex items-center gap-2">
+                  <span className="text-xs text-[#B3B3B3] w-48 truncate" title={etapa}>{etapa}</span>
+                  <div className="flex-1 bg-[#2C2C32] rounded-full h-2">
+                    <div className="bg-cyan-500 rounded-full h-2" style={{ width: `${(count / maxCount) * 100}%` }}></div>
+                  </div>
+                  <span className="text-xs font-bold text-white w-8 text-right">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Filters */}
           <div className="bg-[#1A1A1C] p-4 rounded-xl border border-[#3A3A3E] flex flex-wrap gap-3 items-center">
             <span className="text-xs text-[#B3B3B3] font-bold uppercase">Filtros:</span>
             
-            <button
-              type="button"
-              onClick={() => setFiltroKamPush(prev => !prev)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border ${
-                filtroKamPush
-                  ? 'bg-amber-600 text-white border-amber-500 shadow-md'
-                  : 'bg-[#121212] text-amber-400 border-amber-900/60 hover:bg-amber-950/40'
-              }`}
-            >
-              <span>⚠️</span>
-              <span>Solo Requieren KAM Push ({kamPushTotal})</span>
-            </button>
-
             <select value={filtroAgente} onChange={e => setFiltroAgente(e.target.value)} className="bg-[#121212] border border-[#3A3A3E] text-xs text-white rounded px-2 py-1">
               <option value="todos">Todos los Agentes</option>
               {AGENTES_OFICIALES.map(a => <option key={a} value={a}>{a}</option>)}
@@ -352,20 +486,21 @@ export default function TLDashboard({
               <option value="todos">Todas las Etapas</option>
               {etapasUnicas.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            {(filtroKamPush || filtroAgente !== 'todos' || filtroPais !== 'todos' || filtroEstado !== 'todos' || filtroEtapa !== 'todos') && (
+            {(filtroKpi !== 'todos' || filtroAgente !== 'todos' || filtroPais !== 'todos' || filtroEstado !== 'todos' || filtroEtapa !== 'todos') && (
               <button 
                 onClick={() => { 
-                  setFiltroKamPush(false);
+                  setFiltroKpi('todos');
                   setFiltroAgente('todos'); 
                   setFiltroPais('todos'); 
                   setFiltroEstado('todos'); 
                   setFiltroEtapa('todos'); 
                 }} 
-                className="text-xs text-[#E85A80] hover:underline cursor-pointer"
+                className="text-xs text-[#E85A80] hover:underline cursor-pointer font-bold"
               >
-                Limpiar
+                Limpiar Filtros
               </button>
             )}
+            <ReportDownloader casos={casosActivosOrdenados} />
           </div>
 
           {/* Active Cases Table (Ordenados por SLA crítico arriba y con acciones de Push y Copiar) */}
@@ -376,9 +511,9 @@ export default function TLDashboard({
                 <span className="text-[11px] text-[#B3B3B3] bg-[#2C2C32]/80 px-2 py-0.5 rounded-full">
                   Ordenados por SLA Crítico arriba
                 </span>
-                {filtroKamPush && (
-                  <span className="text-[11px] bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full font-bold">
-                    Filtrado por Requiere KAM Push
+                {filtroKpi !== 'todos' && (
+                  <span className="text-[11px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full font-bold">
+                    Filtrado por KPI: {filtroKpi.replace(/_/g, ' ').toUpperCase()}
                   </span>
                 )}
               </div>
@@ -398,21 +533,54 @@ export default function TLDashboard({
               </div>
             )}
             <div className="overflow-x-auto max-h-[560px]">
-              <table className="w-full text-left text-xs text-[#D1D5DB]">
-                <thead className="bg-[#121212] text-[#B3B3B3] uppercase sticky top-0 z-10 shadow">
+              <table className="w-full text-left text-xs text-[#D1D5DB] min-w-max">
+                <thead className="bg-[#121212] text-[#B3B3B3] uppercase sticky top-0 z-10 shadow select-none">
                   <tr>
-                    <th className="py-2.5 px-3">Caso OP</th>
-                    <th className="py-2.5 px-3">Tienda</th>
-                    <th className="py-2.5 px-3">Estado</th>
-                    <th className="py-2.5 px-3">Agente</th>
-                    <th className="py-2.5 px-3">Etapa</th>
-                    <th className="py-2.5 px-3">SLA (Rango OP)</th>
-                    <th className="py-2.5 px-3">Push / Seguimiento</th>
-                    <th className="py-2.5 px-3 text-center">Acciones</th>
+                    {[
+                      { key: 'op', label: 'Caso OP' },
+                      { key: 'tienda', label: 'Tienda' },
+                      { key: 'estado', label: 'Estado' },
+                      { key: 'agente', label: 'Agente' },
+                      { key: 'etapa', label: 'Etapa' },
+                      { key: 'seguimiento', label: 'N° Seguimiento' },
+                      { key: 'sla_critico', label: 'SLA (Rango OP)' },
+                      { key: 'push', label: 'Push / Seguimiento' },
+                      { key: 'acciones', label: 'Acciones', noSort: true }
+                    ].map(col => (
+                      <th 
+                        key={col.key} 
+                        className="py-2.5 px-3 relative group"
+                        style={{ width: colWidths[col.key], minWidth: colWidths[col.key] }}
+                      >
+                        <div 
+                          className={`flex items-center gap-1 ${!col.noSort ? 'cursor-pointer hover:text-white transition' : ''}`}
+                          onClick={() => {
+                            if (col.noSort) return;
+                            if (ordenCampo === col.key) {
+                              setOrdenDir(prev => prev === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setOrdenCampo(col.key);
+                              setOrdenDir('asc');
+                            }
+                          }}
+                        >
+                          {col.label}
+                          {!col.noSort && (
+                            <span className={`text-[10px] ${ordenCampo === col.key ? 'text-cyan-400' : 'text-transparent group-hover:text-gray-500'}`}>
+                              {ordenCampo === col.key ? (ordenDir === 'asc' ? '▲' : '▼') : '↕'}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-cyan-500/50"
+                          onMouseDown={(e) => iniciarRedimensionar(col.key, e)}
+                        />
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
-                  {casosActivosOrdenados.map(c => {
+                  {paginatedCasos.map(c => {
                     const esCritico = c.esCritico || c.horasSLA >= 96;
                     const esProximo = !esCritico && (c.esProximoVencer || (c.horasSLA >= 72 && c.horasSLA < 96));
                     const opMostrada = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : 'Sin caso OP';
@@ -455,6 +623,7 @@ export default function TLDashboard({
                         </td>
                         <td className="py-4 px-3 font-medium text-[#D1D5DB]">{c.agenteACargo}</td>
                         <td className="py-4 px-3"><span className="px-2 py-0.5 rounded bg-[#2C2C32] text-[10px]">{limpiarTextoEtapa(c.etapa)}</span></td>
+                        <td className="py-4 px-3 text-[#D1D5DB] font-mono text-xs">{c.casoSeguimiento && c.casoSeguimiento !== '-' ? c.casoSeguimiento : <span className="text-[#9CA3AF] italic">S/N</span>}</td>
                         <td className="py-4 px-3">
                           <div className="flex flex-col items-start gap-0.5">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -606,16 +775,50 @@ export default function TLDashboard({
                     </tr>
                   )}
                 </tbody>
+
               </table>
             </div>
+            
+            {/* Pagination Controls */}
+            {casosActivosOrdenados.length > 0 && (
+              <div className="p-3 bg-[#1a1d27] border-t border-[#3A3A3E] flex items-center justify-between text-xs text-[#B3B3B3]">
+                <div className="flex items-center gap-2">
+                  <span>Mostrar:</span>
+                  <select 
+                    value={rowsPerPage} 
+                    onChange={e => setRowsPerPage(Number(e.target.value))} 
+                    className="bg-[#121212] border border-[#3A3A3E] text-white rounded px-2 py-1"
+                  >
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                    <option value={20}>20</option>
+                  </select>
+                  <span>casos</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span>Página {currentPage} de {totalPages || 1}</span>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-2 py-1 bg-[#2C2C32] rounded disabled:opacity-50 hover:bg-[#3A3A3E] text-white transition"
+                    >
+                      Anterior
+                    </button>
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      className="px-2 py-1 bg-[#2C2C32] rounded disabled:opacity-50 hover:bg-[#3A3A3E] text-white transition"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-        </div>
 
-        {/* Sidebar (Right, 1 col) */}
-        <div>
-          <MetricsPanel casos={casosProcesados} mesActual={mesActual} />
-        </div>
       </div>
     </div>
   );

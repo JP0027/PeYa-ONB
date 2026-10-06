@@ -26,11 +26,13 @@ export default function TablaOnboardingCasos({
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroPais, setFiltroPais] = useState<string>('todos');
   const [filtroAsset, setFiltroAsset] = useState<string>('todos');
+  const [filtroAnio, setFiltroAnio] = useState<string>('todos');
+  const [filtroMes, setFiltroMes] = useState<string>('todos');
   const [paginaActual, setPaginaActual] = useState<number>(1);
   const [casosPorPagina, setCasosPorPagina] = useState<number>(10);
 
   // Ordenamiento global de columnas
-  type ColumnaOrden = 'num' | 'casoOp' | 'vendorId' | 'tienda' | 'pais' | 'propietarioOp' | 'integracion' | 'oportunidad' | 'estado' | 'etapa' | null;
+  type ColumnaOrden = 'num' | 'casoOp' | 'vendorId' | 'tienda' | 'pais' | 'propietarioOp' | 'integracion' | 'oportunidad' | 'estado' | 'etapa' | 'seguimiento' | null;
   type DireccionOrden = 'asc' | 'desc';
 
   const [columnaOrden, setColumnaOrden] = useState<ColumnaOrden>(null);
@@ -63,6 +65,7 @@ export default function TablaOnboardingCasos({
     oportunidad: 150,
     estado: 160,
     etapa: 180,
+    seguimiento: 120,
     acciones: 80
   });
 
@@ -89,6 +92,42 @@ export default function TablaOnboardingCasos({
   // Estado para el modal de confirmación de eliminación
   const [casoAEliminar, setCasoAEliminar] = useState<any | null>(null);
   const [eliminando, setEliminando] = useState<boolean>(false);
+
+  // Helper para extraer Año y Mes (01-12)
+  const parseFecha = (fechaStr: string) => {
+    if (!fechaStr || fechaStr === '-' || fechaStr === 'S/V') return null;
+    // Asume formato DD/MM/YYYY o similar (e.g. 15/08/2024, 10:30)
+    // Extraer AAAA y MM si es posible.
+    const regex = /(\d{2})\/(\d{2})\/(\d{4})/;
+    const match = fechaStr.match(regex);
+    if (match) {
+      return { mes: match[2], anio: match[3] };
+    }
+    // Formato YYYY-MM-DD
+    const regexISO = /(\d{4})-(\d{2})-(\d{2})/;
+    const matchISO = fechaStr.match(regexISO);
+    if (matchISO) {
+      return { anio: matchISO[1], mes: matchISO[2] };
+    }
+    return null;
+  };
+
+  // Listas únicas de años y meses
+  const listasFecha = useMemo(() => {
+    const anios = new Set<string>();
+    const meses = new Set<string>();
+    casos.forEach(c => {
+      const p = parseFecha(c.fechaCreacion || '');
+      if (p) {
+        anios.add(p.anio);
+        meses.add(p.mes);
+      }
+    });
+    return {
+      anios: Array.from(anios).sort((a, b) => b.localeCompare(a)), // Más recientes primero
+      meses: Array.from(meses).sort()
+    };
+  }, [casos]);
 
   // Conteo de casos por cada categoría de estado para las píldoras superiores
   const conteos = useMemo(() => {
@@ -222,6 +261,17 @@ export default function TablaOnboardingCasos({
       // 4. Filtro de asset
       if (filtroAsset !== 'todos') {
         if (String(c.asset || '').toLowerCase() !== filtroAsset.toLowerCase()) return false;
+      }
+
+      // 5. Filtro de Año
+      const p = parseFecha(c.fechaCreacion || '');
+      if (filtroAnio !== 'todos') {
+        if (!p || p.anio !== filtroAnio) return false;
+      }
+      
+      // 6. Filtro de Mes
+      if (filtroMes !== 'todos') {
+        if (!p || p.mes !== filtroMes) return false;
       }
 
       return true;
@@ -498,40 +548,45 @@ export default function TablaOnboardingCasos({
               </select>
             </div>
 
-            {/* Cantidad por página: 10, 15, 20 */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-[#B3B3B3]">Mostrar:</span>
-              <select
-                value={casosPorPagina}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  setCasosPorPagina(Number(e.target.value));
-                  setPaginaActual(1);
-                }}
-                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
-              >
-                <option value={10}>10 por pág.</option>
-                <option value={15}>15 por pág.</option>
-                <option value={20}>20 por pág.</option>
-              </select>
-            </div>
+            {/* Filtro Año */}
+            {listasFecha.anios.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-[#B3B3B3]">Año:</span>
+                <select
+                  value={filtroAnio}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    setFiltroAnio(e.target.value);
+                    setPaginaActual(1);
+                  }}
+                  className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+                >
+                  <option value="todos">Todos</option>
+                  {listasFecha.anios.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            {/* Botón Ordenar Locales A-Z / Z-A */}
-            <button
-              onClick={() => handleOrdenar('tienda')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
-                columnaOrden === 'tienda'
-                  ? 'bg-[#E85A80]/30 text-pink-300 border-[#E85A80] shadow-sm'
-                  : 'bg-[#121212] border-[#3A3A3E] text-[#D1D5DB] hover:text-white hover:bg-[#2C2C32]'
-              }`}
-              title="Ordenar locales alfabéticamente A-Z o Z-A"
-            >
-              <span>🔤</span>
-              <span>
-                {columnaOrden === 'tienda'
-                  ? (direccionOrden === 'asc' ? 'Tienda: A - Z 🔼' : 'Tienda: Z - A 🔽')
-                  : 'Ordenar A - Z'}
-              </span>
-            </button>
+            {/* Filtro Mes */}
+            {listasFecha.meses.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-[#B3B3B3]">Mes:</span>
+                <select
+                  value={filtroMes}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    setFiltroMes(e.target.value);
+                    setPaginaActual(1);
+                  }}
+                  className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+                >
+                  <option value="todos">Todos</option>
+                  {listasFecha.meses.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Botón Descargar Excel según filtros actuales */}
             <button
@@ -550,8 +605,26 @@ export default function TablaOnboardingCasos({
 
         {/* Resumen de resultados */}
         <div className="flex items-center justify-between text-xs text-[#B3B3B3] pt-2 border-t border-[#3A3A3E]/80">
-          <div>
-            Mostrando <strong className="text-white">{casosPaginados.length}</strong> de <strong className="text-[#F46C8E]">{casosFiltrados.length}</strong> casos filtrados (<span className="text-[#D1D5DB] font-mono">{casos.length}</span> casos totales registrados en Onboarding)
+          <div className="flex items-center">
+            <div>
+              Mostrando <strong className="text-white">{casosPaginados.length}</strong> de <strong className="text-[#F46C8E]">{casosFiltrados.length}</strong> casos filtrados (<span className="text-[#D1D5DB] font-mono">{casos.length}</span> casos totales registrados en Onboarding)
+            </div>
+            {/* Cantidad por página: 10, 15, 20 */}
+            <div className="flex items-center gap-1.5 ml-4">
+              <span className="text-[11px] text-[#B3B3B3]">Mostrar:</span>
+              <select
+                value={casosPorPagina}
+                onChange={(e) => {
+                  setCasosPorPagina(Number(e.target.value));
+                  setPaginaActual(1);
+                }}
+                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={20}>20</option>
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span>Página <strong className="text-white">{paginaSegura}</strong> de <strong className="text-white">{totalPaginas}</strong></span>
@@ -584,6 +657,7 @@ export default function TablaOnboardingCasos({
                 {renderHeader('oportunidad', 'Oportunidad', 'oportunidad')}
                 {renderHeader('estado', 'Estado', 'estado')}
                 {renderHeader('etapa', 'Etapa', 'etapa')}
+                {renderHeader('seguimiento', 'N° Seguimiento', 'seguimiento')}
                 <th style={{ width: colWidths.acciones, minWidth: colWidths.acciones }} className="py-3 px-2 text-center relative select-none">
                   Acciones
                   <div 
