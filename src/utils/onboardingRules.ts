@@ -612,20 +612,30 @@ export function analizarAlertasCaso(caso: any): any {
   const respPosNorm = normalizarRespuesta(caso.respuestaPos);
   const esSvPos = esSV(caso.fechaPushPos) || esSV(caso.fechaInicioPos) || respPosNorm === 'S/V';
   const respPosOk = respPosNorm === 'Si' || esSvPos;
-  const tieneTrackPos = Boolean(
-    (caso.fechaInicioPos && !esSV(caso.fechaInicioPos) && caso.fechaInicioPos !== '-') ||
-    (caso.rangoSlaPos && caso.rangoSlaPos !== '-' && !esSV(caso.rangoSlaPos)) ||
-    etapa.includes('sin integración confirmada') || etapa.includes('sin integracion confirmada') || etapa.includes('en proceso de seteo')
-  );
+
+  // Helper para verificar si las horas numéricas o la etiqueta oficial del rango es >= 4 horas
+  const esSlaMayorOIgualA4 = (h: number, rTrack: any, rOp: any) => {
+    if (typeof h === 'number' && h >= 4) return true;
+    const strTrack = String(rTrack || '').toLowerCase();
+    const strOp = String(rOp || '').toLowerCase();
+    const detecta4h = (s: string) => {
+      if (!s || s === '-' || s === 's/v') return false;
+      if (s.includes('4h a') || s.includes('6h a') || s.includes('≥4') || s.includes('>=4') || s.includes('fuera de sla')) return true;
+      if (s.includes('24h') || s.includes('72h') || s.includes('96h')) return true;
+      return false;
+    };
+    return detecta4h(strTrack) || detecta4h(strOp);
+  };
 
   const horasPos = (tiempos.totalHorasPos && tiempos.totalHorasPos > 0) ? tiempos.totalHorasPos : horasTranscurridas;
+  const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, caso.rangoSlaPos, caso.rangoSlaOp || caso.rangoSla);
 
   let requierePushPos = false;
   let motivoPushPos = '';
 
-  if (esActivo && tieneTrackPos && !respPosOk && !esSvPos) {
+  if (esActivo && !respPosOk && !esSvPos) {
     if (!tienePushPos) {
-      if (horasPos >= 4) {
+      if (esAlertaPosValida) {
         requierePushPos = true;
         motivoPushPos = 'No realizo push';
       } else {
@@ -641,20 +651,16 @@ export function analizarAlertasCaso(caso: any): any {
   const respCatNorm = normalizarRespuesta(caso.respuestaCat);
   const esSvCat = esSV(caso.fechaPushCat) || esSV(caso.fechaInicioCat) || respCatNorm === 'S/V';
   const respCatOk = respCatNorm === 'Si' || esSvCat;
-  const tieneTrackCat = Boolean(
-    (caso.fechaInicioCat && !esSV(caso.fechaInicioCat) && caso.fechaInicioCat !== '-') ||
-    (caso.rangoSlaCat && caso.rangoSlaCat !== '-' && !esSV(caso.rangoSlaCat)) ||
-    etapa.includes('verificación de catálogo') || etapa.includes('verificacion de catalogo') || etapa.includes('carga de catálogo')
-  );
 
   const horasCat = (tiempos.totalHorasCat && tiempos.totalHorasCat > 0) ? tiempos.totalHorasCat : horasTranscurridas;
+  const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, caso.rangoSlaCat, caso.rangoSlaOp || caso.rangoSla);
 
   let requierePushCat = false;
   let motivoPushCat = '';
 
-  if (esActivo && tieneTrackCat && !respCatOk && !esSvCat) {
+  if (esActivo && !respCatOk && !esSvCat) {
     if (!tienePushCat) {
-      if (horasCat >= 4) {
+      if (esAlertaCatValida) {
         requierePushCat = true;
         motivoPushCat = 'No realizo push';
       } else {

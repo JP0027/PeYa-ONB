@@ -532,52 +532,43 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, []);
 
-  // 1. Al iniciar sesión: sonar y mostrar alertas tipo push (máximo 2 veces en la sesión)
+  // 1. Al cargar casos / iniciar sesión: sonar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
   useEffect(() => {
     if (casosTotales.length === 0) return;
 
-    const loginKey = 'peya_login_alarm_' + sesionUsuarioKey;
-    if (alertaLoginEjecutadaRef.current || sessionStorage.getItem(loginKey) === 'true') {
-      return;
+    if (!alertaLoginEjecutadaRef.current) {
+      alertaLoginEjecutadaRef.current = true;
+      sessionStorage.setItem('peya_ultimo_timbre_ts', String(Date.now()));
+
+      const pendientes = detectarCasosPushPendientes(casosTotales, role, email, nombreUsuarioAutenticado);
+      if (pendientes.length > 0) {
+        reproducirCampana();
+        setAlertasPushActivas(pendientes);
+      }
     }
+  }, [casosTotales, role, email, nombreUsuarioAutenticado, reproducirCampana]);
 
-    alertaLoginEjecutadaRef.current = true;
-    sessionStorage.setItem(loginKey, 'true');
-    sessionStorage.setItem('peya_ultimo_timbre_ts', String(Date.now()));
-
-    const pendientes = detectarCasosPushPendientes(casosTotales, role, email, nombreUsuarioAutenticado);
-    if (pendientes.length > 0) {
-      reproducirCampana();
-      setAlertasPushActivas(pendientes);
-      sessionStorage.setItem('peya_sesion_push_reproducciones_' + sesionUsuarioKey, '1');
-    }
-  }, [casosTotales.length > 0, sesionUsuarioKey, role, email, nombreUsuarioAutenticado, reproducirCampana]);
-
-  // 2. Recordatorio cada 10 minutos (suena solo 2 veces en total por sesión para todos los usuarios)
+  // 2. Recordatorio continuo cada 10 minutos si aún existen casos con SLA >= 4h sin push
   useEffect(() => {
     const timer = setInterval(() => {
+      const casosActuales = casosTotalesRef.current || [];
+      if (casosActuales.length === 0) return;
+
       const ultimoTs = parseInt(sessionStorage.getItem('peya_ultimo_timbre_ts') || '0', 10);
       const ahora = Date.now();
       const INTERVALO_RECORDATORIO_MS = 10 * 60 * 1000; // 10 minutos
 
-      if (ultimoTs > 0 && ahora - ultimoTs >= INTERVALO_RECORDATORIO_MS) {
+      if (ultimoTs === 0 || ahora - ultimoTs >= INTERVALO_RECORDATORIO_MS) {
         sessionStorage.setItem('peya_ultimo_timbre_ts', String(ahora));
-        const casosActuales = casosTotalesRef.current || [];
-        if (casosActuales.length > 0) {
-          const pendientes = detectarCasosPushPendientes(casosActuales, role, email, nombreUsuarioAutenticado);
-          if (pendientes.length > 0) {
-            const veces = parseInt(sessionStorage.getItem('peya_sesion_push_reproducciones_' + sesionUsuarioKey) || '0', 10);
-            if (veces < 2) {
-              reproducirCampana();
-              sessionStorage.setItem('peya_sesion_push_reproducciones_' + sesionUsuarioKey, String(veces + 1));
-            }
-            setAlertasPushActivas(pendientes);
-          }
+        const pendientes = detectarCasosPushPendientes(casosActuales, role, email, nombreUsuarioAutenticado);
+        if (pendientes.length > 0) {
+          reproducirCampana();
+          setAlertasPushActivas(pendientes);
         }
       }
     }, 15000);
     return () => clearInterval(timer);
-  }, [role, email, nombreUsuarioAutenticado, sesionUsuarioKey, reproducirCampana]);
+  }, [role, email, nombreUsuarioAutenticado, reproducirCampana]);
 
   const esCasoActivo = (c: any): boolean => {
     if (!c) return false;

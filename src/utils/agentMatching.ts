@@ -150,7 +150,8 @@ export function isAgentMatch(
   const targets = [
     caso.propietarioTicket,
     caso.propietarioOportunidad,
-    caso.agente
+    caso.agente,
+    (caso as any).kam
   ].filter(Boolean) as string[];
 
   if (targets.length === 0) return false;
