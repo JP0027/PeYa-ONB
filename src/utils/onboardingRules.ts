@@ -10,7 +10,7 @@ import {
   normalizarRespuesta,
   LISTA_OPORTUNIDADES
 } from '../data/catalogoOnboarding';
-import { analizarTiemposCaso } from './tiempoLaboral';
+import { analizarTiemposCaso, calcularTiempoLaboralLV } from './tiempoLaboral';
 
 export { normalizarRespuesta };
 
