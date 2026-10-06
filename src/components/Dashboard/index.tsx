@@ -11,6 +11,7 @@ import {
   resolverOportunidad 
 } from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
+import { analizarTiemposCaso } from '../../utils/tiempoLaboral';
 
 import { consultarCasosGoogleSheets, actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
 
@@ -151,47 +152,41 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
   } else {
     const misCasos = casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
     misCasos.forEach(c => {
-      const horas = c.horasSLA || c.totalHorasOp || 0;
-      const rOp = String(c.rangoSlaOp || c.rangoSla || '').toLowerCase();
-      const rPos = String(c.rangoSlaPos || '').toLowerCase();
-      const rCat = String(c.rangoSlaCat || '').toLowerCase();
-
-      const requiereAlertaPush = horas >= 4 ||
-                         rOp.includes('4h') || rOp.includes('6h') || rOp.includes('≥4') || rOp.includes('fuera de sla') ||
-                         rPos.includes('4h') || rPos.includes('6h') || rPos.includes('≥4') || rPos.includes('fuera de sla') ||
-                         rCat.includes('4h') || rCat.includes('6h') || rCat.includes('≥4') || rCat.includes('fuera de sla');
-      if (!requiereAlertaPush) return;
+      const tiempos = analizarTiemposCaso(c);
+      const horasOp = tiempos?.totalHorasOp ?? 0;
+      const horasPos = (tiempos?.totalHorasPos && tiempos.totalHorasPos > 0) ? tiempos.totalHorasPos : horasOp;
+      const horasCat = (tiempos?.totalHorasCat && tiempos.totalHorasCat > 0) ? tiempos.totalHorasCat : horasOp;
 
       const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
       const tiendaLabel = c.tienda || 'Sin tienda';
 
-      // Falta push de seguimiento en POS API
+      // Falta push de seguimiento en POS API (Solo si transcurrieron 4 horas o más)
       const tieneInicioPos = Boolean(c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-');
       const faltaPushPos = !c.fechaPushPos || c.fechaPushPos === '' || c.fechaPushPos === '-';
       const noResueltoPos = c.respuestaPos !== 'Sí' && c.respuestaPos !== 'Si' && c.respuestaPos !== 'S/V';
-      if (tieneInicioPos && faltaPushPos && noResueltoPos) {
+      if (tieneInicioPos && faltaPushPos && noResueltoPos && horasPos >= 4) {
         resultados.push({
           id: `push_pos_${c.id || c.casoOp}`,
           caso: c,
           tipo: 'push_pos',
           titulo: 'Push de Seguimiento POS Pendiente',
           hora: horaTexto,
-          mensaje: `Falta realizar push de seguimiento (4 a 6 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
         });
       }
 
-      // Falta push de seguimiento en Catálogo
+      // Falta push de seguimiento en Catálogo (Solo si transcurrieron 4 horas o más)
       const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
       const faltaPushCat = !c.fechaPushCat || c.fechaPushCat === '' || c.fechaPushCat === '-';
       const noResueltoCat = c.respuestaCat !== 'Sí' && c.respuestaCat !== 'Si' && c.respuestaCat !== 'S/V';
-      if (tieneInicioCat && faltaPushCat && noResueltoCat) {
+      if (tieneInicioCat && faltaPushCat && noResueltoCat && horasCat >= 4) {
         resultados.push({
           id: `push_cat_${c.id || c.casoOp}`,
           caso: c,
           tipo: 'push_cat',
           titulo: 'Push de Seguimiento Catálogo Pendiente',
           hora: horaTexto,
-          mensaje: `Falta realizar push de seguimiento (4 a 6 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
         });
       }
     });

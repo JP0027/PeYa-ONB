@@ -618,13 +618,19 @@ export function analizarAlertasCaso(caso: any): any {
     etapa.includes('sin integración confirmada') || etapa.includes('sin integracion confirmada') || etapa.includes('en proceso de seteo')
   );
 
+  const horasPos = (tiempos.totalHorasPos && tiempos.totalHorasPos > 0) ? tiempos.totalHorasPos : horasTranscurridas;
+
   let requierePushPos = false;
   let motivoPushPos = '';
 
   if (esActivo && tieneTrackPos && !respPosOk && !esSvPos) {
     if (!tienePushPos) {
-      requierePushPos = true;
-      motivoPushPos = 'No realizo push';
+      if (horasPos >= 4) {
+        requierePushPos = true;
+        motivoPushPos = 'No realizo push';
+      } else {
+        motivoPushPos = 'En espera de push (SLA < 4h)';
+      }
     } else {
       motivoPushPos = `Push POS registrado: ${caso.fechaPushPos}`;
     }
@@ -641,13 +647,19 @@ export function analizarAlertasCaso(caso: any): any {
     etapa.includes('verificación de catálogo') || etapa.includes('verificacion de catalogo') || etapa.includes('carga de catálogo')
   );
 
+  const horasCat = (tiempos.totalHorasCat && tiempos.totalHorasCat > 0) ? tiempos.totalHorasCat : horasTranscurridas;
+
   let requierePushCat = false;
   let motivoPushCat = '';
 
   if (esActivo && tieneTrackCat && !respCatOk && !esSvCat) {
     if (!tienePushCat) {
-      requierePushCat = true;
-      motivoPushCat = 'No realizo push';
+      if (horasCat >= 4) {
+        requierePushCat = true;
+        motivoPushCat = 'No realizo push';
+      } else {
+        motivoPushCat = 'En espera de push (SLA < 4h)';
+      }
     } else {
       motivoPushCat = `Push Catálogo registrado: ${caso.fechaPushCat}`;
     }
