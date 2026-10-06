@@ -593,7 +593,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     return casosTotales;
   }, [casosTotales, activeTab, email, nombreUsuarioAutenticado]);
 
-  const casosConAlertas = useMemo(() => casosMostrados.map(c => ({ caso: c, alertas: analizarAlertasCaso(c) })), [casosMostrados]);
+  // Reloj de 1 minuto: fuerza el recálculo de SLA/alertas para que los casos que cruzan las 4h aparezcan sin recargar
+  const [tickReloj, setTickReloj] = useState<number>(0);
+  useEffect(() => {
+    const t = setInterval(() => setTickReloj(x => x + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  const casosConAlertas = useMemo(() => casosMostrados.map(c => ({ caso: c, alertas: analizarAlertasCaso(c) })), [casosMostrados, tickReloj]);
   
   const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => {
     const est = String(x.caso.estado || '').toLowerCase().trim();

@@ -595,24 +595,17 @@ export function analizarAlertasCaso(caso: any): any {
   const etapa = String(caso.etapa || '').toLowerCase();
   const esActivo = typeof caso.esActivo === 'boolean' ? caso.esActivo : esEstadoActivoOficial(caso.estado);
 
-  // 1. Análisis integral de tiempos mediante el motor oficial L-V
+  // 1. SLA = tiempo transcurrido del seguimiento correspondiente (Catálogo > POS API > OP), calculado en vivo
   const tiempos = analizarTiemposCaso(caso);
-  const horasTranscurridas = tiempos.totalHorasOp;
-  const tiempoTexto = tiempos.tiempoTextoOp;
-  const rangoSla = tiempos.rangoSlaOp;
-  const colorClass = tiempos.colorClassOp;
-  const estaCongelado = tiempos.estaCongelado;
+  const horasTranscurridas = tiempos.horasSeguimiento;
+  const tiempoTexto = tiempos.textoSeguimiento;
+  const rangoSla = tiempos.rangoSeguimiento;
+  const colorClass = tiempos.colorSeguimiento;
+  const estaCongelado = tiempos.congeladoSeguimiento;
   const congeladoTrack = tiempos.congeladoTrack;
 
-  // Helper estricto para verificar si las horas laborales transcurridas son >= 4 horas
-  const esSlaMayorOIgualA4 = (h: number, rTrack: any) => {
-    if (typeof h === 'number' && h >= 4) return true;
-    const str = String(rTrack || '').toLowerCase().trim();
-    if (!str || str === '-' || str === 's/v' || str.includes('0h a 4h') || str.includes('<4')) return false;
-    if (str.includes('4h a') || str.includes('6h a') || str.includes('≥4') || str.includes('>=4') || str.includes('fuera de sla')) return true;
-    if (str.includes('24h') || str.includes('72h') || str.includes('96h')) return true;
-    return false;
-  };
+  // Regla ≥ 4 horas: se evalúa únicamente con las horas reales del seguimiento (calculadas en vivo)
+  const esSlaMayorOIgualA4 = (h: number, _rTrack?: any) => typeof h === 'number' && h >= 4;
 
   // 2. Alerta Push POS API (EXIGE: Fecha de Inicio real o deducida por etapa, falta de push y >= 4 horas)
   const esPushValido = (f: any) => Boolean(f && String(f).trim() !== '' && String(f).trim() !== '-' && String(f).trim().toUpperCase() !== 'NULL');
@@ -640,7 +633,7 @@ export function analizarAlertasCaso(caso: any): any {
   const respPosOk = respPosNorm === 'Si' || esSvPos;
 
   const horasPosCalculadas = fInicioPosEfectiva ? calcularTiempoLaboralLV(fInicioPosEfectiva, null).totalHoras : 0;
-  const horasPos = (tiempos.totalHorasPos && tiempos.totalHorasPos > 0) ? tiempos.totalHorasPos : (horasPosCalculadas > 0 ? horasPosCalculadas : tiempos.totalHorasOp);
+  const horasPos = Math.max(tiempos.totalHorasPos ?? 0, horasPosCalculadas);
   const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, caso.rangoSlaPos);
 
   let requierePushPos = false;
@@ -682,7 +675,7 @@ export function analizarAlertasCaso(caso: any): any {
   const respCatOk = respCatNorm === 'Si' || esSvCat;
 
   const horasCatCalculadas = fInicioCatEfectiva ? calcularTiempoLaboralLV(fInicioCatEfectiva, null).totalHoras : 0;
-  const horasCat = (tiempos.totalHorasCat && tiempos.totalHorasCat > 0) ? tiempos.totalHorasCat : (horasCatCalculadas > 0 ? horasCatCalculadas : tiempos.totalHorasOp);
+  const horasCat = Math.max(tiempos.totalHorasCat ?? 0, horasCatCalculadas);
   const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, caso.rangoSlaCat);
 
   let requierePushCat = false;

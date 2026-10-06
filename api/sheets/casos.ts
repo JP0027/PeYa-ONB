@@ -156,7 +156,8 @@ export default async function handler(req: any, res: any) {
     const colFreezeCat = findCol(h => (h.includes('freeze') || h.includes('congelado')) && (h.includes('catálogo') || h.includes('catalogo')));
     const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')));
     const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) || h === 'rango sla op');
-
+    const colRangoPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
+    const colRangoCat = findCol(h => h.includes('rango sla') && (h.includes('catálogo') || h.includes('catalogo')));
     const dataRows = rows.slice(headerRowIdx + 1);
     const casos: any[] = [];
 
@@ -212,16 +213,16 @@ export default async function handler(req: any, res: any) {
       const freezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 40);
       const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
       const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 34);
+      const rangoSlaPos = getVal(colRangoPos >= 0 ? colRangoPos : 35);
+      const rangoSlaCat = getVal(colRangoCat >= 0 ? colRangoCat : 36);
 
       let horasSLA = 0;
       if (tiempoTranscurridoOp) {
         const s = tiempoTranscurridoOp.toLowerCase();
         const mDias = s.match(/(\d+)\s*d[ií]as?/);
         const mHoras = s.match(/(\d+)\s*h/);
-        const mMin = s.match(/(\d+)\s*m/);
         if (mDias) horasSLA += parseInt(mDias[1], 10) * 24;
         if (mHoras) horasSLA += parseInt(mHoras[1], 10);
-        if (mMin) horasSLA += Math.round(parseInt(mMin[1], 10) / 60);
       }
 
       const estadoNorm = estado.toLowerCase().trim();
@@ -270,6 +271,8 @@ export default async function handler(req: any, res: any) {
         tiempoTranscurridoOp,
         tiempoTranscurridoLV: tiempoTranscurridoOp,
         rangoSlaOp,
+        rangoSlaPos,
+        rangoSlaCat,
         rangoSla: rangoSlaOp,
         horasSLA
       });

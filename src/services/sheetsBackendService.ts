@@ -537,30 +537,14 @@ export class SheetsService {
       const fechaFreezePos = getVal(colFreezePos >= 0 ? colFreezePos : 39);
       const fechaFreezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 40);
 
+      // Horas reales = días*24 + horas del texto oficial (los minutos no suman hora completa)
       let horasSLA = 0;
       if (tiempoTranscurridoOp) {
         const s = tiempoTranscurridoOp.toLowerCase();
         const mDias = s.match(/(\d+)\s*d[ií]as?/);
         const mHoras = s.match(/(\d+)\s*h/);
-        const mMin = s.match(/(\d+)\s*m/);
         if (mDias) horasSLA += parseInt(mDias[1], 10) * 24;
         if (mHoras) horasSLA += parseInt(mHoras[1], 10);
-        if (mMin) horasSLA += Math.round(parseInt(mMin[1], 10) / 60);
-      }
-
-      const es96 = rangoSlaOp.includes('≥96') || rangoSlaOp.includes('>=96') || (rangoSlaOp.includes('96') && !rangoSlaOp.includes('<96'));
-      const es72 = !es96 && (rangoSlaOp.includes('>72') || (rangoSlaOp.includes('72') && !rangoSlaOp.includes('<72')));
-      const es24 = !es96 && !es72 && (rangoSlaOp.includes('≥24') || rangoSlaOp.includes('>=24') || (rangoSlaOp.includes('24') && !rangoSlaOp.includes('<24')));
-      const es6 = !es96 && !es72 && !es24 && (rangoSlaOp.includes('>6') || (rangoSlaOp.includes('6h') && !rangoSlaOp.includes('<6')));
-
-      if (es96) {
-        horasSLA = Math.max(horasSLA, 96);
-      } else if (es72) {
-        horasSLA = Math.max(horasSLA, 73);
-      } else if (es24) {
-        horasSLA = Math.max(horasSLA, 24);
-      } else if (es6) {
-        horasSLA = Math.max(horasSLA, 7);
       }
 
       const estadoLower = estado.toLowerCase();

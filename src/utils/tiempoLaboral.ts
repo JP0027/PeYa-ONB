@@ -262,65 +262,71 @@ export function analizarTiemposCaso(caso: any): any {
     ? caso.esActivo 
     : (!String(caso.estado || '').toLowerCase().includes('cerrad') && !String(caso.estado || '').toLowerCase().includes('fallid'));
 
-  // 1. SLA General de la OP (Columnas R, S, AE, AI)
+  // Regla común: si hay fecha de inicio válida se calcula EN VIVO (L-V, misma fórmula de la hoja).
+  // Solo se usa el texto de Sheets si no se puede calcular (o si está congelado sin fecha de freeze).
+  const resolverHoras = (calc: any, texto: any, usarTexto: boolean) => {
+    const hTexto = extraerHorasDeTexto(texto);
+    if (calc && !usarTexto) return { horas: calc.totalHoras, texto: calc.texto };
+    if (hTexto !== null) return { horas: hTexto, texto: String(texto) };
+    if (calc) return { horas: calc.totalHoras, texto: calc.texto };
+    return { horas: 0, texto: '-' };
+  };
+
+  // 1. SLA General de la OP
   const fInicioOp = caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion;
   const fCierreOp = !esActivo && caso.fechaCierre ? caso.fechaCierre : null;
   const tiempoOpCalculado = calcularTiempoLaboralLV(fInicioOp, fCierreOp);
-
-  const horasOpDesdeTexto = extraerHorasDeTexto(caso.tiempoTranscurridoOp || caso.tiempoTranscurridoLV);
-  let totalHorasOp = typeof caso.horasSLA === 'number' && caso.horasSLA > 0
-    ? caso.horasSLA
-    : (horasOpDesdeTexto !== null ? horasOpDesdeTexto : tiempoOpCalculado.totalHoras);
-
-  const rangoOficial = caso.rangoSlaOp || caso.rangoSla;
-  if (rangoOficial) {
-    const es96 = rangoOficial.includes('≥96') || rangoOficial.includes('>=96') || (rangoOficial.includes('96') && !rangoOficial.includes('<96'));
-    const es72 = !es96 && (rangoOficial.includes('>72') || (rangoOficial.includes('72') && !rangoOficial.includes('<72')));
-    const es24 = !es96 && !es72 && (rangoOficial.includes('≥24') || rangoOficial.includes('>=24') || (rangoOficial.includes('24') && !rangoOficial.includes('<24')));
-    if (es96) totalHorasOp = Math.max(totalHorasOp, 96);
-    else if (es72) totalHorasOp = Math.max(totalHorasOp, 73);
-    else if (es24) totalHorasOp = Math.max(totalHorasOp, 24);
-  }
-
-  const tiempoTextoOp = (caso.tiempoTranscurridoOp && caso.tiempoTranscurridoOp !== '-') 
-    ? caso.tiempoTranscurridoOp 
-    : (caso.tiempoTranscurridoLV && caso.tiempoTranscurridoLV !== '-' ? caso.tiempoTranscurridoLV : tiempoOpCalculado.texto);
-  const rangoSlaOp = rangoOficial && rangoOficial !== '-' ? rangoOficial : obtenerRangoSLA(totalHorasOp);
+  const opRes = resolverHoras(
+    parsearFecha(fInicioOp) ? tiempoOpCalculado : null,
+    caso.tiempoTranscurridoOp && caso.tiempoTranscurridoOp !== '-' ? caso.tiempoTranscurridoOp : caso.tiempoTranscurridoLV,
+    false
+  );
+  const totalHorasOp = opRes.horas;
+  const tiempoTextoOp = opRes.texto;
+  const rangoSlaOp = caso.rangoSlaOp && String(caso.rangoSlaOp).trim() !== '' 
+    ? String(caso.rangoSlaOp).trim() 
+    : obtenerRangoSLA(totalHorasOp);
   const colorClassOp = obtenerColorRangoSLA(totalHorasOp, esActivo);
 
-  // 2. SLA Seguimiento POS API (Columnas T, U, V, AF, AJ, AN)
-  const fInicioPos = caso.fechaInicioPos && caso.fechaInicioPos !== 'S/V' ? caso.fechaInicioPos : null;
+  // 2. SLA Seguimiento POS API
+  const fInicioPos = caso.fechaInicioPos && caso.fechaInicioPos !== 'S/V' && caso.fechaInicioPos !== '-' ? caso.fechaInicioPos : null;
   const respPosLimpia = String(caso.respuestaPos || '').trim().toLowerCase();
   const freezeValPos = caso.fechaFreezePos || caso.freezePos || null;
   const estaCongeladoPos = respPosLimpia === 'si' || respPosLimpia === 'sí' || Boolean(freezeValPos);
   const finPos = estaCongeladoPos && freezeValPos 
     ? freezeValPos 
     : (!esActivo && caso.fechaCierre ? caso.fechaCierre : null);
-  const tiempoPosCalculado = fInicioPos ? calcularTiempoLaboralLV(fInicioPos, finPos) : null;
+  const tiempoPosCalculado = fInicioPos && parsearFecha(fInicioPos) ? calcularTiempoLaboralLV(fInicioPos, finPos) : null;
+  const posRes = resolverHoras(tiempoPosCalculado, caso.tiempoTranscurridoPos, estaCongeladoPos && !freezeValPos);
+  const totalHorasPos = posRes.horas;
+  const tiempoTextoPos = fInicioPos ? posRes.texto : (caso.fechaInicioPos === 'S/V' ? 'S/V' : '-');
+  const rangoSlaPos = fInicioPos 
+    ? (caso.rangoSlaPos && String(caso.rangoSlaPos).trim() !== '' ? String(caso.rangoSlaPos).trim() : obtenerRangoSLA(totalHorasPos)) 
+    : '';
 
-  const horasPosDesdeTexto = extraerHorasDeTexto(caso.tiempoTranscurridoPos);
-  const totalHorasPos = horasPosDesdeTexto !== null ? horasPosDesdeTexto : (tiempoPosCalculado ? tiempoPosCalculado.totalHoras : 0);
-  const tiempoTextoPos = caso.tiempoTranscurridoPos && caso.tiempoTranscurridoPos !== '-' 
-    ? caso.tiempoTranscurridoPos 
-    : (tiempoPosCalculado ? tiempoPosCalculado.texto : (caso.fechaInicioPos === 'S/V' ? 'S/V' : '-'));
-  const rangoSlaPos = caso.rangoSlaPos && caso.rangoSlaPos !== '-' ? caso.rangoSlaPos : (tiempoPosCalculado ? obtenerRangoSLA(totalHorasPos) : '');
-
-  // 3. SLA Seguimiento Catálogo (Columnas X, Y, Z, AG, AK, AO)
-  const fInicioCat = caso.fechaInicioCat && caso.fechaInicioCat !== 'S/V' ? caso.fechaInicioCat : null;
+  // 3. SLA Seguimiento Catálogo
+  const fInicioCat = caso.fechaInicioCat && caso.fechaInicioCat !== 'S/V' && caso.fechaInicioCat !== '-' ? caso.fechaInicioCat : null;
   const respCatLimpia = String(caso.respuestaCat || '').trim().toLowerCase();
   const freezeValCat = caso.fechaFreezeCat || caso.freezeCat || null;
   const estaCongeladoCat = respCatLimpia === 'si' || respCatLimpia === 'sí' || Boolean(freezeValCat);
   const finCat = estaCongeladoCat && freezeValCat 
     ? freezeValCat 
     : (!esActivo && caso.fechaCierre ? caso.fechaCierre : null);
-  const tiempoCatCalculado = fInicioCat ? calcularTiempoLaboralLV(fInicioCat, finCat) : null;
+  const tiempoCatCalculado = fInicioCat && parsearFecha(fInicioCat) ? calcularTiempoLaboralLV(fInicioCat, finCat) : null;
+  const catRes = resolverHoras(tiempoCatCalculado, caso.tiempoTranscurridoCat, estaCongeladoCat && !freezeValCat);
+  const totalHorasCat = catRes.horas;
+  const tiempoTextoCat = fInicioCat ? catRes.texto : (caso.fechaInicioCat === 'S/V' ? 'S/V' : '-');
+  const rangoSlaCat = fInicioCat 
+    ? (caso.rangoSlaCat && String(caso.rangoSlaCat).trim() !== '' ? String(caso.rangoSlaCat).trim() : obtenerRangoSLA(totalHorasCat)) 
+    : '';
 
-  const horasCatDesdeTexto = extraerHorasDeTexto(caso.tiempoTranscurridoCat);
-  const totalHorasCat = horasCatDesdeTexto !== null ? horasCatDesdeTexto : (tiempoCatCalculado ? tiempoCatCalculado.totalHoras : 0);
-  const tiempoTextoCat = caso.tiempoTranscurridoCat && caso.tiempoTranscurridoCat !== '-' 
-    ? caso.tiempoTranscurridoCat 
-    : (tiempoCatCalculado ? tiempoCatCalculado.texto : (caso.fechaInicioCat === 'S/V' ? 'S/V' : '-'));
-  const rangoSlaCat = caso.rangoSlaCat && caso.rangoSlaCat !== '-' ? caso.rangoSlaCat : (tiempoCatCalculado ? obtenerRangoSLA(totalHorasCat) : '');
+  // 4. SLA mostrado = tiempo transcurrido del seguimiento correspondiente:
+  //    Catálogo si ya tiene fecha de inicio; si no, POS API; si ninguno inició, el de la OP.
+  const trackSeguimiento: 'cat' | 'pos' | 'op' = fInicioCat ? 'cat' : (fInicioPos ? 'pos' : 'op');
+  const horasSeguimiento = trackSeguimiento === 'cat' ? totalHorasCat : trackSeguimiento === 'pos' ? totalHorasPos : totalHorasOp;
+  const textoSeguimiento = trackSeguimiento === 'cat' ? tiempoTextoCat : trackSeguimiento === 'pos' ? tiempoTextoPos : tiempoTextoOp;
+  const congeladoSeguimiento = trackSeguimiento === 'cat' ? estaCongeladoCat : trackSeguimiento === 'pos' ? estaCongeladoPos : false;
+  const rangoSeguimiento = trackSeguimiento === 'cat' ? rangoSlaCat : (trackSeguimiento === 'pos' ? rangoSlaPos : rangoSlaOp);
 
   const estaCongeladoCualquiera = estaCongeladoPos || estaCongeladoCat;
   const congeladoTrack = estaCongeladoPos && estaCongeladoCat 
@@ -367,6 +373,14 @@ export function analizarTiemposCaso(caso: any): any {
 
     estaCongeladoCualquiera,
     estaCongelado: estaCongeladoCualquiera,
-    congeladoTrack
+    congeladoTrack,
+
+    // SLA del seguimiento correspondiente (el que se muestra en la app)
+    trackSeguimiento,
+    horasSeguimiento,
+    textoSeguimiento,
+    rangoSeguimiento,
+    colorSeguimiento: obtenerColorRangoSLA(horasSeguimiento, esActivo),
+    congeladoSeguimiento
   };
 }
