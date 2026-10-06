@@ -604,40 +604,43 @@ export function analizarAlertasCaso(caso: any): any {
   const estaCongelado = tiempos.estaCongelado;
   const congeladoTrack = tiempos.congeladoTrack;
 
-  // 2. Alerta Push POS API:
+  // Helper estricto para verificar si las horas laborales transcurridas son >= 4 horas
+  const esSlaMayorOIgualA4 = (h: number, rTrack: any) => {
+    if (typeof h === 'number' && h >= 4) return true;
+    const str = String(rTrack || '').toLowerCase().trim();
+    if (!str || str === '-' || str === 's/v' || str.includes('0h a 4h') || str.includes('<4')) return false;
+    if (str.includes('4h a') || str.includes('6h a') || str.includes('≥4') || str.includes('>=4') || str.includes('fuera de sla')) return true;
+    if (str.includes('24h') || str.includes('72h') || str.includes('96h')) return true;
+    return false;
+  };
+
+  // 2. Alerta Push POS API (EXIGE: Fecha de Inicio real, falta de push y >= 4 horas)
   const esPushValido = (f: any) => Boolean(f && String(f).trim() !== '' && String(f).trim() !== '-' && String(f).trim().toUpperCase() !== 'NULL');
   const esSV = (f: any) => String(f).trim().toUpperCase() === 'S/V';
+
+  const tieneInicioPos = Boolean(
+    caso.fechaInicioPos && 
+    String(caso.fechaInicioPos).trim() !== '' && 
+    String(caso.fechaInicioPos).trim() !== '-' && 
+    !esSV(caso.fechaInicioPos)
+  );
 
   const tienePushPos = esPushValido(caso.fechaPushPos);
   const respPosNorm = normalizarRespuesta(caso.respuestaPos);
   const esSvPos = esSV(caso.fechaPushPos) || esSV(caso.fechaInicioPos) || respPosNorm === 'S/V';
   const respPosOk = respPosNorm === 'Si' || esSvPos;
 
-  // Helper para verificar si las horas numéricas o la etiqueta oficial del rango es >= 4 horas
-  const esSlaMayorOIgualA4 = (h: number, rTrack: any, rOp: any) => {
-    if (typeof h === 'number' && h >= 4) return true;
-    const strTrack = String(rTrack || '').toLowerCase();
-    const strOp = String(rOp || '').toLowerCase();
-    const detecta4h = (s: string) => {
-      if (!s || s === '-' || s === 's/v') return false;
-      if (s.includes('4h a') || s.includes('6h a') || s.includes('≥4') || s.includes('>=4') || s.includes('fuera de sla')) return true;
-      if (s.includes('24h') || s.includes('72h') || s.includes('96h')) return true;
-      return false;
-    };
-    return detecta4h(strTrack) || detecta4h(strOp);
-  };
-
-  const horasPos = (tiempos.totalHorasPos && tiempos.totalHorasPos > 0) ? tiempos.totalHorasPos : horasTranscurridas;
-  const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, caso.rangoSlaPos, caso.rangoSlaOp || caso.rangoSla);
+  const horasPos = tiempos.totalHorasPos ?? 0;
+  const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, caso.rangoSlaPos);
 
   let requierePushPos = false;
   let motivoPushPos = '';
 
-  if (esActivo && !respPosOk && !esSvPos) {
+  if (esActivo && tieneInicioPos && !respPosOk && !esSvPos) {
     if (!tienePushPos) {
       if (esAlertaPosValida) {
         requierePushPos = true;
-        motivoPushPos = 'No realizo push';
+        motivoPushPos = 'No realizo push (≥ 4h)';
       } else {
         motivoPushPos = 'En espera de push (SLA < 4h)';
       }
@@ -646,23 +649,30 @@ export function analizarAlertasCaso(caso: any): any {
     }
   }
 
-  // 3. Alerta Push Catálogo:
+  // 3. Alerta Push Catálogo (EXIGE: Fecha de Inicio real, falta de push y >= 4 horas)
+  const tieneInicioCat = Boolean(
+    caso.fechaInicioCat && 
+    String(caso.fechaInicioCat).trim() !== '' && 
+    String(caso.fechaInicioCat).trim() !== '-' && 
+    !esSV(caso.fechaInicioCat)
+  );
+
   const tienePushCat = esPushValido(caso.fechaPushCat);
   const respCatNorm = normalizarRespuesta(caso.respuestaCat);
   const esSvCat = esSV(caso.fechaPushCat) || esSV(caso.fechaInicioCat) || respCatNorm === 'S/V';
   const respCatOk = respCatNorm === 'Si' || esSvCat;
 
-  const horasCat = (tiempos.totalHorasCat && tiempos.totalHorasCat > 0) ? tiempos.totalHorasCat : horasTranscurridas;
-  const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, caso.rangoSlaCat, caso.rangoSlaOp || caso.rangoSla);
+  const horasCat = tiempos.totalHorasCat ?? 0;
+  const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, caso.rangoSlaCat);
 
   let requierePushCat = false;
   let motivoPushCat = '';
 
-  if (esActivo && !respCatOk && !esSvCat) {
+  if (esActivo && tieneInicioCat && !respCatOk && !esSvCat) {
     if (!tienePushCat) {
       if (esAlertaCatValida) {
         requierePushCat = true;
-        motivoPushCat = 'No realizo push';
+        motivoPushCat = 'No realizo push (≥ 4h)';
       } else {
         motivoPushCat = 'En espera de push (SLA < 4h)';
       }
