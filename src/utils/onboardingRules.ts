@@ -704,15 +704,21 @@ export function analizarAlertasCaso(caso: any): any {
   const respEsNoCat = respCatNorm === 'No';
   const esKamCatHecho = esPushKamRealizado(caso.pushKamCat);
 
-  const esMasDe24 = horasTranscurridas >= 24 || 
-    String(rangoSla).includes('24') || 
-    String(rangoSla).includes('72') || 
-    String(rangoSla).includes('96') || 
-    String(rangoSla).includes('≥') || 
-    String(rangoSla).includes('>');
+  // Cálculo preciso: Push KAM exige que hayan pasado >= 24h desde que se hizo el Push
+  let horasDesdePushPos = 0;
+  if (caso.fechaPushPos && caso.fechaPushPos !== '-' && !esSV(caso.fechaPushPos)) {
+    const calc = calcularTiempoLaboralLV(caso.fechaPushPos, null);
+    horasDesdePushPos = calc.totalHoras;
+  }
 
-  const requierePushKamPos = esActivo && tieneInicioRealPos && tienePushPos && respEsNoPos && !esKamPosHecho && esMasDe24;
-  const requierePushKamCat = esActivo && tieneInicioRealCat && tienePushCat && respEsNoCat && !esKamCatHecho && esMasDe24;
+  let horasDesdePushCat = 0;
+  if (caso.fechaPushCat && caso.fechaPushCat !== '-' && !esSV(caso.fechaPushCat)) {
+    const calc = calcularTiempoLaboralLV(caso.fechaPushCat, null);
+    horasDesdePushCat = calc.totalHoras;
+  }
+
+  const requierePushKamPos = esActivo && tieneInicioRealPos && tienePushPos && respEsNoPos && !esKamPosHecho && horasDesdePushPos >= 24;
+  const requierePushKamCat = esActivo && tieneInicioRealCat && tienePushCat && respEsNoCat && !esKamCatHecho && horasDesdePushCat >= 24;
 
   // 5. Semáforos SLA: Se calculan sobre las horas acumuladas reales y rango oficial
   const rangoStr = String(rangoSla || '').trim();

@@ -106,7 +106,7 @@ export default function TLDashboard({
       const respPosOk = respNoPos ? false : (normalizarRespuesta(c.respuestaPos) === 'Si' || normalizarRespuesta(c.respuestaPos) === 'S/V');
       const noRealizoPushPos = esActivo && tieneInicioPos && !tienePushPos && !respPosOk;
       const kamPosHecho = tieneInicioPos && tienePushPos && esPushKamRealizado(c.pushKamPos);
-      const faltaKamPos = esActivo && tieneInicioPos && tienePushPos && respNoPos && !esPushKamRealizado(c.pushKamPos);
+      const faltaKamPos = alertas.requierePushKamPos;
 
       const tieneInicioCat = Boolean(c.fechaInicioCat && c.fechaInicioCat !== 'S/V' && c.fechaInicioCat !== '-');
       const tienePushCat = Boolean(c.fechaPushCat && c.fechaPushCat !== 'S/V' && c.fechaPushCat !== '-');
@@ -114,20 +114,12 @@ export default function TLDashboard({
       const respCatOk = respNoCat ? false : (normalizarRespuesta(c.respuestaCat) === 'Si' || normalizarRespuesta(c.respuestaCat) === 'S/V');
       const noRealizoPushCat = esActivo && tieneInicioCat && !tienePushCat && !respCatOk;
       const kamCatHecho = tieneInicioCat && tienePushCat && esPushKamRealizado(c.pushKamCat);
-      const faltaKamCat = esActivo && tieneInicioCat && tienePushCat && respNoCat && !esPushKamRealizado(c.pushKamCat);
+      const faltaKamCat = alertas.requierePushKamCat;
 
       const tieneSeguimientoAplicable = tieneInicioPos || tieneInicioCat;
 
+      const requiereKamPush = faltaKamPos || faltaKamCat;
       const horas = alertas.horasTranscurridas || c.horasSLA || 0;
-      const rangoStr = String(alertas.rangoSla || c.rangoSlaOp || '').toLowerCase();
-      const esMasDe24 = horas >= 24 || 
-        rangoStr.includes('24') || 
-        rangoStr.includes('72') || 
-        rangoStr.includes('96') || 
-        rangoStr.includes('≥') || 
-        rangoStr.includes('>');
-
-      const requiereKamPush = esActivo && esMasDe24 && (faltaKamPos || faltaKamCat);
 
       return {
         ...c,

@@ -380,11 +380,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   const [formulario, setFormulario] = useState<FormularioNuevoCaso>(() => {
     return {
-      casoOp: '', vendorId: '', tienda: '', pais: 'Argentina', kam: '',
-      integracion: 'Datalive', oportunidad: 'Franchise Extension', asset: 'Integración',
+      casoOp: '', vendorId: '', tienda: '', pais: '', kam: '',
+      integracion: '', oportunidad: '', asset: '',
       propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
-      casoSeguimiento: '', tieneCasoInicio: 'Si', comentarios: '', estado: 'En progreso',
-      etapa: 'Sin integración confirmada', 
+      casoSeguimiento: '', tieneCasoInicio: '', comentarios: '', estado: '',
+      etapa: '', 
       fechaCreacion: '',
       sla_inicio: ''
     };
@@ -763,7 +763,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         tienda: '',
         kam: '',
         fechaCreacion: '',
-        sla_inicio: ''
+        sla_inicio: '',
+        pais: '',
+        integracion: '',
+        oportunidad: '',
+        asset: '',
+        tieneCasoInicio: '',
+        estado: '',
+        etapa: ''
       }));
       setSubTabNuevo('registro');
       mostrarNotificacion(`Sin antecedentes previos para "${busquedaId.trim()}". Redirigiendo a nuevo registro.`, "info");
@@ -777,16 +784,16 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       casoOp: '',
       vendorId: '',
       tienda: '',
-      pais: 'Argentina',
+      pais: '',
       kam: '',
-      integracion: 'Datalive',
-      oportunidad: 'Franchise Extension',
-      asset: 'Integración',
+      integracion: '',
+      oportunidad: '',
+      asset: '',
       casoSeguimiento: '',
-      tieneCasoInicio: 'Si',
+      tieneCasoInicio: '',
       comentarios: '',
-      estado: 'En progreso',
-      etapa: 'Sin integración confirmada',
+      estado: '',
+      etapa: '',
       fechaCreacion: '',
       sla_inicio: ''
     }));
@@ -1395,6 +1402,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   onChange={manejarCambioForm} 
                   onGuardar={guardarNuevoCaso} 
                   onLimpiar={limpiarFormularioNuevoCaso}
+                    onError={(msg) => mostrarNotificacion(msg, 'error')}
                   nombreUsuario={nombreUsuarioAutenticado} 
                   puedeRegistrar={puedeRegistrar} 
                   integraciones={listaIntegracionesNombres}

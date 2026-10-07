@@ -155,6 +155,8 @@ export default async function handler(req: any, res: any) {
     const colFreezePos = findCol(h => (h.includes('freeze') || h.includes('congelado')) && h.includes('pos'));
     const colFreezeCat = findCol(h => (h.includes('freeze') || h.includes('congelado')) && (h.includes('catálogo') || h.includes('catalogo')));
     const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')));
+    const colTiempoPos = findCol(h => h.includes('tiempo transcurrido') && h.includes('pos'));
+    const colTiempoCat = findCol(h => h.includes('tiempo transcurrido') && (h.includes('catálogo') || h.includes('catalogo')));
     const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) || h === 'rango sla op');
     const colRangoPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
     const colRangoCat = findCol(h => h.includes('rango sla') && (h.includes('catálogo') || h.includes('catalogo')));
@@ -212,6 +214,8 @@ export default async function handler(req: any, res: any) {
       const freezePos = getVal(colFreezePos >= 0 ? colFreezePos : 39);
       const freezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 40);
       const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
+      const tiempoTranscurridoPos = getVal(colTiempoPos >= 0 ? colTiempoPos : -1);
+      const tiempoTranscurridoCat = getVal(colTiempoCat >= 0 ? colTiempoCat : -1);
       const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 34);
       const rangoSlaPos = getVal(colRangoPos >= 0 ? colRangoPos : 35);
       const rangoSlaCat = getVal(colRangoCat >= 0 ? colRangoCat : 36);
@@ -269,6 +273,8 @@ export default async function handler(req: any, res: any) {
         fechaFreezePos: freezePos,
         fechaFreezeCat: freezeCat,
         tiempoTranscurridoOp,
+        tiempoTranscurridoPos,
+        tiempoTranscurridoCat,
         tiempoTranscurridoLV: tiempoTranscurridoOp,
         rangoSlaOp,
         rangoSlaPos,

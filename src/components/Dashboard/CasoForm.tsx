@@ -37,6 +37,7 @@ export interface CasoFormProps {
   onChange: (e: any) => void;
   onGuardar: () => void;
   onLimpiar?: () => void;
+  onError?: (msg: string) => void;
   nombreUsuario?: string;
   puedeRegistrar?: boolean;
   integraciones?: string[];
@@ -55,6 +56,7 @@ export default function CasoForm({
   onChange, 
   onGuardar, 
   onLimpiar,
+  onError,
   nombreUsuario, 
   puedeRegistrar = true, 
   integraciones = [],
@@ -110,6 +112,25 @@ export default function CasoForm({
   }, [integracionesDetalle, integracionObjetivoNombre]);
 
   const intentarGuardar = () => {
+    const faltantes = [];
+    if (!formulario.pais) faltantes.push('País');
+    if (!formulario.integracion) faltantes.push('Integración');
+    if (!formulario.oportunidad) faltantes.push('Oportunidad');
+    if (!formulario.asset) faltantes.push('Asset');
+    if (!formulario.estado) faltantes.push('Estado del caso');
+    if (!formulario.etapa) faltantes.push('Etapa del onboarding');
+    if (!formulario.tieneCasoInicio) faltantes.push('¿Tiene caso en inicio?');
+
+    if (faltantes.length > 0) {
+      const msg = `Por favor, complete los siguientes campos obligatorios para el registro: ${faltantes.join(', ')}`;
+      if (onError) {
+        onError(msg);
+      } else {
+        window.alert(msg);
+      }
+      return;
+    }
+
     if (!formulario.casoOp || !String(formulario.casoOp).trim()) {
       onGuardar();
       return;
@@ -173,7 +194,8 @@ export default function CasoForm({
 
         <div>
           <label className="text-[#B3B3B3] block mb-1 font-medium">d. País *</label>
-          <select name="pais" value={formulario.pais} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
+          <select name="pais" value={formulario.pais || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
+            <option value="" disabled>Seleccione país...</option>
             {paises.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
@@ -249,10 +271,10 @@ export default function CasoForm({
         </div>
 
         <div>
-          <label className="text-[#B3B3B3] block mb-1 font-medium">g. Oportunidad</label>
+          <label className="text-[#B3B3B3] block mb-1 font-medium">g. Oportunidad *</label>
           <SearchableSelect
             name="oportunidad"
-            value={resolverOportunidad(formulario.oportunidad, oportunidades)}
+            value={formulario.oportunidad ? resolverOportunidad(formulario.oportunidad, oportunidades) : ''}
             onChange={(val) => onChange({ target: { name: 'oportunidad', value: val } })}
             options={oportunidades}
             placeholder="Buscar oportunidad..."
@@ -262,7 +284,8 @@ export default function CasoForm({
 
         <div>
           <label className="text-[#B3B3B3] block mb-1 font-medium">h. Asset *</label>
-          <select name="asset" value={formulario.asset} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
+          <select name="asset" value={formulario.asset || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
+            <option value="" disabled>Seleccione asset...</option>
             {assets.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
@@ -305,8 +328,9 @@ export default function CasoForm({
         </div>
 
         <div>
-          <label className="text-[#B3B3B3] block mb-1 font-medium">l. ¿Tiene caso en inicio?</label>
-          <select name="tieneCasoInicio" value={formulario.tieneCasoInicio} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white min-h-[44px]">
+          <label className="text-[#B3B3B3] block mb-1 font-medium">l. ¿Tiene caso en inicio? *</label>
+          <select name="tieneCasoInicio" value={formulario.tieneCasoInicio || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white min-h-[44px]">
+            <option value="" disabled>Seleccione...</option>
             {LISTA_TIENE_INICIO.map(v => <option key={v} value={v}>{v}</option>)}
           </select>
         </div>
@@ -390,15 +414,17 @@ export default function CasoForm({
         </div>
 
         <div>
-          <label className="text-cyan-400 block mb-1 font-semibold">n. Estado del caso</label>
-          <select name="estado" value={formulario.estado} onChange={onChange} className="w-full bg-[#121212] border border-cyan-700 rounded-lg p-2.5 text-cyan-300 font-bold min-h-[44px]">
+          <label className="text-cyan-400 block mb-1 font-semibold">n. Estado del caso *</label>
+          <select name="estado" value={formulario.estado || ''} onChange={onChange} className="w-full bg-[#121212] border border-cyan-700 rounded-lg p-2.5 text-cyan-300 font-bold min-h-[44px]">
+            <option value="" disabled>Seleccione estado...</option>
             {estados.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
         </div>
 
         <div className="sm:col-span-2">
-          <label className="text-cyan-400 block mb-1 font-semibold">o. Etapa del onboarding</label>
-          <select name="etapa" value={formulario.etapa} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white min-h-[44px]">
+          <label className="text-cyan-400 block mb-1 font-semibold">o. Etapa del onboarding *</label>
+          <select name="etapa" value={formulario.etapa || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white min-h-[44px]">
+            <option value="" disabled>Seleccione etapa...</option>
             {etapas.map(et => <option key={et} value={et}>{et}</option>)}
           </select>
         </div>
