@@ -761,6 +761,11 @@ export default function TablaOnboardingCasos({
                         {c.etapa || '-'}
                       </td>
 
+                      {/* Seguimiento */}
+                      <td className="py-4 px-3 font-mono text-[#D1D5DB] text-[11px] max-w-[140px] truncate" title={c.casoSeguimiento}>
+                        {c.casoSeguimiento && c.casoSeguimiento !== '-' ? c.casoSeguimiento : <span className="text-[#9CA3AF] italic">S/N</span>}
+                      </td>
+
                       {/* Acciones: Solo iconos para ahorrar espacio */}
                       <td className="py-4 px-2 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
