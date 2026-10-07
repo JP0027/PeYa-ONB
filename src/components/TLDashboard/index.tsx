@@ -349,8 +349,7 @@ export default function TLDashboard({
           <ReportDownloader 
             casos={casosProcesados.filter(c => c.esActivo && c.horasSLA >= 96)} 
             label="Reporte SLA (96h)" 
-            className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-4 py-2 rounded-lg text-sm transition flex items-center gap-2 shadow-lg shadow-pink-900/40 min-h-[44px] cursor-pointer"
-            icon={<span>🚨</span>}
+            className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-pink-900/40 cursor-pointer"
           />
         </div>
       </div>
@@ -363,7 +362,7 @@ export default function TLDashboard({
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'en_progreso' ? 'todos' : 'en_progreso')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
             filtroKpi === 'en_progreso' ? 'bg-cyan-950/70 border-cyan-500 ring-2 ring-cyan-500' : 'bg-[#1A1A1C] border-cyan-800 hover:border-cyan-600'
           }`}
         >
@@ -372,7 +371,7 @@ export default function TLDashboard({
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'sin_op' ? 'todos' : 'sin_op')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
             filtroKpi === 'sin_op' ? 'bg-purple-950/70 border-purple-500 ring-2 ring-purple-500' : 'bg-[#1A1A1C] border-purple-800 hover:border-purple-600'
           }`}
         >
@@ -381,27 +380,27 @@ export default function TLDashboard({
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'fuera_sla' ? 'todos' : 'fuera_sla')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
             filtroKpi === 'fuera_sla' ? 'bg-rose-950/70 border-rose-500 ring-2 ring-rose-500' : 'bg-rose-950/20 border-rose-800/80 hover:border-rose-600'
           }`}
         >
-          <div className="text-rose-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA (≥96h)</div>
+          <div className="text-rose-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA</div>
           <div className="text-2xl font-black text-rose-400">{fueraDeSla}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'proximos' ? 'todos' : 'proximos')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
             filtroKpi === 'proximos' ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500' : 'bg-amber-950/20 border-amber-800/80 hover:border-amber-600'
           }`}
         >
-          <div className="text-amber-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>⚠️</span> Próximos (72-96h)</div>
+          <div className="text-amber-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>⚠️</span> Próximos</div>
           <div className="text-2xl font-black text-amber-400">{proximosVencer}</div>
         </div>
         
         {/* Card Req. KAM Push con filtro interactivo */}
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'req_kam_push' ? 'todos' : 'req_kam_push')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none ${
+          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
             filtroKpi === 'req_kam_push' 
               ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500 shadow-lg shadow-amber-950/50' 
               : 'bg-[#1A1A1C] border-amber-900 hover:border-amber-700'
@@ -409,12 +408,9 @@ export default function TLDashboard({
           title="Clic para filtrar la tabla por casos que requieren KAM Push"
         >
           <div className="text-amber-300 text-xs mb-1 font-bold flex items-center justify-center gap-1">
-            <span>⚠️</span> Req. KAM Push
+            <span>⚡</span> Req. KAM Push
           </div>
           <div className="text-2xl font-black text-amber-300">{kamPushTotal}</div>
-          <div className="text-[10px] text-amber-400/80 mt-0.5">
-            {filtroKpi === 'req_kam_push' ? '● Filtro activo' : 'Clic para filtrar'}
-          </div>
         </div>
       </div>
 
@@ -431,9 +427,9 @@ export default function TLDashboard({
         </div>
 
         {/* Gráfico de Etapas */}
-        <div className="bg-[#1A1A1C] p-4 rounded-xl border border-[#3A3A3E]">
-          <h2 className="text-sm font-bold text-white mb-3">Distribución de Etapas (En Progreso)</h2>
-          <div className="flex flex-col gap-2">
+        <div className="bg-[#1A1A1C] p-5 rounded-xl border border-[#3A3A3E]">
+          <h2 className="text-base font-bold text-white mb-4">Distribución de Etapas (En Progreso)</h2>
+          <div className="flex flex-col gap-4">
             {Object.entries(
               casosActivos.filter(c => {
                 const e = String(c.estado || '').toLowerCase().trim();
@@ -446,12 +442,12 @@ export default function TLDashboard({
             ).sort((a, b) => b[1] - a[1]).map(([etapa, count]: [string, number], _, arr: [string, number][]) => {
               const maxCount = arr.length > 0 ? arr[0][1] : 1;
               return (
-                <div key={etapa} className="flex items-center gap-2">
-                  <span className="text-xs text-[#B3B3B3] w-48 truncate" title={etapa}>{etapa}</span>
-                  <div className="flex-1 bg-[#2C2C32] rounded-full h-2">
-                    <div className="bg-cyan-500 rounded-full h-2" style={{ width: `${(count / maxCount) * 100}%` }}></div>
+                <div key={etapa} className="flex items-center gap-3">
+                  <span className="text-sm text-[#B3B3B3] w-56 truncate font-medium" title={etapa}>{etapa}</span>
+                  <div className="flex-1 bg-[#2C2C32] rounded-full h-6 overflow-hidden shadow-inner">
+                    <div className="bg-cyan-500 h-6 transition-all duration-500 ease-out" style={{ width: `${(count / maxCount) * 100}%` }}></div>
                   </div>
-                  <span className="text-xs font-bold text-white w-8 text-right">{count}</span>
+                  <span className="text-sm font-bold text-white w-8 text-right">{count}</span>
                 </div>
               );
             })}
@@ -492,7 +488,12 @@ export default function TLDashboard({
                 Limpiar Filtros
               </button>
             )}
-            <ReportDownloader casos={casosActivosOrdenados} />
+            <div className="ml-auto">
+              <ReportDownloader 
+                casos={casosActivosOrdenados} 
+                className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-pink-900/40 cursor-pointer"
+              />
+            </div>
           </div>
 
           {/* Active Cases Table (Ordenados por SLA crítico arriba y con acciones de Push y Copiar) */}
@@ -698,7 +699,7 @@ export default function TLDashboard({
                                   e.stopPropagation();
                                   if (onRegistrarPush) onRegistrarPush(c, 'kam_pos');
                                 }}
-                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
+                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] px-2 py-1 rounded shadow transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
                                 title="Hacer Push KAM para POS API únicamente"
                               >
                                 <span>⚡</span>
@@ -714,7 +715,7 @@ export default function TLDashboard({
                                   e.stopPropagation();
                                   if (onRegistrarPush) onRegistrarPush(c, 'kam_cat');
                                 }}
-                                className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold text-[10px] px-2 py-1 rounded shadow transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95"
+                                className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold text-[10px] px-2 py-1 rounded shadow transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
                                 title="Hacer Push KAM para Catálogo únicamente"
                               >
                                 <span>⚡</span>
@@ -730,7 +731,7 @@ export default function TLDashboard({
                                   e.stopPropagation();
                                   if (onSeleccionarCaso) onSeleccionarCaso(c);
                                 }}
-                                className="bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#B3B3B3] hover:text-white text-[10px] px-2 py-1 rounded transition cursor-pointer"
+                                className="bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#B3B3B3] hover:text-white text-[10px] px-2 py-1 rounded transition-all cursor-pointer hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
                                 title="Ver detalles del caso"
                               >
                                 Ver
@@ -744,7 +745,7 @@ export default function TLDashboard({
                                 e.stopPropagation();
                                 copiarTextoPush(c);
                               }}
-                              className={`text-[10px] font-semibold px-2 py-1 rounded border transition flex items-center gap-1 cursor-pointer whitespace-nowrap active:scale-95 ${
+                              className={`text-[10px] font-semibold px-2 py-1 rounded border transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap hover:-translate-y-0.5 hover:shadow-lg active:scale-95 ${
                                 copiadoId === (c.id || c.casoOp)
                                   ? 'bg-emerald-600 text-white border-emerald-500 shadow'
                                   : 'bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] hover:text-white border-[#3A3A3E]'

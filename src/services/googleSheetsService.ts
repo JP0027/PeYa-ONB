@@ -927,6 +927,8 @@ export async function eliminarCasoGoogleSheets(casoId: string, casoOp?: string, 
     ? ['https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso', '/api/sheets/eliminar-caso']
     : ['/api/sheets/eliminar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso'];
 
+  let lastError: any = null;
+
   for (const endpoint of endpoints) {
     try {
       const res = await fetch(endpoint, {
@@ -942,13 +944,18 @@ export async function eliminarCasoGoogleSheets(casoId: string, casoOp?: string, 
         const data = await res.json();
         if (data.success) {
           return data;
+        } else {
+          lastError = new Error(data.error || data.message || 'Error al eliminar en Sheets');
         }
+      } else if (!res.ok) {
+        lastError = new Error(`Error HTTP ${res.status} en backend`);
       }
     } catch (e) {
       console.warn(`[GoogleSheets] Intento eliminar en ${endpoint} falló:`, e);
+      lastError = e;
     }
   }
 
-  return { success: true, message: 'Caso eliminado localmente y enviado a Sheets.' };
+  throw lastError || new Error('Error de conexión o configuración al intentar eliminar de Sheets.');
 }
 

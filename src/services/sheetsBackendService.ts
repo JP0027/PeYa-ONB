@@ -895,12 +895,14 @@ export class SheetsService {
           if (!resBatch.ok) {
             const errText = await resBatch.text();
             console.warn(`[SheetsService] Error eliminando fila ${filaTarget} en Sheets:`, errText);
+            return { success: false, message: `Error Google API: ${errText}` };
           } else {
             console.log(`[SheetsService] Fila ${filaTarget} (caso ${idStr}) eliminada con éxito en Google Sheets.`);
           }
         }
       } catch (err: any) {
         console.error('[SheetsService] Excepción al eliminar fila en Google Sheets:', err);
+        return { success: false, message: err.message || 'Excepción al contactar a Google Sheets.' };
       }
     }
 

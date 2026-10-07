@@ -111,6 +111,8 @@ export default function CasoForm({
     );
   }, [integracionesDetalle, integracionObjetivoNombre]);
 
+  const [alertaFaltantes, setAlertaFaltantes] = useState<string | null>(null);
+
   const intentarGuardar = () => {
     const faltantes = [];
     if (!formulario.pais) faltantes.push('País');
@@ -122,12 +124,9 @@ export default function CasoForm({
     if (!formulario.tieneCasoInicio) faltantes.push('¿Tiene caso en inicio?');
 
     if (faltantes.length > 0) {
-      const msg = `Por favor, complete los siguientes campos obligatorios para el registro: ${faltantes.join(', ')}`;
-      if (onError) {
-        onError(msg);
-      } else {
-        window.alert(msg);
-      }
+      setAlertaFaltantes(`Faltan completar: ${faltantes.join(', ')}`);
+      // auto hide after 7 seconds
+      setTimeout(() => setAlertaFaltantes(null), 7000);
       return;
     }
 
@@ -147,6 +146,16 @@ export default function CasoForm({
           <span>Google Sheets oficial</span>
         </span>
       </div>
+
+      {alertaFaltantes && (
+        <div className="bg-rose-950/90 border-l-4 border-rose-500 p-4 rounded-r-lg shadow-xl mb-4 flex items-start gap-3 animate-slideRight">
+          <div className="text-rose-400 text-xl">🚨</div>
+          <div>
+            <h4 className="text-rose-400 font-bold text-sm">Faltan datos obligatorios</h4>
+            <p className="text-rose-200/80 text-xs mt-1">{alertaFaltantes}</p>
+          </div>
+        </div>
+      )}
       
       <form autoComplete="new-password" onSubmit={(e) => { e.preventDefault(); intentarGuardar(); }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
         <div>
@@ -414,16 +423,16 @@ export default function CasoForm({
         </div>
 
         <div>
-          <label className="text-cyan-400 block mb-1 font-semibold">n. Estado del caso *</label>
-          <select name="estado" value={formulario.estado || ''} onChange={onChange} className="w-full bg-[#121212] border border-cyan-700 rounded-lg p-2.5 text-cyan-300 font-bold min-h-[44px]">
+          <label className="text-[#B3B3B3] block mb-1 font-medium">n. Estado del caso *</label>
+          <select name="estado" value={formulario.estado || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
             <option value="" disabled>Seleccione estado...</option>
             {estados.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
         </div>
 
         <div className="sm:col-span-2">
-          <label className="text-cyan-400 block mb-1 font-semibold">o. Etapa del onboarding *</label>
-          <select name="etapa" value={formulario.etapa || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white min-h-[44px]">
+          <label className="text-[#B3B3B3] block mb-1 font-medium">o. Etapa del onboarding *</label>
+          <select name="etapa" value={formulario.etapa || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
             <option value="" disabled>Seleccione etapa...</option>
             {etapas.map(et => <option key={et} value={et}>{et}</option>)}
           </select>

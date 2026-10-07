@@ -108,7 +108,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
         {alertas.requierePushPos ? (
           <button 
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); onRegistrarPush(caso, 'pos'); }}
-            className="text-[10px] bg-amber-600 hover:bg-amber-500 text-white font-bold px-2.5 py-1 rounded shadow-md transition flex items-center gap-1 cursor-pointer"
+            className="text-[10px] bg-amber-600 hover:bg-amber-500 text-white font-bold px-2.5 py-1 rounded shadow-md transition-all flex items-center gap-1 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
             title="Registrar push de seguimiento POS API con 1 solo clic"
           >
             <span>🔔</span> Push POS
@@ -135,7 +135,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
         {alertas.requierePushCat ? (
           <button 
             onClick={(e: React.MouseEvent) => { e.stopPropagation(); onRegistrarPush(caso, 'cat'); }}
-            className="text-[10px] bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-2.5 py-1 rounded shadow-md transition flex items-center gap-1 cursor-pointer"
+            className="text-[10px] bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-2.5 py-1 rounded shadow-md transition-all flex items-center gap-1 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
             title="Registrar push de catálogo con 1 solo clic"
           >
             <span>📦</span> Push Cat
@@ -167,8 +167,8 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
       <td className="p-3 text-[10px] text-[#B3B3B3]">
         {caso.propietarioTicket || caso.agente}
       </td>
-      <td className="p-3 text-[#D1D5DB] font-mono text-xs">
-        {caso.casoSeguimiento && caso.casoSeguimiento !== '-' ? caso.casoSeguimiento : <span className="text-[#9CA3AF] italic">S/N</span>}
+      <td className="p-3 text-[#D1D5DB] font-mono text-sm font-bold">
+        {caso.casoSeguimiento && caso.casoSeguimiento !== '-' ? caso.casoSeguimiento : <span className="text-[#9CA3AF] italic text-xs">S/N</span>}
       </td>
       <td className="p-3">
         <button 
@@ -177,7 +177,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
             e.stopPropagation();
             onClick(caso);
           }}
-          className="text-[10px] bg-pink-950/40 hover:bg-pink-900/60 text-pink-300 hover:text-white px-2.5 py-1 rounded border border-pink-700/60 transition cursor-pointer font-medium"
+          className="text-[10px] bg-pink-950/40 hover:bg-[#E85A80] text-pink-300 hover:text-white px-2.5 py-1 rounded border border-pink-700/60 hover:border-[#E85A80] transition-all cursor-pointer font-medium hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
         >
           Gestionar
         </button>
