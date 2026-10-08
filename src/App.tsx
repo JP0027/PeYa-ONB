@@ -249,7 +249,7 @@ export default function App() {
         </p>
 
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          {/* BOTÓN ÚNICO DE GOOGLE AUTH */}
+          {/* BOTÃ“N ÃšNICO DE GOOGLE AUTH */}
           <button 
             onClick={login} 
             className="w-full bg-[#1A1A1C] border border-[#3A3A3E] hover:border-[#E85A80] px-6 py-3.5 rounded-xl font-semibold hover:bg-[#2C2C32] transition flex items-center justify-center gap-3 text-base shadow-xl cursor-pointer min-h-[44px]"
@@ -262,32 +262,6 @@ export default function App() {
             </svg>
             <span>Iniciar sesión con cuenta Google</span>
           </button>
-
-          <div className="flex items-center gap-2 my-1">
-            <div className="flex-1 h-px bg-[#2C2C32]"></div>
-            <span className="text-[11px] text-[#9CA3AF] uppercase tracking-wider font-semibold">o probar demo</span>
-            <div className="flex-1 h-px bg-[#2C2C32]"></div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleDemoLogin('Supervisor / TL')}
-              className="bg-[#2C2C32]/80 hover:bg-[#3A3A3E] border border-[#3A3A3E] hover:border-[#E85A80]/50 text-pink-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
-              title="Ingresar como Supervisor Demo con acceso completo"
-            >
-              <span>👑 Demo Supervisor</span>
-              <span className="text-[10px] text-[#B3B3B3] font-normal">Todas las opciones</span>
-            </button>
-
-            <button
-              onClick={() => handleDemoLogin('Agente')}
-              className="bg-[#2C2C32]/80 hover:bg-[#3A3A3E] border border-[#3A3A3E] hover:border-blue-500/50 text-blue-300 hover:text-white px-3 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer flex flex-col items-center gap-1 shadow-sm"
-              title="Ingresar como Agente Demo con vista operativa"
-            >
-              <span>👤 Demo Agente</span>
-              <span className="text-[10px] text-[#B3B3B3] font-normal">Vista operativa</span>
-            </button>
-          </div>
         </div>
 
         {error && (

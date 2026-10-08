@@ -441,13 +441,25 @@ export default function TLDashboard({
               }, {} as Record<string, number>)
             ).sort((a, b) => b[1] - a[1]).map(([etapa, count]: [string, number], _, arr: [string, number][]) => {
               const maxCount = arr.length > 0 ? arr[0][1] : 1;
+              const estaSeleccionado = filtroEtapa === etapa;
               return (
-                <div key={etapa} className="flex items-center gap-3">
-                  <span className="text-sm text-[#B3B3B3] w-56 truncate font-medium" title={etapa}>{etapa}</span>
-                  <div className="flex-1 bg-[#2C2C32] rounded-full h-6 overflow-hidden shadow-inner">
-                    <div className="bg-cyan-500 h-6 transition-all duration-500 ease-out" style={{ width: `${(count / maxCount) * 100}%` }}></div>
+                <div 
+                  key={etapa} 
+                  onClick={() => setFiltroEtapa(prev => prev === etapa ? 'todos' : etapa)}
+                  className={`flex items-center gap-3 cursor-pointer p-2 -mx-2 rounded-lg transition-colors select-none group ${
+                    estaSeleccionado ? 'bg-[#2C2C32] ring-1 ring-cyan-900/50' : 'hover:bg-[#2C2C32]/40'
+                  }`}
+                  title={`Haz clic para filtrar por la etapa: ${etapa}`}
+                >
+                  <span className={`text-sm w-56 truncate font-medium transition-colors ${
+                    estaSeleccionado ? 'text-white' : 'text-[#B3B3B3]'
+                  }`} title={etapa}>{etapa}</span>
+                  <div className="flex-1 bg-[#121212] rounded-full h-6 overflow-hidden shadow-inner border border-[#3A3A3E]/50">
+                    <div className={`${estaSeleccionado ? 'bg-cyan-400' : 'bg-cyan-600 group-hover:bg-cyan-500'} h-6 transition-all duration-500 ease-out shadow-sm`} style={{ width: `${(count / maxCount) * 100}%` }}></div>
                   </div>
-                  <span className="text-sm font-bold text-white w-8 text-right">{count}</span>
+                  <span className={`text-sm font-bold w-8 text-right transition-colors ${
+                    estaSeleccionado ? 'text-cyan-400' : 'text-white'
+                  }`}>{count}</span>
                 </div>
               );
             })}

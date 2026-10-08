@@ -353,13 +353,13 @@ export function aplicarReglaAvanceLineal(nuevaEtapa: any, casoActual: any, nueva
     }
 
     const esFinalCat = esEtapaSinSeguimiento(etapaStr) || ETAPAS_AVANZADAS_SIN_SEGUIMIENTO.some(e => etapaStr.includes(e));
-    const esEsperaCat = etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo') || etapaStr.includes('carga de catálogo') || etapaStr.includes('carga de catalogo');
+    // const esEsperaCat = etapaStr.includes('verificación de catálogo') || etapaStr.includes('verificacion de catalogo') || etapaStr.includes('carga de catálogo') || etapaStr.includes('carga de catalogo');
 
     if (esFinalCat) {
       // Si la etapa avanza a fases finales: cambia automáticamente a "Si"
       cambios.respuestaCat = 'Si';
-    } else if (esEsperaCat && hayPushCat) {
-      // Si se mantiene en espera y se coloca una Fecha de Push: cambia Respuesta a "No"
+    } else if (hayPushCat) {
+      // Si se mantiene en espera o cualquier fase no final y se coloca una Fecha de Push: cambia Respuesta a "No"
       cambios.respuestaCat = 'No';
     }
   }

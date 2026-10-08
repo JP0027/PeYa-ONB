@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { isAgentMatch, identificarMiembro } from '../../utils/agentMatching';
 import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL } from '../../utils/userPermissions';
 import { 
@@ -60,11 +60,11 @@ export interface FormularioNuevoCaso {
 
 function esCasoMayorA24Horas(c: any, track: string = 'general'): boolean {
   if (!c) return false;
-  // 1. Horas numÃ©ricas calculadas o acumuladas
+  // 1. Horas numéricas calculadas o acumuladas
   const horas = c.horasSLA || c.totalHorasOp || 0;
   if (typeof horas === 'number' && horas >= 24) return true;
 
-  // 2. Tiempo transcurrido en texto con indicaciÃ³n de dÃ­as (1 dÃ­a = 24h)
+  // 2. Tiempo transcurrido en texto con indicación de días (1 día = 24h)
   const txtOp = String(c.tiempoTranscurridoOp || c.tiempoTranscurridoLV || '').toLowerCase();
   const txtPos = String(c.tiempoTranscurridoPos || '').toLowerCase();
   const txtCat = String(c.tiempoTranscurridoCat || '').toLowerCase();
@@ -105,7 +105,7 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
   const horaTexto = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const resultados: AlertaPush[] = [];
 
-  // 1. SOLO AL TL / SUPERVISOR LE DEBEN APARECER LOS PUSH KAM DE MÃS DE 24 HORAS
+  // 1. SOLO AL TL / SUPERVISOR LE DEBEN APARECER LOS PUSH KAM DE MÁS DE 24 HORAS
   if (esRolSupervisor) {
     casosActivos.forEach(c => {
       const alertas = analizarAlertasCaso(c);
@@ -124,13 +124,13 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
         });
       }
 
-      // Push KAM CatÃ¡logo (> 24 hrs): requiere fecha de inicio real, push de agente, respuesta "No", push KAM pendiente y > 24 horas
+      // Push KAM Catálogo (> 24 hrs): requiere fecha de inicio real, push de agente, respuesta "No", push KAM pendiente y > 24 horas
       if (alertas.requierePushKamCat) {
         resultados.push({
           id: `kam_cat_${c.id || c.casoOp}`,
           caso: c,
           tipo: 'kam_cat',
-          titulo: 'Push KAM CatÃ¡logo Pendiente (>24h)',
+          titulo: 'Push KAM Catálogo Pendiente (>24h)',
           hora: horaTexto,
           mensaje: `Falta push con KAM (>24 hrs) en caso OP #${opLabel} (${tiendaLabel})`
         });
@@ -160,13 +160,13 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
       });
     }
 
-    // Push de Seguimiento CatÃ¡logo (â‰¥ 4 hrs)
+    // Push de Seguimiento Catálogo (â‰¥ 4 hrs)
     if (alertas.requierePushCat) {
       resultados.push({
         id: `push_cat_${c.id || c.casoOp}`,
         caso: c,
         tipo: 'push_cat',
-        titulo: 'Push de Seguimiento CatÃ¡logo Pendiente',
+        titulo: 'Push de Seguimiento Catálogo Pendiente',
         hora: horaTexto,
         mensaje: `Falta realizar push de seguimiento (â‰¥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
       });
@@ -221,7 +221,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  // Lista dinÃ¡mica de pestaÃ±as permitidas para el usuario autenticado (desde Firestore o por defecto)
+  // Lista dinámica de pestañas permitidas para el usuario autenticado (desde Firestore o por defecto)
   const [pestanasPermitidas, setPestanasPermitidas] = useState<string[]>(() => {
     const porDefecto = obtenerPestanasPorDefecto(role);
     return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto;
@@ -247,7 +247,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     setActiveTabState(tab);
   }, []);
 
-  // Escuchar permisos de pestaÃ±as en tiempo real desde Firestore
+  // Escuchar permisos de pestañas en tiempo real desde Firestore
   useEffect(() => {
     if (!email) return;
     const correoLimpio = String(email).trim().toLowerCase();
@@ -268,7 +268,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
       }
     }, (error: any) => {
-      console.warn("No se pudo obtener permisos especÃ­ficos de usuario desde Firestore:", error);
+      console.warn("No se pudo obtener permisos específicos de usuario desde Firestore:", error);
       const porDefecto = obtenerPestanasPorDefecto(role);
       setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
     });
@@ -485,7 +485,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           setListaIntegraciones(dataCatalogos.integraciones.map((i: any) => typeof i === 'object' ? i.nombre : i));
         }
         guardarCatalogosEnFirestore(dataCatalogos).catch(err => {
-          console.warn('[Dashboard] Error guardando catÃ¡logos en Firestore:', err);
+          console.warn('[Dashboard] Error guardando catálogos en Firestore:', err);
         });
       }
 
@@ -495,7 +495,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     } catch (err: any) {
       console.warn("Consulta Google Sheets fallida:", err);
       if (!silencioso) {
-        mostrarNotificacion(`Error al sincronizar: ${err?.message || 'Error de conexiÃ³n'}`, 'error');
+        mostrarNotificacion(`Error al sincronizar: ${err?.message || 'Error de conexión'}`, 'error');
       }
     } finally {
       if (!silencioso) {
@@ -509,7 +509,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     cargarCasosGoogleSheets(true);
   }, []);
 
-  // La Ãºnica fuente de verdad oficial de casos es Google Sheets
+  // La única fuente de verdad oficial de casos es Google Sheets
   const casosTotales = useMemo(() => {
     return casosSheets;
   }, [casosSheets]);
@@ -541,7 +541,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, []);
 
-  // 1. Al cargar casos / iniciar sesiÃ³n: sonar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
+  // 1. Al cargar casos / iniciar sesión: sonar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
   useEffect(() => {
     if (casosTotales.length === 0) return;
 
@@ -557,7 +557,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, [casosTotales, role, email, nombreUsuarioAutenticado, reproducirCampana]);
 
-  // 2. Recordatorio continuo cada 30 minutos si aÃºn existen casos con SLA >= 4h sin push
+  // 2. Recordatorio continuo cada 30 minutos si aún existen casos con SLA >= 4h sin push
   useEffect(() => {
     const timer = setInterval(() => {
       const casosActuales = casosTotalesRef.current || [];
@@ -596,7 +596,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     return casosTotales;
   }, [casosTotales, activeTab, email, nombreUsuarioAutenticado]);
 
-  // Reloj de 1 minuto: fuerza el recÃ¡lculo de SLA/alertas para que los casos que cruzan las 4h aparezcan sin recargar
+  // Reloj de 1 minuto: fuerza el recálculo de SLA/alertas para que los casos que cruzan las 4h aparezcan sin recargar
   const [tickReloj, setTickReloj] = useState<number>(0);
   useEffect(() => {
     const t = setInterval(() => setTickReloj(x => x + 1), 60000);
@@ -679,7 +679,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           break;
         case 'sla':
         default:
-          // LÃ³gica por SLA
+          // Lógica por SLA
           const critA = (a.alertas?.esCritico || (a.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
           const critB = (b.alertas?.esCritico || (b.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
           if (critA !== critB) return direccionOrdenMisCasos === 'asc' ? critB - critA : critA - critB;
@@ -710,7 +710,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     setCargandoBusqueda(true);
     const term = busquedaId.trim().toLowerCase();
     
-    // Obtener data en tiempo real desde Google Sheets (evita depender del cachÃ© local)
+    // Obtener data en tiempo real desde Google Sheets (evita depender del caché local)
     let casosFrescos = casosTotales;
     try {
       const res = await fetch('/api/sheets/casos?forceRefresh=true'); // Forzar refresh si es posible, o simplemente fetch
@@ -721,7 +721,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         }
       }
     } catch (err) {
-      console.warn("Fallo bÃºsqueda en tiempo real, usando cachÃ© local", err);
+      console.warn("Fallo búsqueda en tiempo real, usando caché local", err);
     }
 
     const resultadosLocales = casosFrescos.filter(c => 
@@ -731,7 +731,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     );
     setBusquedaResultados(resultadosLocales);
     if (resultadosLocales.length > 0) {
-      // Ordenar para tomar el Ãºltimo caso registrado (fila mÃ¡s alta en la base)
+      // Ordenar para tomar el último caso registrado (fila más alta en la base)
       const casosOrdenados = [...resultadosLocales].sort((a, b) => {
         const filaA = Number(a.filaNumero) || 0;
         const filaB = Number(b.filaNumero) || 0;
@@ -748,14 +748,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         kam: d.kam || '', 
         integracion: d.integracion || 'Datalive',
         oportunidad: resolverOportunidad(d.oportunidad, catalogosDinamicos.oportunidades),
-        asset: d.asset || prev.asset || 'IntegraciÃ³n',
-        etapa: d.etapa ? limpiarTextoEtapa(d.etapa, d.comentarios, d.integracion) : 'Sin integraciÃ³n confirmada',
+        asset: d.asset || prev.asset || 'Integración',
+        etapa: d.etapa ? limpiarTextoEtapa(d.etapa, d.comentarios, d.integracion) : 'Sin integración confirmada',
         fechaCreacion: '',
         sla_inicio: ''
       }));
       mostrarNotificacion(`Encontrados ${resultadosLocales.length} antecedentes.`, "success");
     } else {
-      // Si no existen antecedentes, redirigir automÃ¡ticamente a la pestaÃ±a de agregar caso nuevo
+      // Si no existen antecedentes, redirigir automáticamente a la pestaña de agregar caso nuevo
       setFormulario(prev => ({ 
         ...prev, 
         casoOp: '', 
@@ -806,6 +806,25 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   };
 
   const guardarNuevoCaso = async () => {
+    // Validar campos obligatorios
+    const requeridos = [
+      { campo: formulario.pais, nombre: 'País' },
+      { campo: formulario.integracion, nombre: 'Integración' },
+      { campo: formulario.oportunidad, nombre: 'Oportunidad' },
+      { campo: formulario.asset, nombre: 'Asset' },
+      { campo: formulario.tieneCasoInicio, nombre: 'Tiene Caso Inicio' },
+      { campo: formulario.estado, nombre: 'Estado' },
+      { campo: formulario.etapa, nombre: 'Etapa' }
+    ];
+
+    const faltantes = requeridos.filter(r => !r.campo || String(r.campo).trim() === '');
+    
+    if (faltantes.length > 0) {
+      const nombresFaltantes = faltantes.map(f => f.nombre).join(', ');
+      mostrarNotificacion(`Faltan datos obligatorios para crear el caso: ${nombresFaltantes}`, "error");
+      return;
+    }
+
     setCargandoOperacion('Detectando base de datos y registrando nuevo caso...');
     try {
       const opInput = String(formulario.casoOp || '').trim();
@@ -818,12 +837,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const casoOpFinal = esOpValido ? opInput : '';
       
       const ahora = formatearFechaHora(new Date());
-      // Fecha de creaciÃ³n de la OP: se guarda vacÃ­a si el usuario no la ingresÃ³, o la fecha que escribiÃ³
+      // Fecha de creación de la OP: se guarda vacía si el usuario no la ingresó, o la fecha que escribió
       const fechaCreacionInput = String(formulario.fechaCreacion || '').trim();
       const fCreacion = fechaCreacionInput ? formatearFechaHora(fechaCreacionInput) : '';
       const fInicio = formatearFechaHora(formulario.sla_inicio || fechaCreacionInput || ahora) || ahora;
 
-      // 1. Detectar en tiempo real cuÃ¡ntas filas hay en total en la base antes de aÃ±adir el nuevo caso
+      // 1. Detectar en tiempo real cuántas filas hay en total en la base antes de añadir el nuevo caso
       let proximaFila = 0;
       try {
         const resConteo = await fetch('/api/sheets/conteo-filas', { cache: 'no-store' });
@@ -886,14 +905,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         kam: '',
         integracion: 'Datalive', 
         oportunidad: 'Franchise Extension', 
-        asset: 'IntegraciÃ³n',
+        asset: 'Integración',
         propietarioOportunidad: nombreUsuarioAutenticado, 
         propietarioTicket: nombreUsuarioAutenticado,
         casoSeguimiento: '', 
         tieneCasoInicio: 'Si', 
         comentarios: '', 
         estado: 'En progreso',
-        etapa: 'Sin integraciÃ³n confirmada', 
+        etapa: 'Sin integración confirmada', 
         fechaCreacion: '',
         sla_inicio: ''
       });
@@ -1009,13 +1028,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         cambiosRaw.pushKamCat = true;
       }
 
-      // Procesar todas las 4 casuÃ­sticas del flujo de Onboarding
+      // Procesar todas las 4 casuísticas del flujo de Onboarding
       const casoActualizado = procesarActualizacionCaso(caso, cambiosRaw);
       casoActualizado.esNuevo = false;
       if (caso.filaNumero) casoActualizado.filaNumero = caso.filaNumero;
       if (caso.id) casoActualizado.id = caso.id;
 
-      // 1. ActualizaciÃ³n inmediata local
+      // 1. Actualización inmediata local
       const coincideCaso = (c: any) => 
         (String(c.id).trim() === idBuscado || 
          String(c.casoOp || '').trim() === idBuscado || 
@@ -1072,7 +1091,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     const opResuelta = resolverOportunidad(datosTienda.oportunidad, catalogosDinamicos.oportunidades);
     const etapaLimpia = datosTienda.etapa 
       ? limpiarTextoEtapa(datosTienda.etapa, datosTienda.comentarios, datosTienda.integracion)
-      : 'Sin integraciÃ³n confirmada';
+      : 'Sin integración confirmada';
 
     setFormulario(prev => ({
       ...prev, 
@@ -1083,14 +1102,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       kam: datosTienda.kam || prev.kam || '', 
       integracion: datosTienda.integracion || prev.integracion || 'Datalive',
       oportunidad: opResuelta,
-      asset: datosTienda.asset || prev.asset || 'IntegraciÃ³n',
+      asset: datosTienda.asset || prev.asset || 'Integración',
       etapa: etapaLimpia,
       fechaCreacion: '',
       sla_inicio: ''
     }));
     setActiveTab('nuevo');
     setSubTabNuevo('registro');
-    mostrarNotificacion(`Datos replicados (${datosTienda.tienda || datosTienda.vendorId || ''}). Ingresa el NÂ° de Caso OP.`);
+    mostrarNotificacion(`Datos replicados (${datosTienda.tienda || datosTienda.vendorId || ''}). Ingresa el N° de Caso OP.`);
   };
 
   const manejarLogout = () => {
@@ -1115,19 +1134,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         onClicAlerta={manejarClicAlertaPush} 
       />
 
-      {/* BotÃ³n flotante para ver sidebar en mÃ³viles y pantallas <= 1036px */}
+      {/* Botón flotante para ver sidebar en móviles y pantallas <= 1036px */}
       <div className="fixed bottom-5 left-5 z-40 max-[1036px]:flex min-[1037px]:hidden">
         <button
           type="button"
           onClick={() => setSidebarMovilAbierto(true)}
           className="w-12 h-12 bg-[#E85A80] hover:bg-[#F46C8E] text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition transform active:scale-95 border-2 border-pink-400 cursor-pointer"
-          title="Abrir opciones del menÃº"
+          title="Abrir opciones del menú"
         >
           â˜°
         </button>
       </div>
 
-      {/* Drawer mÃ³vil de Sidebar para pantallas <= 1036px */}
+      {/* Drawer móvil de Sidebar para pantallas <= 1036px */}
       {sidebarMovilAbierto && (
         <div className="fixed inset-0 z-50 flex max-[1036px]:flex min-[1037px]:hidden">
           <div 
@@ -1168,7 +1187,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             </div>
             <div className="p-4 border-t border-[#3A3A3E]">
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">âš™ï¸ ConfiguraciÃ³n</button>
+              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
               <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1221,7 +1240,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           {!sidebarColapsado ? (
             <>
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer">âš™ï¸ ConfiguraciÃ³n</button>
+              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
               <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1238,14 +1257,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               </button>
               <button 
                 onClick={() => setMostrarModalCreds(true)} 
-                title="ConfiguraciÃ³n"
+                title="Configuración"
                 className="text-[#B3B3B3] hover:text-white text-base cursor-pointer"
               >
                 âš™ï¸
               </button>
               <button 
                 onClick={manejarLogout} 
-                title="Cerrar sesiÃ³n"
+                title="Cerrar sesión"
                 className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer min-h-[44px]"
               >
                 ðŸšª
@@ -1329,13 +1348,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                       title="Copiar todos los correos del equipo separados por coma"
                     >
                       <span>{todosCorreosCopiados ? 'âœ…' : 'ðŸ“‘'}</span>
-                      <span>{todosCorreosCopiados ? 'Â¡Todos copiados!' : 'Copiar todos'}</span>
+                      <span>{todosCorreosCopiados ? '¡Todos copiados!' : 'Copiar todos'}</span>
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Barra de Sub-pestaÃ±as: BÃºsqueda vs Agregar Caso */}
+              {/* Barra de Sub-pestañas: Búsqueda vs Agregar Caso */}
               <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <button
@@ -1347,7 +1366,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     }`}
                   >
                     <span>ðŸ”</span>
-                    <span>BÃºsqueda de Casos</span>
+                    <span>Búsqueda de Casos</span>
                     {busquedaResultados && busquedaResultados.length > 0 && (
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${subTabNuevo === 'busqueda' ? 'bg-white/20 text-white' : 'bg-pink-950 text-[#F46C8E] border border-pink-800'}`}>
                         {busquedaResultados.length}
@@ -1380,7 +1399,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 </div>
               </div>
 
-              {/* Contenido segÃºn la sub-pestaÃ±a activa */}
+              {/* Contenido según la sub-pestaña activa */}
               {subTabNuevo === 'busqueda' ? (
                 <SearchBar 
                   onBuscar={manejarBusqueda} 
@@ -1429,7 +1448,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 </div>
                 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* BotÃ³n Actualizar */}
+                  {/* Botón Actualizar */}
                   <button
                     type="button"
                     onClick={() => cargarCasosGoogleSheets()}
@@ -1495,11 +1514,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
                           }}
                           className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
-                          title="Clic para ordenar por PaÃ­s/KAM"
+                          title="Clic para ordenar por País/KAM"
                           style={{ width: colWidthsMisCasos.pais, minWidth: colWidthsMisCasos.pais }}
                         >
                           <div className="flex items-center gap-1.5">
-                            <span>PaÃ­s/KAM</span>
+                            <span>País/KAM</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pais' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pais', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
@@ -1510,11 +1529,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
                           }}
                           className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
-                          title="Clic para ordenar por IntegraciÃ³n"
+                          title="Clic para ordenar por Integración"
                           style={{ width: colWidthsMisCasos.integracion, minWidth: colWidthsMisCasos.integracion }}
                         >
                           <div className="flex items-center gap-1.5">
-                            <span>IntegraciÃ³n</span>
+                            <span>Integración</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'integracion' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('integracion', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
@@ -1555,11 +1574,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
                           }}
                           className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
-                          title="Clic para ordenar por Push CatÃ¡logo"
+                          title="Clic para ordenar por Push Catálogo"
                           style={{ width: colWidthsMisCasos.pushCat, minWidth: colWidthsMisCasos.pushCat }}
                         >
                           <div className="flex items-center gap-1.5">
-                            <span>Push CatÃ¡logo</span>
+                            <span>Push Catálogo</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushCat' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushCat', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
@@ -1610,7 +1629,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('seguimiento', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.accion, minWidth: colWidthsMisCasos.accion }}>
-                          <span>AcciÃ³n</span>
+                          <span>Acción</span>
                           <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
                       </tr>
@@ -1656,7 +1675,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                       <span>casos</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span>PÃ¡gina {currentPage} de {totalPages || 1}</span>
+                      <span>Página {currentPage} de {totalPages || 1}</span>
                       <div className="flex items-center gap-1">
                         <button 
                           onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -1729,7 +1748,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         />
       )}
 
-      {/* NotificaciÃ³n de confirmaciÃ³n: capa superior, visible incluso con modales abiertos */}
+      {/* Notificación de confirmación: capa superior, visible incluso con modales abiertos */}
       {notificacion && (
         <div className={`fixed top-4 right-4 z-[99999] px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce pointer-events-none ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : notificacion.tipo === 'info' ? 'bg-sky-600 text-white' : 'bg-emerald-600 text-white'}`}>
           {notificacion.texto}

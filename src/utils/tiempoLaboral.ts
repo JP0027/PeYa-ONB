@@ -232,20 +232,35 @@ export function obtenerRangoSLA(totalHoras: number | null | undefined): string {
  * - Regla Amarilla (≥ 4 horas / ≥ 4h a < 24h)
  * - Verde (< 4 horas / 0h a < 4h)
  */
-export function obtenerColorRangoSLA(totalHoras: number | null | undefined, esActivo: boolean = true): string {
+export function obtenerColorRangoSLA(totalHoras: number | null | undefined, esActivo: boolean = true, rangoOficial?: string): string {
   if (typeof totalHoras !== 'number' || isNaN(totalHoras)) {
     return 'bg-[#2C2C32] text-[#B3B3B3] border-[#3A3A3E]';
   }
   if (!esActivo) {
     return 'bg-[#2C2C32]/80 text-[#D1D5DB] border-[#3A3A3E]';
   }
+
+  const r = String(rangoOficial || '').toLowerCase().trim();
+  
+  // Si tenemos un rango oficial explícito que indica vencimiento
+  if (r) {
+    if (r.includes('≥') || r.includes('>=') || r.includes('>')) {
+      return 'bg-rose-950/80 text-rose-300 border-rose-800 font-bold animate-pulse'; // Crítico
+    }
+    // Si estamos en el rango máximo antes de vencer, es atención (ámbar)
+    if (r.includes('24h') && !r.includes('<24')) {
+      return 'bg-amber-950/80 text-amber-300 border-amber-800 font-bold';
+    }
+  }
+
+  // Fallback si no hay rango string o no pudimos parsearlo
   if (totalHoras >= 96) {
     return 'bg-rose-950/80 text-rose-300 border-rose-800 font-bold animate-pulse';
   }
-  if (totalHoras >= 24) {
+  if (totalHoras >= 72) {
     return 'bg-amber-950/80 text-amber-300 border-amber-800 font-bold';
   }
-  if (totalHoras >= 4) {
+  if (totalHoras >= 24) {
     return 'bg-yellow-950/80 text-yellow-300 border-yellow-800 font-semibold';
   }
   return 'bg-emerald-950/80 text-emerald-300 border-emerald-800 font-medium';
@@ -286,7 +301,7 @@ export function analizarTiemposCaso(caso: any): any {
   const rangoSlaOp = caso.rangoSlaOp && String(caso.rangoSlaOp).trim() !== '' 
     ? String(caso.rangoSlaOp).trim() 
     : obtenerRangoSLA(totalHorasOp);
-  const colorClassOp = obtenerColorRangoSLA(totalHorasOp, esActivo);
+  const colorClassOp = obtenerColorRangoSLA(totalHorasOp, esActivo, rangoSlaOp);
 
   // 2. SLA Seguimiento POS API
   const fInicioPos = caso.fechaInicioPos && caso.fechaInicioPos !== 'S/V' && caso.fechaInicioPos !== '-' ? caso.fechaInicioPos : null;
@@ -380,7 +395,7 @@ export function analizarTiemposCaso(caso: any): any {
     horasSeguimiento,
     textoSeguimiento,
     rangoSeguimiento,
-    colorSeguimiento: obtenerColorRangoSLA(horasSeguimiento, esActivo),
+    colorSeguimiento: obtenerColorRangoSLA(horasSeguimiento, esActivo, rangoSeguimiento),
     congeladoSeguimiento
   };
 }
