@@ -160,7 +160,7 @@ export default function TLDashboard({
         }
       }
       if (filtroEstado !== 'todos' && c.estado !== filtroEstado) return false;
-      if (filtroEtapa !== 'todos' && c.etapa !== filtroEtapa) return false;
+      if (filtroEtapa !== 'todos' && (limpiarTextoEtapa(c.etapa) || 'Sin etapa') !== filtroEtapa) return false;
 
       if (filtroKpi !== 'todos') {
         const estLower = String(c.estado || '').toLowerCase().trim();

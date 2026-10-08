@@ -704,21 +704,9 @@ export function analizarAlertasCaso(caso: any): any {
   const respEsNoCat = respCatNorm === 'No';
   const esKamCatHecho = esPushKamRealizado(caso.pushKamCat);
 
-  // Cálculo preciso: Push KAM exige que hayan pasado >= 24h desde que se hizo el Push
-  let horasDesdePushPos = 0;
-  if (caso.fechaPushPos && caso.fechaPushPos !== '-' && !esSV(caso.fechaPushPos)) {
-    const calc = calcularTiempoLaboralLV(caso.fechaPushPos, null);
-    horasDesdePushPos = calc.totalHoras;
-  }
-
-  let horasDesdePushCat = 0;
-  if (caso.fechaPushCat && caso.fechaPushCat !== '-' && !esSV(caso.fechaPushCat)) {
-    const calc = calcularTiempoLaboralLV(caso.fechaPushCat, null);
-    horasDesdePushCat = calc.totalHoras;
-  }
-
-  const requierePushKamPos = esActivo && tieneInicioRealPos && tienePushPos && respEsNoPos && !esKamPosHecho && horasDesdePushPos >= 24;
-  const requierePushKamCat = esActivo && tieneInicioRealCat && tienePushCat && respEsNoCat && !esKamCatHecho && horasDesdePushCat >= 24;
+  // Cálculo preciso: Push KAM exige que el SLA del seguimiento correspondiente haya alcanzado o superado las 24 horas
+  const requierePushKamPos = esActivo && tieneInicioRealPos && tienePushPos && respEsNoPos && !esKamPosHecho && horasPos >= 24;
+  const requierePushKamCat = esActivo && tieneInicioRealCat && tienePushCat && respEsNoCat && !esKamCatHecho && horasCat >= 24;
 
   // 5. Semáforos SLA: Se calculan sobre las horas acumuladas reales y rango oficial
   const rangoStr = String(rangoSla || '').trim();

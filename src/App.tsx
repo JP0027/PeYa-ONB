@@ -211,15 +211,6 @@ export default function App() {
     }
   };
 
-  const handleDemoLogin = (rolDemo: RolUsuario = 'Supervisor / TL') => {
-    const esSup = rolDemo === 'Supervisor / TL';
-    const demoUser: UserSession = {
-      email: esSup ? 'supervisor.demo@pedidosya.com' : 'agente.demo@pedidosya.com',
-      displayName: esSup ? 'Supervisor Demo' : 'Agente Demo'
-    };
-    guardarSesion(demoUser, rolDemo);
-  };
-
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -249,7 +240,7 @@ export default function App() {
         </p>
 
         <div className="flex flex-col gap-3 w-full max-w-xs">
-          {/* BOTÃ“N ÃšNICO DE GOOGLE AUTH */}
+          {/* BOTÓN ÚNICO DE GOOGLE AUTH */}
           <button 
             onClick={login} 
             className="w-full bg-[#1A1A1C] border border-[#3A3A3E] hover:border-[#E85A80] px-6 py-3.5 rounded-xl font-semibold hover:bg-[#2C2C32] transition flex items-center justify-center gap-3 text-base shadow-xl cursor-pointer min-h-[44px]"

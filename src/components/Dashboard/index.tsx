@@ -81,8 +81,8 @@ function esCasoMayorA24Horas(c: any, track: string = 'general'): boolean {
 
   for (const r of rangos) {
     if (!r || r === '-' || r === 's/v') continue;
-    if (r.includes('<24') || r.includes('<4') || r.includes('â‰¤6') || r.includes('0h a') || r.includes('>6h a')) continue;
-    if (r.includes('â‰¥24') || r.includes('>=24') || r.includes('>72') || r.includes('â‰¥96') || r.includes('>=96')) return true;
+    if (r.includes('<24') || r.includes('<4') || r.includes('≤6') || r.includes('0h a') || r.includes('>6h a')) continue;
+    if (r.includes('≥24') || r.includes('>=24') || r.includes('>72') || r.includes('≥96') || r.includes('>=96')) return true;
     if (r.includes('24h') || r.includes('72h') || r.includes('96h')) return true;
   }
 
@@ -148,7 +148,7 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
     const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
     const tiendaLabel = c.tienda || 'Sin tienda';
 
-    // Push de Seguimiento POS (â‰¥ 4 hrs)
+    // Push de Seguimiento POS (≥ 4 hrs)
     if (alertas.requierePushPos) {
       resultados.push({
         id: `push_pos_${c.id || c.casoOp}`,
@@ -156,11 +156,11 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
         tipo: 'push_pos',
         titulo: 'Push de Seguimiento POS Pendiente',
         hora: horaTexto,
-        mensaje: `Falta realizar push de seguimiento (â‰¥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
       });
     }
 
-    // Push de Seguimiento Catálogo (â‰¥ 4 hrs)
+    // Push de Seguimiento Catálogo (≥ 4 hrs)
     if (alertas.requierePushCat) {
       resultados.push({
         id: `push_cat_${c.id || c.casoOp}`,
@@ -168,7 +168,7 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
         tipo: 'push_cat',
         titulo: 'Push de Seguimiento Catálogo Pendiente',
         hora: horaTexto,
-        mensaje: `Falta realizar push de seguimiento (â‰¥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
       });
     }
   });
@@ -918,7 +918,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       });
     } catch (err: any) {
       console.error("Error al registrar caso:", err);
-      mostrarNotificacion(`âŒ Error al registrar caso: ${err.message}`, "error");
+      mostrarNotificacion(`❌ Error al registrar caso: ${err.message}`, "error");
     } finally {
       setCargandoOperacion(null);
     }
@@ -981,7 +981,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       mostrarNotificacion('Actualizado', "success");
     } catch (err: any) {
       console.error("Error actualizando caso en Firebase/Sheets:", err);
-      mostrarNotificacion(`âŒ Error actualizando caso: ${err.message}`, "error");
+      mostrarNotificacion(`❌ Error actualizando caso: ${err.message}`, "error");
     } finally {
       setCargandoOperacion(null);
     }
@@ -1004,7 +1004,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       return true;
     } catch (err: any) {
       console.error("Error al eliminar caso:", err);
-      mostrarNotificacion(`âŒ Error al eliminar caso OP #${op}: ${err.message}`, "error");
+      mostrarNotificacion(`❌ Error al eliminar caso OP #${op}: ${err.message}`, "error");
       return false;
     } finally {
       setCargandoOperacion(null);
@@ -1142,7 +1142,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           className="w-12 h-12 bg-[#E85A80] hover:bg-[#F46C8E] text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition transform active:scale-95 border-2 border-pink-400 cursor-pointer"
           title="Abrir opciones del menú"
         >
-          â˜°
+          ☰
         </button>
       </div>
 
@@ -1160,7 +1160,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 onClick={() => setSidebarMovilAbierto(false)} 
                 className="text-[#B3B3B3] hover:text-white p-1.5 rounded-lg hover:bg-[#2C2C32] text-lg cursor-pointer"
               >
-                âœ•
+                ✕
               </button>
             </div>
             <div className="p-4 flex-1 space-y-2 overflow-y-auto">
@@ -1253,21 +1253,21 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 title="Sincronizar desde Sheets"
                 className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer"
               >
-                ðŸ”„
+                🔄
               </button>
               <button 
                 onClick={() => setMostrarModalCreds(true)} 
                 title="Configuración"
                 className="text-[#B3B3B3] hover:text-white text-base cursor-pointer"
               >
-                âš™ï¸
+                ⚙️
               </button>
               <button 
                 onClick={manejarLogout} 
                 title="Cerrar sesión"
                 className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer min-h-[44px]"
               >
-                ðŸšª
+                🚪
               </button>
             </div>
           )}
@@ -1314,7 +1314,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl p-3 sm:p-3.5 shadow-lg">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[#F46C8E] text-sm">âœ‰ï¸</span>
+                    <span className="text-[#F46C8E] text-sm">✉️</span>
                     <span className="text-xs font-bold text-gray-200">Equipo Onboarding:</span>
                     <span className="text-[11px] text-[#B3B3B3] font-normal hidden sm:inline">
                       (1 clic para copiar a ticket de seguimiento)
@@ -1333,7 +1333,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         }`}
                         title={`Clic para copiar ${correo}`}
                       >
-                        <span>{correoCopiado === correo ? 'âœ…' : 'ðŸ“‹'}</span>
+                        <span>{correoCopiado === correo ? '✅' : '📋'}</span>
                         <span>{correo}</span>
                       </button>
                     ))}
@@ -1347,7 +1347,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                       }`}
                       title="Copiar todos los correos del equipo separados por coma"
                     >
-                      <span>{todosCorreosCopiados ? 'âœ…' : 'ðŸ“‘'}</span>
+                      <span>{todosCorreosCopiados ? '✅' : '📑'}</span>
                       <span>{todosCorreosCopiados ? '¡Todos copiados!' : 'Copiar todos'}</span>
                     </button>
                   </div>
@@ -1365,7 +1365,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         : 'bg-[#121212] text-[#B3B3B3] hover:text-white hover:bg-[#2C2C32] border border-[#3A3A3E]'
                     }`}
                   >
-                    <span>ðŸ”</span>
+                    <span>🔍</span>
                     <span>Búsqueda de Casos</span>
                     {busquedaResultados && busquedaResultados.length > 0 && (
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${subTabNuevo === 'busqueda' ? 'bg-white/20 text-white' : 'bg-pink-950 text-[#F46C8E] border border-pink-800'}`}>
@@ -1382,7 +1382,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         : 'bg-[#121212] text-[#B3B3B3] hover:text-white hover:bg-[#2C2C32] border border-[#3A3A3E]'
                     }`}
                   >
-                    <span>âž•</span>
+                    <span>➕</span>
                     <span>Agregar Caso (Nuevo Registro)</span>
                     {formulario.vendorId && (
                       <span className="text-[10px] text-[#F46C8E] font-mono hidden sm:inline">
@@ -1460,13 +1460,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     }`}
                     title="Actualizar datos desde Google Sheets"
                   >
-                    <span className={cargandoSheets ? 'animate-spin inline-block text-xs' : 'text-xs'}>ðŸ”„</span>
+                    <span className={cargandoSheets ? 'animate-spin inline-block text-xs' : 'text-xs'}>🔄</span>
                     <span>{cargandoSheets ? 'Actualizando...' : 'Actualizar'}</span>
                   </button>
 
                   {/* Usuario autenticado */}
                   <div className="px-3 py-1.5 rounded-lg bg-pink-950/40 border border-pink-800/50 text-pink-300 text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-                    <span>ðŸ‘¤</span>
+                    <span>👤</span>
                     <span>Agente: {nombreUsuarioAutenticado}</span>
                   </div>
                 </div>
@@ -1489,7 +1489,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>OP</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'op' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'op' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('op', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1504,7 +1504,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Tienda</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'tienda' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'tienda' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1519,7 +1519,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>País/KAM</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pais' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pais' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pais', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1534,7 +1534,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Integración</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'integracion' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'integracion' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('integracion', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1549,7 +1549,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Estado / Etapa</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'estado' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'estado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('estado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1564,7 +1564,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Push POS</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushPos' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushPos' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushPos', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1579,7 +1579,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Push Catálogo</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushCat' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushCat' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushCat', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1594,7 +1594,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>SLA</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'sla' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'sla' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('sla', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1609,7 +1609,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Asignado</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asignado' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asignado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asignado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
@@ -1624,7 +1624,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         >
                           <div className="flex items-center gap-1.5">
                             <span>Seguimiento</span>
-                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'seguimiento' ? (direccionOrdenMisCasos === 'asc' ? 'ðŸ”¼' : 'ðŸ”½') : 'â†•ï¸'}</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'seguimiento' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
                           <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('seguimiento', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
                         </th>
