@@ -1045,24 +1045,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       // 2. Sincronizar directamente con Backend y Google Sheets
       try {
-        const resPush = await fetch('/api/sheets/registrar-push', {
+        const resPush = await fetch('/api/sheets/actualizar-caso', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            casoId: idBuscado, 
-            casoOp: caso.casoOp, 
-            filaNumero: caso.filaNumero, 
-            fecha: fechaSheet, 
-            tipo,
-            respuestaPos: casoActualizado.respuestaPos,
-            pushKamPos: casoActualizado.pushKamPos,
-            fechaInicioPos: casoActualizado.fechaInicioPos,
-            freezePos: casoActualizado.freezePos || '',
-            respuestaCat: casoActualizado.respuestaCat,
-            pushKamCat: casoActualizado.pushKamCat,
-            fechaInicioCat: casoActualizado.fechaInicioCat,
-            freezeCat: casoActualizado.freezeCat || ''
-          })
+          body: JSON.stringify(casoActualizado)
         });
 
         if (!resPush.ok) {
