@@ -585,6 +585,7 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
       tiempoTranscurridoPos: getVal(colTiempoPos, ''),
       tiempoTranscurridoCat: getVal(colTiempoCat, ''),
       rangoSla: getVal(colRangoSla, ''),
+      rangoSlaOp: getVal(colRangoSla, ''),
       rangoSlaPos: getVal(colRangoSlaPos, ''),
       rangoSlaCat: getVal(colRangoSlaCat, ''),
       freezePos: getVal(colFreezePos, ''),

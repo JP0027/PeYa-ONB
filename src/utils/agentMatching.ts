@@ -149,9 +149,7 @@ export function isAgentMatch(
   // Campos del caso a cotejar
   const targets = [
     caso.propietarioTicket,
-    caso.propietarioOportunidad,
-    caso.agente,
-    (caso as any).kam
+    caso.agente
   ].filter(Boolean) as string[];
 
   if (targets.length === 0) return false;

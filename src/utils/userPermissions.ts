@@ -85,10 +85,10 @@ export interface PestanaInfo {
 
 export const LISTA_PESTANAS_SISTEMA: PestanaInfo[] = [
   { id: 'tl', label: 'Casos en progreso global', icono: '📊', desc: 'Panel de supervisión, métricas y SLAs globales' },
-  { id: 'admin', label: 'Datos', icono: '📁', desc: 'Catálogos y tabla general de Onboarding' },
+  { id: 'admin', label: 'Datos', icono: '🗂️', desc: 'Catálogos y tabla general de Onboarding' },
   { id: 'inicio', label: 'Mis casos', icono: '💼', desc: 'Casos activos asignados al agente' },
   { id: 'nuevo', label: 'Búsqueda y registro', icono: '🔍', desc: 'Buscador de antecedentes y registro de nuevos casos' },
-  { id: 'usuarios', label: 'Gestionar usuarios', icono: '👑', desc: 'Administración de usuarios y permisos por pestaña' }
+  { id: 'usuarios', label: 'Gestionar usuarios', icono: '👥', desc: 'Administración de usuarios y permisos por pestaña' }
 ];
 
 /**

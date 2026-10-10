@@ -171,6 +171,18 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
         mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
       });
     }
+
+    // Alerta de SLA de la OP si no tiene seguimiento activo (≥ 4 hrs)
+    if (alertas.trackSeguimiento === 'op' && alertas.esSlaMayorA4) {
+      resultados.push({
+        id: `sla_op_${c.id || c.casoOp}`,
+        caso: c,
+        tipo: 'sla_op',
+        titulo: 'Alerta SLA OP Pendiente (≥ 4h)',
+        hora: horaTexto,
+        mensaje: `Caso OP #${opLabel} (${tiendaLabel}) superó el SLA de 4 horas (${alertas.tiempoTexto}) sin seguimiento activo`
+      });
+    }
   });
 
   return resultados;
@@ -1243,11 +1255,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               </button>
               <button 
                 onClick={() => setMostrarModalCreds(true)} 
-                title="Configuración"
-                className="text-[#B3B3B3] hover:text-white text-base cursor-pointer"
-              >
-                ⚙️
-              </button>
+                title="Configuración">
+                  ⚙️
+                </button>
               <button 
                 onClick={manejarLogout} 
                 title="Cerrar sesión"

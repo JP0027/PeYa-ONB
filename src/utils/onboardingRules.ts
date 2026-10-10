@@ -10,9 +10,9 @@ import {
   normalizarRespuesta,
   LISTA_OPORTUNIDADES
 } from '../data/catalogoOnboarding';
-import { analizarTiemposCaso, calcularTiempoLaboralLV } from './tiempoLaboral';
+import { analizarTiemposCaso, calcularTiempoLaboralLV, esSlaMayorOIgualA4 } from './tiempoLaboral';
 
-export { normalizarRespuesta };
+export { normalizarRespuesta, esSlaMayorOIgualA4 };
 
 export function esPushKamRealizado(valor: any): boolean {
   if (valor === true) return true;
@@ -429,7 +429,7 @@ export function aplicarReglaRespuestaDirecta(tipo: string, respuesta: any, casoA
  * - En proceso para pruebas: OP única, sin fecha de seguimiento ni POS API ni de catálogo (S/V)
  * - Pedido de prueba realizado: OP única, sin fecha de seguimiento ni POS API ni de catálogo (S/V)
  */
-export function aplicarFechasPorEtapaOnboarding(caso: any): any {
+export function aplicarFechasPorEtapaOnboarding(caso: any, casoAnterior?: any): any {
   const c = { ...caso };
   const etapa = String(c.etapa || '').trim().toLowerCase();
   const fCreacion = c.fechaCreacion || formatearFechaHora(new Date());
@@ -440,11 +440,39 @@ export function aplicarFechasPorEtapaOnboarding(caso: any): any {
     }
     c.fechaInicioSeguimientoOP = c.fechaInicioPos;
     c.sla_inicio = c.fechaInicioPos;
-  } else if (etapa.includes('verificación de catálogo') || etapa.includes('verificacion de catalogo') || etapa.includes('carga de catálogo') || etapa.includes('carga de catalogo')) {
-    const tienePos = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-';
-    if (!c.fechaInicioCat || c.fechaInicioCat === 'S/V' || c.fechaInicioCat === '-') {
-      c.fechaInicioCat = c.sla_inicio || fCreacion;
+  } else if (
+    etapa.includes('verificación de catálogo') ||
+    etapa.includes('verificacion de catalogo') ||
+    etapa.includes('carga de catálogo') ||
+    etapa.includes('carga de catalogo') ||
+    etapa.includes('catálogo') ||
+    etapa.includes('catalogo')
+  ) {
+    const tienePos = Boolean(
+      (c.fechaInicioPos && c.fechaInicioPos !== 'S/V' && c.fechaInicioPos !== '-') ||
+      (casoAnterior?.fechaInicioPos && casoAnterior.fechaInicioPos !== 'S/V' && casoAnterior.fechaInicioPos !== '-')
+    );
+
+    const etapaAnterior = String(casoAnterior?.etapa || '').toLowerCase().trim();
+    const esEtapaAnteriorCat = etapaAnterior.includes('catálogo') || etapaAnterior.includes('catalogo');
+    const cambioDeEtapaHaciaCat = Boolean(etapaAnterior && !esEtapaAnteriorCat);
+
+    const sinInicioCatValido = !c.fechaInicioCat || c.fechaInicioCat === 'S/V' || c.fechaInicioCat === '-' || String(c.fechaInicioCat).trim() === '';
+
+    // Si cambió de etapa hacia catálogo teniendo seguimiento previo (POS o etapa anterior no catálogo)
+    // o si ya tenía seguimiento previo registrado (POS) y catálogo no tenía fecha válida:
+    if (cambioDeEtapaHaciaCat || (tienePos && sinInicioCatValido)) {
+      c.fechaInicioCat = formatearFechaHora(new Date());
+      // Si traía 'S/V' de un salto previo, limpiar para iniciar seguimiento real de catálogo
+      if (c.fechaPushCat === 'S/V') c.fechaPushCat = '';
+      if (c.respuestaCat === 'S/V') c.respuestaCat = '';
+      if (c.pushKamCat === true && c.respuestaCat !== 'Si') c.pushKamCat = false;
+      c.freezeCat = '';
+      c.fechaFreezeCat = '';
+    } else if (sinInicioCatValido) {
+      c.fechaInicioCat = c.sla_inicio || fCreacion || formatearFechaHora(new Date());
     }
+
     if (tienePos) {
       c.fechaInicioSeguimientoOP = c.fechaInicioPos;
       c.sla_inicio = c.fechaInicioPos;
@@ -503,7 +531,7 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre);
 
   // Reglas estrictas de fechas base por etapa de Onboarding
-  resultado = aplicarFechasPorEtapaOnboarding(resultado);
+  resultado = aplicarFechasPorEtapaOnboarding(resultado, casoAnterior);
 
   // 2. Regla de Salto de Etapa y Etapas sin seguimiento (S/V automático)
   const cambiosSalto = aplicarReglaSaltoEtapa(resultado.etapa, resultado);
@@ -561,6 +589,7 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   return resultado;
 }
 
+
 /**
  * Detección de alertas de Push y SLA para la pestaña "Mis Casos"
  * Incorpora los tiempos laborales reales L-V (Columnas AE, AF, AG, AI, AJ, AK)
@@ -604,10 +633,7 @@ export function analizarAlertasCaso(caso: any): any {
   const estaCongelado = tiempos.congeladoSeguimiento;
   const congeladoTrack = tiempos.congeladoTrack;
 
-  // Regla ≥ 4 horas: se evalúa únicamente con las horas reales del seguimiento (calculadas en vivo)
-  const esSlaMayorOIgualA4 = (h: number, _rTrack?: any) => typeof h === 'number' && h >= 4;
-
-  // 2. Alerta Push POS API (EXIGE: Fecha de Inicio real o deducida por etapa, falta de push y >= 4 horas)
+  // 2. Alerta Push POS API (Columna AJ: Rango SLA seguimiento POS API >= 4h)
   const esPushValido = (f: any) => Boolean(f && String(f).trim() !== '' && String(f).trim() !== '-' && String(f).trim().toUpperCase() !== 'NULL');
   const esSV = (f: any) => String(f).trim().toUpperCase() === 'S/V';
 
@@ -616,34 +642,33 @@ export function analizarAlertasCaso(caso: any): any {
                      etapaLower.includes('sin integracion') || 
                      etapaLower.includes('seteo');
 
-  const fInicioPosEfectiva = (caso.fechaInicioPos && caso.fechaInicioPos !== '-' && !esSV(caso.fechaInicioPos))
-    ? caso.fechaInicioPos
+  const tieneInicioRealPos = Boolean(caso.fechaInicioPos && caso.fechaInicioPos !== '-' && !esSV(caso.fechaInicioPos));
+  const fInicioPosEfectiva = tieneInicioRealPos 
+    ? caso.fechaInicioPos 
     : (esEtapaPos ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
 
-  const tieneInicioPos = Boolean(
-    fInicioPosEfectiva && 
-    String(fInicioPosEfectiva).trim() !== '' && 
-    String(fInicioPosEfectiva).trim() !== '-' && 
-    !esSV(fInicioPosEfectiva)
-  );
-
+  const tieneInicioPos = Boolean(fInicioPosEfectiva && !esSV(fInicioPosEfectiva));
   const tienePushPos = esPushValido(caso.fechaPushPos);
   const respPosNorm = normalizarRespuesta(caso.respuestaPos);
   const esSvPos = esSV(caso.fechaPushPos) || esSV(caso.fechaInicioPos) || respPosNorm === 'S/V';
   const respPosOk = respPosNorm === 'Si' || esSvPos;
 
+  // POS API solo puede requerir push si está en etapa de POS o tiene inicio POS activo, y no ha avanzado a catálogo ni está congelado
+  const posSigueActivo = (esEtapaPos || tieneInicioRealPos) && !respPosOk && !esSvPos && !etapaLower.includes('catálogo') && !etapaLower.includes('catalogo');
+
   const horasPosCalculadas = fInicioPosEfectiva ? calcularTiempoLaboralLV(fInicioPosEfectiva, null).totalHoras : 0;
-  const horasPos = Math.max(tiempos.totalHorasPos ?? 0, horasPosCalculadas);
-  const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, caso.rangoSlaPos);
+  const horasPos = tieneInicioRealPos ? (tiempos.totalHorasPos ?? horasPosCalculadas) : horasPosCalculadas;
+  const rangoSlaPosEfectivo = caso.rangoSlaPos || tiempos.rangoSlaPos || '';
+  const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, rangoSlaPosEfectivo);
 
   let requierePushPos = false;
   let motivoPushPos = '';
 
-  if (esActivo && tieneInicioPos && !respPosOk && !esSvPos) {
+  if (esActivo && posSigueActivo && tieneInicioPos && !respPosOk && !esSvPos) {
     if (!tienePushPos) {
       if (esAlertaPosValida) {
         requierePushPos = true;
-        motivoPushPos = 'No realizo push (≥ 4h)';
+        motivoPushPos = 'No realizó push (≥ 4h)';
       } else {
         motivoPushPos = 'En espera de push (SLA < 4h)';
       }
@@ -652,40 +677,39 @@ export function analizarAlertasCaso(caso: any): any {
     }
   }
 
-  // 3. Alerta Push Catálogo (EXIGE: Fecha de Inicio real o deducida por etapa, falta de push y >= 4 horas)
+  // 3. Alerta Push Catálogo (Columna AK: Rango SLA seguimiento de catalogo >= 4h)
   const esEtapaCat = etapaLower.includes('verificación de catálogo') || 
                      etapaLower.includes('verificacion de catalogo') || 
                      etapaLower.includes('carga de catálogo') ||
-                     etapaLower.includes('carga de catalogo');
+                     etapaLower.includes('carga de catalogo') ||
+                     etapaLower.includes('catálogo') ||
+                     etapaLower.includes('catalogo');
 
-  const fInicioCatEfectiva = (caso.fechaInicioCat && caso.fechaInicioCat !== '-' && !esSV(caso.fechaInicioCat))
-    ? caso.fechaInicioCat
-    : (esEtapaCat ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
+  const tieneInicioRealCat = Boolean(caso.fechaInicioCat && caso.fechaInicioCat !== '-' && !esSV(caso.fechaInicioCat));
+  // El seguimiento de catálogo solo tiene fecha efectiva si realmente inició catálogo, nunca hereda la OP de días anteriores
+  const fInicioCatEfectiva = tieneInicioRealCat ? caso.fechaInicioCat : null;
 
-  const tieneInicioCat = Boolean(
-    fInicioCatEfectiva && 
-    String(fInicioCatEfectiva).trim() !== '' && 
-    String(fInicioCatEfectiva).trim() !== '-' && 
-    !esSV(fInicioCatEfectiva)
-  );
-
+  const tieneInicioCat = Boolean(fInicioCatEfectiva);
   const tienePushCat = esPushValido(caso.fechaPushCat);
   const respCatNorm = normalizarRespuesta(caso.respuestaCat);
   const esSvCat = esSV(caso.fechaPushCat) || esSV(caso.fechaInicioCat) || respCatNorm === 'S/V';
   const respCatOk = respCatNorm === 'Si' || esSvCat;
 
+  const catSigueActivo = (esEtapaCat || tieneInicioRealCat) && !respCatOk && !esSvCat;
+
   const horasCatCalculadas = fInicioCatEfectiva ? calcularTiempoLaboralLV(fInicioCatEfectiva, null).totalHoras : 0;
-  const horasCat = Math.max(tiempos.totalHorasCat ?? 0, horasCatCalculadas);
-  const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, caso.rangoSlaCat);
+  const horasCat = tieneInicioRealCat ? (tiempos.totalHorasCat ?? horasCatCalculadas) : horasCatCalculadas;
+  const rangoSlaCatEfectivo = caso.rangoSlaCat || tiempos.rangoSlaCat || '';
+  const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, rangoSlaCatEfectivo);
 
   let requierePushCat = false;
   let motivoPushCat = '';
 
-  if (esActivo && tieneInicioCat && !respCatOk && !esSvCat) {
+  if (esActivo && catSigueActivo && tieneInicioCat && !respCatOk && !esSvCat) {
     if (!tienePushCat) {
       if (esAlertaCatValida) {
         requierePushCat = true;
-        motivoPushCat = 'No realizo push (≥ 4h)';
+        motivoPushCat = 'No realizó push (≥ 4h)';
       } else {
         motivoPushCat = 'En espera de push (SLA < 4h)';
       }
@@ -696,11 +720,9 @@ export function analizarAlertasCaso(caso: any): any {
 
   // 4. Push KAM (Supervisor: >=24h):
   // Regla oficial: Requiere Push KAM si tiene fecha de inicio, fecha de push, en respuesta dice "NO" y no tiene Push KAM realizado
-  const tieneInicioRealPos = Boolean(caso.fechaInicioPos && !esSV(caso.fechaInicioPos) && caso.fechaInicioPos !== '-');
   const respEsNoPos = respPosNorm === 'No';
   const esKamPosHecho = esPushKamRealizado(caso.pushKamPos);
 
-  const tieneInicioRealCat = Boolean(caso.fechaInicioCat && !esSV(caso.fechaInicioCat) && caso.fechaInicioCat !== '-');
   const respEsNoCat = respCatNorm === 'No';
   const esKamCatHecho = esPushKamRealizado(caso.pushKamCat);
 
@@ -708,15 +730,16 @@ export function analizarAlertasCaso(caso: any): any {
   const requierePushKamPos = esActivo && tieneInicioRealPos && tienePushPos && respEsNoPos && !esKamPosHecho && horasPos >= 24;
   const requierePushKamCat = esActivo && tieneInicioRealCat && tienePushCat && respEsNoCat && !esKamCatHecho && horasCat >= 24;
 
-  // 5. Semáforos SLA: Se calculan sobre las horas acumuladas reales y rango oficial
+  // 5. Semáforos SLA: Se calculan sobre las horas acumuladas reales y rango oficial del seguimiento correspondiente (o de la OP si no hay activo)
   const rangoStr = String(rangoSla || '').trim();
   const esRangoCritico = rangoStr.includes('≥96') || rangoStr.includes('>=96') || (rangoStr.includes('96') && !rangoStr.includes('<96'));
-  const esRangoKam = !esRangoCritico && (rangoStr.includes('>72') || (rangoStr.includes('72') && !rangoStr.includes('<72')));
+  const esRangoKam = !esRangoCritico && (rangoStr.includes('24h') || rangoStr.includes('>72') || (rangoStr.includes('72') && !rangoStr.includes('<72')));
 
+  const esSlaMayorA4 = esActivo && !estaCongelado && esSlaMayorOIgualA4(horasTranscurridas, rangoSla);
   const esCritico = esActivo && (horasTranscurridas >= 96 || esRangoCritico);
-  const esProximoVencer = esActivo && !esCritico && (horasTranscurridas >= 72 || esRangoKam);
-  const esAtencion = esActivo && !esCritico && !esProximoVencer && horasTranscurridas >= 24;
-  const esEnTiempo = esActivo && !esCritico && !esProximoVencer && !esAtencion;
+  const esProximoVencer = esActivo && !esCritico && (horasTranscurridas >= 24 || esRangoKam);
+  const esAtencion = esActivo && !esCritico && !esProximoVencer && esSlaMayorA4;
+  const esEnTiempo = esActivo && !esCritico && !esProximoVencer && !esAtencion && !esSlaMayorA4;
 
   return {
     requierePushPos,
@@ -740,11 +763,13 @@ export function analizarAlertasCaso(caso: any): any {
 
     estaCongelado,
     congeladoTrack,
+    trackSeguimiento: tiempos.trackSeguimiento,
     horasTranscurridas,
     tiempoTexto,
     rangoSla,
     colorClass,
-    esVencido: esCritico,
+    esSlaMayorA4,
+    esVencido: esSlaMayorA4,
     esCritico,
     esProximoVencer,
     esAtencion,

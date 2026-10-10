@@ -739,9 +739,23 @@ export class SheetsService {
         fechaFreezeCat = '';
       }
 
+      // Si la etapa cambia a Catálogo teniendo seguimiento previo o sin fecha válida de catálogo:
+      const etapaExistente = String(casoExistente.etapa || '').toLowerCase().trim();
+      const nuevaEtapa = String(casoActualizado.etapa !== undefined ? casoActualizado.etapa : casoExistente.etapa || '').toLowerCase().trim();
+      const esNuevaEtapaCat = nuevaEtapa.includes('catálogo') || nuevaEtapa.includes('catalogo');
+      const eraEtapaCat = etapaExistente.includes('catálogo') || etapaExistente.includes('catalogo');
+
+      let fechaInicioCat = casoActualizado.fechaInicioCat !== undefined ? casoActualizado.fechaInicioCat : casoExistente.fechaInicioCat;
+      const sinFechaCatValida = !fechaInicioCat || fechaInicioCat === 'S/V' || fechaInicioCat === '-' || String(fechaInicioCat).trim() === '';
+
+      if (esNuevaEtapaCat && (!eraEtapaCat || sinFechaCatValida)) {
+        fechaInicioCat = this.formatearFechaSheet(new Date());
+      }
+
       const casoMerged: CasoSheets = { 
         ...casoExistente, 
         ...casoActualizado,
+        fechaInicioCat: fechaInicioCat || '',
         respuestaPos: normRespPos,
         respuestaCat: normRespCat,
         fechaFreezePos: fechaFreezePos || '',
@@ -826,7 +840,16 @@ export class SheetsService {
     if (this.tieneCredenciales()) {
       try {
         const token = await this.obtenerAuthToken();
-        const sheetIdOnboardingNew = 104076048; // GID oficial de la hoja Onboarding_New
+        let sheetIdOnboardingNew = 104076048;
+        try {
+          const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(title,sheetId)`;
+          const resMeta = await fetch(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
+          if (resMeta.ok) {
+            const dataMeta = await resMeta.json();
+            const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.title === 'Onboarding_New');
+            if (sheetObj) sheetIdOnboardingNew = sheetObj.properties.sheetId;
+          }
+        } catch (e) { }
 
         // 1. Si tenemos filaTarget, verificar rápidamente si coincide
         if (filaTarget >= 2 && idStr) {
@@ -988,17 +1011,18 @@ export class SheetsService {
   public async asegurarCapacidadFilas(filaRequerida: number): Promise<void> {
     try {
       const token = await this.obtenerAuthToken();
-      const sheetIdOnboardingNew = 104076048;
 
-      const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
+      const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(title,sheetId,gridProperties.rowCount)`;
       const resMeta = await fetch(urlMeta, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!resMeta.ok) return;
 
       const dataMeta = await resMeta.json();
-      const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
-      const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
+      const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.title === 'Onboarding_New');
+      if (!sheetObj) return;
+      const sheetIdOnboardingNew = sheetObj.properties.sheetId;
+      const rowCountActual = sheetObj.properties?.gridProperties?.rowCount || 0;
 
       if (filaRequerida > rowCountActual) {
         // Expandir EXACTAMENTE la cantidad de filas requeridas (1 fila para el nuevo caso)

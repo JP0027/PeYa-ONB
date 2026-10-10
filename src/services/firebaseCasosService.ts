@@ -41,6 +41,7 @@ export interface Caso {
   tiempoTranscurridoCat?: string;
   mesCierre?: string;
   rangoSla?: string;
+  rangoSlaOp?: string;
   rangoSlaPos?: string;
   rangoSlaCat?: string;
   duplicadoTicket?: string;
@@ -531,6 +532,7 @@ function parsearFilaCaso(row, filaNumero) {
     tiempoTranscurridoCat: tiempoTranscurridoCat,
     mesCierre: mesCierre,
     rangoSla: rangoSla,
+    rangoSlaOp: rangoSla,
     rangoSlaPos: rangoSlaPos,
     rangoSlaCat: rangoSlaCat,
     duplicadoTicket: duplicadoTicket,
