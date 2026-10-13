@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
+import { LISTA_ASSETS } from '../../data/catalogoOnboarding';
 
 export interface TablaOnboardingCasosProps {
   casos?: any[];
@@ -32,7 +33,7 @@ export default function TablaOnboardingCasos({
   const [casosPorPagina, setCasosPorPagina] = useState<number>(10);
 
   // Ordenamiento global de columnas
-  type ColumnaOrden = 'num' | 'casoOp' | 'vendorId' | 'tienda' | 'pais' | 'propietarioOp' | 'integracion' | 'oportunidad' | 'estado' | 'etapa' | 'seguimiento' | null;
+  type ColumnaOrden = 'num' | 'casoOp' | 'vendorId' | 'tienda' | 'pais' | 'propietarioOp' | 'integracion' | 'asset' | 'oportunidad' | 'estado' | 'etapa' | 'seguimiento' | null;
   type DireccionOrden = 'asc' | 'desc';
 
   const [columnaOrden, setColumnaOrden] = useState<ColumnaOrden>(null);
@@ -62,6 +63,7 @@ export default function TablaOnboardingCasos({
     pais: 100,
     propietarioOp: 170,
     integracion: 140,
+    asset: 120,
     oportunidad: 150,
     estado: 160,
     etapa: 180,
@@ -199,6 +201,7 @@ export default function TablaOnboardingCasos({
         setA.add(c.asset.trim());
       }
     });
+    LISTA_ASSETS.forEach(a => setA.add(a));
     return Array.from(setA).sort();
   }, [casos]);
 
@@ -311,6 +314,10 @@ export default function TablaOnboardingCasos({
           case 'integracion':
             valA = String(a.integracion || '').trim();
             valB = String(b.integracion || '').trim();
+            break;
+          case 'asset':
+            valA = String(a.asset || '').trim();
+            valB = String(b.asset || '').trim();
             break;
           case 'oportunidad':
             valA = String(a.oportunidad || '').trim();
@@ -656,6 +663,7 @@ export default function TablaOnboardingCasos({
                 {renderHeader('pais', 'País', 'pais')}
                 {renderHeader('propietarioOp', 'Propietario Oportunidad', 'propietarioOp')}
                 {renderHeader('integracion', 'Integración', 'integracion')}
+                {renderHeader('asset', 'Asset', 'asset')}
                 {renderHeader('oportunidad', 'Oportunidad', 'oportunidad')}
                 {renderHeader('estado', 'Estado', 'estado')}
                 {renderHeader('etapa', 'Etapa', 'etapa')}
@@ -673,7 +681,7 @@ export default function TablaOnboardingCasos({
             <tbody className="divide-y divide-gray-800/80">
               {casosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-42 text-center text-[#9CA3AF]">
+                  <td colSpan={12} className="py-42 text-center text-[#9CA3AF]">
                     No se encontraron casos con los filtros aplicados.
                   </td>
                 </tr>
@@ -734,6 +742,13 @@ export default function TablaOnboardingCasos({
                       {/* Integración */}
                       <td className="py-4 px-3 text-[#D1D5DB] max-w-[140px] truncate" title={c.integracion}>
                         {c.integracion || '-'}
+                      </td>
+
+                      {/* Asset */}
+                      <td className="py-4 px-3 text-[#D1D5DB]">
+                        <span className="px-1.5 py-0.5 rounded bg-[#2C2C32] text-[10px] text-[#D1D5DB] font-medium whitespace-nowrap">
+                          {c.asset || '-'}
+                        </span>
                       </td>
 
                       {/* Oportunidad */}

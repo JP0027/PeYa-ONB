@@ -36,16 +36,6 @@ export const LISTA_BLANCA_OFICIAL: Record<string, PerfilUsuario> = {
     correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
     nombre: 'Joseline Yactayo',
     rol: 'Supervisor'
-  },
-  'supervisor.demo@pedidosya.com': {
-    correo: 'supervisor.demo@pedidosya.com',
-    nombre: 'Supervisor Demo',
-    rol: 'Supervisor / TL'
-  },
-  'agente.demo@pedidosya.com': {
-    correo: 'agente.demo@pedidosya.com',
-    nombre: 'Agente Demo',
-    rol: 'Agente'
   }
 };
 

@@ -81,18 +81,6 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
       'jean.changanaqui_dyn.ext@pedidosya.com',
       'jean.changanaqui@pedidosya.com'
     ]
-  },
-  {
-    nombre: 'Supervisor Demo',
-    rol: 'Agente / Supervisor',
-    slugs: ['supervisor demo', 'demo'],
-    correos: ['supervisor.demo@pedidosya.com']
-  },
-  {
-    nombre: 'Agente Demo',
-    rol: 'Agente',
-    slugs: ['agente demo', 'demo'],
-    correos: ['agente.demo@pedidosya.com']
   }
 ];
 

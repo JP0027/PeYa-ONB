@@ -3,7 +3,7 @@ import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
 import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta } from '../../utils/onboardingRules';
-import { esEstadoActivoOficial } from '../../data/catalogoOnboarding';
+import { esEstadoActivoOficial, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 
 const AGENTES_OFICIALES = [
   'Jean Palomino',
@@ -31,7 +31,7 @@ export default function TLDashboard({
   casos = [], 
   onSeleccionarCaso, 
   onActualizarCaso, 
-  onRegistrarPush,
+  onRegistrarPush, 
   nombreUsuario, 
   rolUsuario, 
   mostrarNotificacion,
@@ -43,12 +43,14 @@ export default function TLDashboard({
   const [filtroPais, setFiltroPais] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todos');
+  const [filtroAsset, setFiltroAsset] = useState<string>('todos');
   const [filtroKpi, setFiltroKpi] = useState<string>('todos'); // 'todos', 'en_progreso', 'sin_op', 'fuera_sla', 'proximos', 'req_kam_push'
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
   const [colWidths, setColWidths] = useState<Record<string, number>>({
     op: 120,
     tienda: 150,
+    asset: 110,
     estado: 120,
     agente: 120,
     etapa: 150,
@@ -148,6 +150,16 @@ export default function TLDashboard({
     });
   }, [casos]);
 
+  // Lista única de assets para el selector de filtros
+  const assetsUnicos = useMemo(() => {
+    const s = new Set<string>();
+    casosProcesados.forEach(c => {
+      if (c.asset && c.asset !== '-' && c.asset !== 'S/V') s.add(c.asset.trim());
+    });
+    LISTA_ASSETS.forEach(a => s.add(a));
+    return Array.from(s).sort();
+  }, [casosProcesados]);
+
   // Aplicar filtros
   const casosFiltrados = useMemo(() => {
     return casosProcesados.filter(c => {
@@ -161,6 +173,9 @@ export default function TLDashboard({
       }
       if (filtroEstado !== 'todos' && c.estado !== filtroEstado) return false;
       if (filtroEtapa !== 'todos' && (limpiarTextoEtapa(c.etapa) || 'Sin etapa') !== filtroEtapa) return false;
+      if (filtroAsset !== 'todos') {
+        if (String(c.asset || '').toLowerCase() !== filtroAsset.toLowerCase()) return false;
+      }
 
       if (filtroKpi !== 'todos') {
         const estLower = String(c.estado || '').toLowerCase().trim();
@@ -181,9 +196,9 @@ export default function TLDashboard({
 
       return true;
     });
-  }, [casosProcesados, filtroKpi, filtroAgente, filtroPais, filtroEstado, filtroEtapa]);
+  }, [casosProcesados, filtroKpi, filtroAgente, filtroPais, filtroEstado, filtroEtapa, filtroAsset]);
 
-  useEffect(() => { setCurrentPage(1); }, [filtroAgente, filtroPais, filtroEstado, filtroEtapa, filtroKpi, ordenCampo, ordenDir, rowsPerPage]);
+  useEffect(() => { setCurrentPage(1); }, [filtroAgente, filtroPais, filtroEstado, filtroEtapa, filtroAsset, filtroKpi, ordenCampo, ordenDir, rowsPerPage]);
 
   const casosActivos = useMemo(() => {
     return casosProcesados.filter(c => c.esActivo);
@@ -201,6 +216,8 @@ export default function TLDashboard({
         valA = a.casoOp || ''; valB = b.casoOp || '';
       } else if (ordenCampo === 'tienda') {
         valA = String(a.tienda || '').toLowerCase(); valB = String(b.tienda || '').toLowerCase();
+      } else if (ordenCampo === 'asset') {
+        valA = String(a.asset || '').toLowerCase(); valB = String(b.asset || '').toLowerCase();
       } else if (ordenCampo === 'estado') {
         valA = String(a.estado || '').toLowerCase(); valB = String(b.estado || '').toLowerCase();
       } else if (ordenCampo === 'agente') {
@@ -528,7 +545,11 @@ export default function TLDashboard({
               <option value="todos">Todas las Etapas</option>
               {etapasUnicas.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            {(filtroKpi !== 'todos' || filtroAgente !== 'todos' || filtroPais !== 'todos' || filtroEstado !== 'todos' || filtroEtapa !== 'todos') && (
+            <select value={filtroAsset} onChange={e => setFiltroAsset(e.target.value)} className="bg-[#121212] border border-[#3A3A3E] text-xs text-white rounded px-2 py-1 max-w-[150px]">
+              <option value="todos">Todos los Assets ({assetsUnicos.length})</option>
+              {assetsUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            {(filtroKpi !== 'todos' || filtroAgente !== 'todos' || filtroPais !== 'todos' || filtroEstado !== 'todos' || filtroEtapa !== 'todos' || filtroAsset !== 'todos') && (
               <button 
                 onClick={() => { 
                   setFiltroKpi('todos');
@@ -536,6 +557,7 @@ export default function TLDashboard({
                   setFiltroPais('todos'); 
                   setFiltroEstado('todos'); 
                   setFiltroEtapa('todos'); 
+                  setFiltroAsset('todos');
                 }} 
                 className="text-xs text-[#E85A80] hover:underline cursor-pointer font-bold"
               >
@@ -586,6 +608,7 @@ export default function TLDashboard({
                     {[
                       { key: 'op', label: 'Caso OP' },
                       { key: 'tienda', label: 'Tienda' },
+                      { key: 'asset', label: 'Asset' },
                       { key: 'estado', label: 'Estado' },
                       { key: 'agente', label: 'Agente' },
                       { key: 'etapa', label: 'Etapa' },
@@ -662,6 +685,11 @@ export default function TLDashboard({
                           </div>
                         </td>
                         <td className="py-4 px-3 truncate max-w-[150px]" title={c.tienda}>{c.tienda}</td>
+                        <td className="py-4 px-3">
+                          <span className="px-2 py-0.5 rounded bg-[#2C2C32] border border-[#3A3A3E] text-[10px] text-[#D1D5DB] font-medium whitespace-nowrap">
+                            {c.asset || '-'}
+                          </span>
+                        </td>
                         <td className="py-4 px-3">
                           {String(c.estado || '').toLowerCase().includes('sin oportunidad') ? (
                             <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm">

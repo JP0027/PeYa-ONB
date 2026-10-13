@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
+import { LISTA_ASSETS } from '../../data/catalogoOnboarding';
 
 export interface SearchBarProps {
   onBuscar: (query: string) => void;
@@ -19,6 +20,7 @@ export default function SearchBar({
   onLimpiar 
 }: SearchBarProps) {
   const [busquedaId, setBusquedaId] = useState<string>("");
+  const [filtroAsset, setFiltroAsset] = useState<string>("todos");
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -28,14 +30,29 @@ export default function SearchBar({
 
   const handleLimpiar = () => {
     setBusquedaId("");
+    setFiltroAsset("todos");
     if (onLimpiar) {
       onLimpiar();
     }
   };
 
-  // Ordenar resultados para que el más reciente aparezca siempre primero arriba
+  // Lista única de assets para el selector de filtro
+  const listaAssets = useMemo(() => {
+    const s = new Set<string>();
+    resultados.forEach(r => {
+      if (r.asset && r.asset !== '-' && r.asset !== 'S/V') s.add(r.asset.trim());
+    });
+    LISTA_ASSETS.forEach(a => s.add(a));
+    return Array.from(s).sort();
+  }, [resultados]);
+
+  // Ordenar y filtrar resultados para que el más reciente aparezca siempre primero arriba
   const resultadosOrdenados = useMemo(() => {
     if (!resultados || resultados.length === 0) return [];
+
+    const lista = filtroAsset === 'todos'
+      ? resultados
+      : resultados.filter(r => String(r.asset || '').toLowerCase() === filtroAsset.toLowerCase());
 
     const parseFecha = (str: any): number => {
       if (!str) return 0;
@@ -53,7 +70,7 @@ export default function SearchBar({
       return isNaN(t) ? 0 : t;
     };
 
-    return [...resultados].sort((a, b) => {
+    return [...lista].sort((a, b) => {
       // 1. Por fecha (sla_inicio o fechaCreacion)
       const fechaA = parseFecha(a.sla_inicio || a.fechaCreacion);
       const fechaB = parseFecha(b.sla_inicio || b.fechaCreacion);
@@ -77,7 +94,7 @@ export default function SearchBar({
 
       return 0;
     });
-  }, [resultados]);
+  }, [resultados, filtroAsset]);
 
   return (
     <div className="w-full space-y-4">
@@ -144,7 +161,7 @@ export default function SearchBar({
       {/* Listado de Resultados en Cards Largos (Uno debajo de otro) */}
       {resultadosOrdenados && resultadosOrdenados.length > 0 && (
         <div className="space-y-3 w-full">
-          <div className="flex items-center justify-between px-1">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 px-1">
             <h4 className="text-xs font-bold text-[#D1D5DB] uppercase tracking-wider flex items-center gap-2">
               <span>Resultados encontrados:</span>
               <span className="px-2.5 py-0.5 rounded-full bg-pink-950 text-[#F46C8E] border border-pink-800/80 font-mono text-xs font-bold">
@@ -154,6 +171,30 @@ export default function SearchBar({
                 (ordenados del más reciente al más antiguo)
               </span>
             </h4>
+
+            {/* Selector de Filtro de Asset */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#B3B3B3] font-bold">Asset:</span>
+              <select
+                value={filtroAsset}
+                onChange={e => setFiltroAsset(e.target.value)}
+                className="bg-[#121212] border border-[#3A3A3E] hover:border-[#E85A80] text-xs text-white rounded-lg px-2.5 py-1 focus:border-[#E85A80] cursor-pointer"
+              >
+                <option value="todos">Todos los Assets ({listaAssets.length})</option>
+                {listaAssets.map(a => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              {filtroAsset !== 'todos' && (
+                <button
+                  type="button"
+                  onClick={() => setFiltroAsset('todos')}
+                  className="text-xs text-[#F46C8E] hover:underline cursor-pointer"
+                >
+                  ✕ Quitar
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3 w-full">
@@ -198,6 +239,13 @@ export default function SearchBar({
                         </span>
                       )}
 
+                      {/* Asset */}
+                      {r.asset && (
+                        <span className="px-2 py-0.5 rounded-md bg-[#2C2C32] text-[#D1D5DB] text-[11px] font-medium border border-[#3A3A3E]">
+                          💻 {r.asset}
+                        </span>
+                      )}
+
                       {/* Estado */}
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                         !esCerrado
@@ -232,6 +280,12 @@ export default function SearchBar({
                         <div>
                           <span className="text-[#9CA3AF]">Integración: </span>
                           <span className="text-cyan-400 font-semibold">{r.integracion}</span>
+                        </div>
+                      )}
+                      {r.asset && (
+                        <div>
+                          <span className="text-[#9CA3AF]">Asset: </span>
+                          <span className="text-purple-300 font-semibold">{r.asset}</span>
                         </div>
                       )}
                       {r.etapa && (

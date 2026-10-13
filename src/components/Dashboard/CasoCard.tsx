@@ -73,6 +73,11 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
         {caso.integracion}
       </td>
       <td className="p-3">
+        <span className="px-2 py-0.5 rounded bg-[#2C2C32] border border-[#3A3A3E] text-[10px] text-[#D1D5DB] font-medium whitespace-nowrap">
+          {caso.asset || '-'}
+        </span>
+      </td>
+      <td className="p-3">
         {(() => {
           const est = String(caso.estado || '').trim().toLowerCase();
           if (est.includes('sin oportunidad')) {

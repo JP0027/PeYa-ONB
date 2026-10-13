@@ -11,7 +11,7 @@ import {
   resolverOportunidad,
   esCasoHcAbierto
 } from '../../utils/onboardingRules';
-import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
+import { LISTA_INTEGRACIONES_OFICIALES, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 import { analizarTiemposCaso } from '../../utils/tiempoLaboral';
 
 import { consultarCasosGoogleSheets, actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
@@ -248,19 +248,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const miembroActual = useMemo(() => identificarMiembro(email), [email]);
   const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
 
-  const [modoSupervisorDemo, setModoSupervisorDemo] = useState<boolean>(() => {
-    try {
-      if (email === 'supervisor.demo@pedidosya.com') return true;
-      return localStorage.getItem('peya_modo_supervisor_demo') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
   const rolEfectivo = useMemo(() => {
-    if (modoSupervisorDemo) return 'Supervisor';
     return role || 'Agente';
-  }, [modoSupervisorDemo, role]);
+  }, [role]);
 
   const tieneAccesoSupervisor = useMemo(() => esSupervisor(rolEfectivo), [rolEfectivo]);
   const puedeRegistrar = useMemo(() => puedeRegistrarCasos(rolEfectivo), [rolEfectivo]);
@@ -278,6 +268,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     tienda: 230,
     pais: 120,
     integracion: 120,
+    asset: 110,
     estado: 150,
     pushPos: 120,
     pushCat: 120,
@@ -331,26 +322,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     sessionStorage.setItem('peya_onb_active_tab', tab);
     setActiveTabState(tab);
   }, []);
-
-  const toggleModoSupervisorDemo = useCallback(() => {
-    setModoSupervisorDemo(prev => {
-      const nuevo = !prev;
-      try {
-        localStorage.setItem('peya_modo_supervisor_demo', String(nuevo));
-      } catch {}
-      const nuevoRol = nuevo ? 'Supervisor' : (role || 'Agente');
-      const tabsDef = obtenerPestanasPorDefecto(nuevoRol);
-      setPestanasPermitidas(tabsDef);
-      if (nuevo) {
-        sessionStorage.setItem('peya_onb_active_tab', 'tl');
-        setActiveTabState('tl');
-      } else {
-        sessionStorage.setItem('peya_onb_active_tab', 'inicio');
-        setActiveTabState('inicio');
-      }
-      return nuevo;
-    });
-  }, [role]);
 
   // Escuchar permisos de pestañas en tiempo real desde Firestore
   useEffect(() => {
@@ -415,10 +386,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   
   const [casoSeleccionadoModal, setCasoSeleccionadoModal] = useState<any | null>(null);
   const [filtroMisCasos, setFiltroMisCasos] = useState<string>('todos');
+  const [filtroAsset, setFiltroAsset] = useState<string>('todos');
   
-  // Ordenamiento en Mis Casos: 2 botones independientes
+  // Ordenamiento en Mis Casos: por defecto SLA descendente (casos más críticos/urgentes primero)
   const [columnaOrdenMisCasos, setColumnaOrdenMisCasos] = useState<string>('sla');
-  const [direccionOrdenMisCasos, setDireccionOrdenMisCasos] = useState<'asc' | 'desc'>('asc');
+  const [direccionOrdenMisCasos, setDireccionOrdenMisCasos] = useState<'asc' | 'desc'>('desc');
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
@@ -746,10 +718,27 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const totalSla = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico)).length, [casosConAlertas]);
   const totalHcAbiertos = useMemo(() => casosConAlertas.filter(x => esCasoHcAbierto(x.caso)).length, [casosConAlertas]);
 
-  useEffect(() => { setCurrentPage(1); }, [filtroMisCasos, columnaOrdenMisCasos, direccionOrdenMisCasos, rowsPerPage]);
+  // Lista única de assets para el selector de filtro en Mis Casos
+  const listaAssetsMisCasos = useMemo(() => {
+    const setA = new Set<string>();
+    casosTotales.forEach(c => {
+      if (c.asset && c.asset !== '-' && c.asset !== 'S/V') {
+        setA.add(c.asset.trim());
+      }
+    });
+    LISTA_ASSETS.forEach(a => setA.add(a));
+    return Array.from(setA).sort();
+  }, [casosTotales]);
+
+  useEffect(() => { setCurrentPage(1); }, [filtroMisCasos, filtroAsset, columnaOrdenMisCasos, direccionOrdenMisCasos, rowsPerPage]);
 
   const listaFiltrada = useMemo(() => {
     const filtrados = casosConAlertas.filter(x => {
+      // Filtro de Asset
+      if (filtroAsset !== 'todos') {
+        if (String(x.caso.asset || '').toLowerCase() !== filtroAsset.toLowerCase()) return false;
+      }
+
       const est = String(x.caso.estado || '').toLowerCase().trim();
       const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
 
@@ -795,6 +784,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           valA = valStr(a.caso.integracion);
           valB = valStr(b.caso.integracion);
           break;
+        case 'asset':
+          valA = valStr(a.caso.asset);
+          valB = valStr(b.caso.asset);
+          break;
         case 'estado':
           valA = valStr(a.caso.estado);
           valB = valStr(b.caso.estado);
@@ -811,20 +804,34 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           valA = valStr(a.caso.propietarioTicket || a.caso.agente);
           valB = valStr(b.caso.propietarioTicket || b.caso.agente);
           break;
-        case 'sla':
-        default:
-          // Lógica por SLA
-          const critA = (a.alertas?.esCritico || (a.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
-          const critB = (b.alertas?.esCritico || (b.alertas?.horasTranscurridas || 0) >= 96) ? 1 : 0;
-          if (critA !== critB) return direccionOrdenMisCasos === 'asc' ? critB - critA : critA - critB;
-
-          const proxA = (a.alertas?.esProximoVencer || ((a.alertas?.horasTranscurridas || 0) >= 72 && (a.alertas?.horasTranscurridas || 0) < 96)) ? 1 : 0;
-          const proxB = (b.alertas?.esProximoVencer || ((b.alertas?.horasTranscurridas || 0) >= 72 && (b.alertas?.horasTranscurridas || 0) < 96)) ? 1 : 0;
-          if (proxA !== proxB) return direccionOrdenMisCasos === 'asc' ? proxB - proxA : proxA - proxB;
-
-          valA = a.alertas?.horasTranscurridas || 0;
-          valB = b.alertas?.horasTranscurridas || 0;
+        case 'seguimiento':
+          valA = valStr(a.caso.casoSeguimiento);
+          valB = valStr(b.caso.casoSeguimiento);
           break;
+        case 'sla':
+        default: {
+          // Lógica precisa por Horas de SLA reales transcurridas
+          const numA = typeof a.alertas?.horasTranscurridas === 'number'
+            ? a.alertas.horasTranscurridas
+            : parseFloat(String(a.alertas?.horasTranscurridas || '0')) || 0;
+          const numB = typeof b.alertas?.horasTranscurridas === 'number'
+            ? b.alertas.horasTranscurridas
+            : parseFloat(String(b.alertas?.horasTranscurridas || '0')) || 0;
+
+          if (numA !== numB) {
+            return direccionOrdenMisCasos === 'asc' ? numA - numB : numB - numA;
+          }
+
+          // Desempate 1: Estado crítico (≥96h o marcado crítico)
+          const critA = (a.alertas?.esCritico || numA >= 96) ? 1 : 0;
+          const critB = (b.alertas?.esCritico || numB >= 96) ? 1 : 0;
+          if (critA !== critB) {
+            return direccionOrdenMisCasos === 'asc' ? critA - critB : critB - critA;
+          }
+
+          // Desempate 2: Caso OP
+          return String(a.caso.casoOp || '').localeCompare(String(b.caso.casoOp || ''));
+        }
       }
 
       if (valA < valB) return direccionOrdenMisCasos === 'asc' ? -1 : 1;
@@ -1353,19 +1360,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             <div className="p-4 border-t border-[#3A3A3E]">
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
               <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
-              <button 
-                type="button" 
-                onClick={() => { toggleModoSupervisorDemo(); setSidebarMovilAbierto(false); }} 
-                className={`w-full mt-2 px-3 py-2 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center justify-center gap-2 ${
-                  modoSupervisorDemo
-                    ? 'bg-amber-500/25 text-amber-300 border-amber-500/60 hover:bg-amber-500/35 shadow-sm'
-                    : 'bg-[#1A1A1C] hover:bg-[#2C2C32] text-amber-400 border-amber-500/30 hover:border-amber-400'
-                }`}
-                title="Alternar entre vista de Agente y vista de Supervisor Demo"
-              >
-                <span>👔</span>
-                <span>{modoSupervisorDemo ? 'Modo Supervisor Demo (Activo)' : 'Vista Supervisor Demo'}</span>
-              </button>
               <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1419,19 +1413,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             <>
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
               <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
-              <button 
-                type="button" 
-                onClick={toggleModoSupervisorDemo} 
-                className={`w-full mt-2 px-3 py-2 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center justify-center gap-2 ${
-                  modoSupervisorDemo
-                    ? 'bg-amber-500/25 text-amber-300 border-amber-500/60 hover:bg-amber-500/35 shadow-sm'
-                    : 'bg-[#1A1A1C] hover:bg-[#2C2C32] text-amber-400 border-amber-500/30 hover:border-amber-400'
-                }`}
-                title="Alternar entre vista de Agente y vista de Supervisor Demo para comprobar métricas y alertas"
-              >
-                <span>👔</span>
-                <span>{modoSupervisorDemo ? 'Modo Supervisor Demo' : 'Vista Supervisor Demo'}</span>
-              </button>
               <div className="mt-3 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1659,21 +1640,45 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     <span>👤</span>
                     <span>{tieneAccesoSupervisor ? 'Supervisor' : 'Agente'}: {nombreUsuarioAutenticado}</span>
                   </div>
+                </div>
+              </div>
 
-                  {/* Botón de alternar Vista Supervisor Demo */}
-                  <button
-                    type="button"
-                    onClick={toggleModoSupervisorDemo}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-sm ${
-                      modoSupervisorDemo
-                        ? 'bg-amber-500/25 text-amber-300 border-amber-500/60 hover:bg-amber-500/35'
-                        : 'bg-[#2C2C32] hover:bg-[#3A3A3E] text-amber-400 border-amber-500/40 hover:border-amber-400'
-                    }`}
-                    title={modoSupervisorDemo ? 'Modo Supervisor activo. Haz clic para volver a vista de Agente' : 'Probar vista de Supervisor Demo para comprobar métricas, SLAs y gestión global'}
+              {/* Barra de Filtro de Asset para Mis Casos */}
+              <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-xs text-[#B3B3B3] font-bold uppercase tracking-wide flex items-center gap-1.5">
+                    <span>💻</span>
+                    <span>Filtro Asset:</span>
+                  </span>
+                  <select
+                    value={filtroAsset}
+                    onChange={e => {
+                      setFiltroAsset(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-[#121212] border border-[#3A3A3E] hover:border-[#E85A80] text-xs text-white rounded-lg px-3 py-1.5 focus:border-[#E85A80] transition cursor-pointer"
                   >
-                    <span>👔</span>
-                    <span>{modoSupervisorDemo ? 'Modo Supervisor Demo (Activo)' : 'Vista Supervisor Demo'}</span>
-                  </button>
+                    <option value="todos">Todos los Assets ({listaAssetsMisCasos.length})</option>
+                    {listaAssetsMisCasos.map(a => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                  {filtroAsset !== 'todos' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFiltroAsset('todos');
+                        setCurrentPage(1);
+                      }}
+                      className="text-xs text-[#F46C8E] hover:text-pink-300 underline font-semibold cursor-pointer flex items-center gap-1"
+                    >
+                      <span>✕</span>
+                      <span>Limpiar filtro asset ({filtroAsset})</span>
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs text-[#B3B3B3] flex items-center gap-2">
+                  <span>Mostrando: <strong className="text-white">{listaFiltrada.length}</strong> casos</span>
                 </div>
               </div>
 
@@ -1765,6 +1770,21 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         </th>
                         <th 
                           onClick={() => {
+                            if (columnaOrdenMisCasos !== 'asset') { setColumnaOrdenMisCasos('asset'); setDireccionOrdenMisCasos('asc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                          }}
+                          className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
+                          title="Clic para ordenar por Asset"
+                          style={{ width: colWidthsMisCasos.asset, minWidth: colWidthsMisCasos.asset }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Asset</span>
+                            <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asset' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
+                          </div>
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asset', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                        </th>
+                        <th 
+                          onClick={() => {
                             if (columnaOrdenMisCasos !== 'estado') { setColumnaOrdenMisCasos('estado'); setDireccionOrdenMisCasos('asc'); }
                             else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
                           }}
@@ -1810,11 +1830,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         </th>
                         <th 
                           onClick={() => {
-                            if (columnaOrdenMisCasos !== 'sla') { setColumnaOrdenMisCasos('sla'); setDireccionOrdenMisCasos('asc'); }
-                            else { setDireccionOrdenMisCasos(prev => prev === 'asc' ? 'desc' : 'asc'); }
+                            if (columnaOrdenMisCasos !== 'sla') { setColumnaOrdenMisCasos('sla'); setDireccionOrdenMisCasos('desc'); }
+                            else { setDireccionOrdenMisCasos(prev => prev === 'desc' ? 'asc' : 'desc'); }
                           }}
                           className="p-3 cursor-pointer hover:text-[#F46C8E] transition relative" 
-                          title="Clic para ordenar por SLA"
+                          title="Clic para ordenar por SLA (mayor o menor)"
                           style={{ width: colWidthsMisCasos.sla, minWidth: colWidthsMisCasos.sla }}
                         >
                           <div className="flex items-center gap-1.5">
