@@ -589,6 +589,32 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   return resultado;
 }
 
+/**
+ * Detecta si un caso corresponde a "Casos HC Abiertos":
+ * Casos con oportunidad u onboarding cerrados (satisfactorio por ONB o KAM),
+ * pero que continúan en proceso para prueba (etapa en proceso para pruebas)
+ * con ticket de seguimiento HeroCare activo/abierto.
+ * Los fallidos NO aplican (sus tickets HeroCare sí se cierran).
+ */
+export function esCasoHcAbierto(caso: any): boolean {
+  if (!caso) return false;
+  const est = String(caso.estado || '').toLowerCase().trim();
+  const et = String(caso.etapa || '').toLowerCase().trim();
+  
+  // Los casos fallidos o cancelados cierran su ticket HeroCare
+  if (est.includes('fallid') || est.includes('cancel')) return false;
+  
+  // Debe ser un estado cerrado satisfactorio (por ONB o KAM o satisfactorio)
+  const esCerradoSatisfactorio = est.includes('cerrad') || est.includes('satisfactori');
+  
+  // Debe estar en proceso para pruebas
+  const enPruebas = et.includes('en proceso para prueba') || et.includes('proceso para prueba') || et.includes('en proceso para pruebas');
+  
+  // Debe contar con caso/ticket de seguimiento de HeroCare
+  const tieneSeguimiento = Boolean(caso.casoSeguimiento && caso.casoSeguimiento !== '-' && String(caso.casoSeguimiento).trim() !== '');
+  
+  return esCerradoSatisfactorio && enPruebas && tieneSeguimiento;
+}
 
 /**
  * Detección de alertas de Push y SLA para la pestaña "Mis Casos"

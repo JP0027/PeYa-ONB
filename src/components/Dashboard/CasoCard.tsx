@@ -1,5 +1,5 @@
 import React from 'react';
-import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
+import { obtenerTextoCasoOp, esCasoHcAbierto } from '../../utils/onboardingRules';
 
 export interface CasoAlertas {
   requierePushPos?: boolean;
@@ -168,7 +168,17 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
         {caso.propietarioTicket || caso.agente}
       </td>
       <td className="p-3 text-[#D1D5DB] font-mono text-sm font-bold">
-        {caso.casoSeguimiento && caso.casoSeguimiento !== '-' ? caso.casoSeguimiento : <span className="text-[#9CA3AF] italic text-xs">S/N</span>}
+        {caso.casoSeguimiento && caso.casoSeguimiento !== '-' ? (
+          esCasoHcAbierto(caso) ? (
+            <span className="bg-emerald-950/80 text-emerald-300 border border-emerald-700/70 px-2 py-0.5 rounded text-xs inline-flex items-center gap-1 shadow-sm font-mono" title="Ticket de seguimiento HeroCare activo en proceso para pruebas">
+              <span>🎫</span> {caso.casoSeguimiento}
+            </span>
+          ) : (
+            caso.casoSeguimiento
+          )
+        ) : (
+          <span className="text-[#9CA3AF] italic text-xs">S/N</span>
+        )}
       </td>
       <td className="p-3">
         <button 

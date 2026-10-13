@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { isAgentMatch, identificarMiembro } from '../../utils/agentMatching';
+import { isAgentMatch, identificarMiembro, isHeroCareOwnerMatch } from '../../utils/agentMatching';
 import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL } from '../../utils/userPermissions';
 import { 
   procesarActualizacionCaso, 
@@ -8,7 +8,8 @@ import {
   formatearFechaHora, 
   esPushKamRealizado, 
   normalizarRespuesta,
-  resolverOportunidad 
+  resolverOportunidad,
+  esCasoHcAbierto
 } from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES } from '../../data/catalogoOnboarding';
 import { analizarTiemposCaso } from '../../utils/tiempoLaboral';
@@ -89,6 +90,43 @@ function esCasoMayorA24Horas(c: any, track: string = 'general'): boolean {
   return false;
 }
 
+function obtenerPushesRegistrados(): Set<string> {
+  const conjunto = new Set<string>();
+  try {
+    const rawSession = sessionStorage.getItem('peya_pushes_hechos');
+    if (rawSession) {
+      const arr = JSON.parse(rawSession);
+      if (Array.isArray(arr)) {
+        arr.forEach(id => conjunto.add(String(id).trim().toLowerCase()));
+      }
+    }
+  } catch {}
+  try {
+    const rawLocal = localStorage.getItem('peya_pushes_realizados');
+    if (rawLocal) {
+      const arr = JSON.parse(rawLocal);
+      if (Array.isArray(arr)) {
+        arr.forEach(id => conjunto.add(String(id).trim().toLowerCase()));
+      }
+    }
+  } catch {}
+  return conjunto;
+}
+
+export function registrarPushEnSesion(identificadores: (string | number | undefined | null)[]) {
+  try {
+    const set = obtenerPushesRegistrados();
+    identificadores.forEach(id => {
+      if (id !== undefined && id !== null && String(id).trim() !== '') {
+        set.add(String(id).trim().toLowerCase());
+      }
+    });
+    const lista = Array.from(set);
+    sessionStorage.setItem('peya_pushes_hechos', JSON.stringify(lista));
+    localStorage.setItem('peya_pushes_realizados', JSON.stringify(lista));
+  } catch {}
+}
+
 function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: string, nombreUsuario?: string): AlertaPush[] {
   if (!Array.isArray(casos) || casos.length === 0) return [];
 
@@ -104,8 +142,10 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
   const ahora = new Date();
   const horaTexto = ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const resultados: AlertaPush[] = [];
+  const pushesRegistrados = obtenerPushesRegistrados();
 
   // 1. SOLO AL TL / SUPERVISOR LE DEBEN APARECER LOS PUSH KAM DE MÁS DE 24 HORAS
+  // y únicamente para supervisión global (casos que no son asignados directos del agente o en rol TL)
   if (esRolSupervisor) {
     casosActivos.forEach(c => {
       const alertas = analizarAlertasCaso(c);
@@ -118,9 +158,9 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
           id: `kam_pos_${c.id || c.casoOp}`,
           caso: c,
           tipo: 'kam_pos',
-          titulo: 'Push KAM POS Pendiente (>24h)',
+          titulo: 'Supervisión: Push KAM POS (>24h)',
           hora: horaTexto,
-          mensaje: `Falta push con KAM (>24 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+          mensaje: `Escalamiento con KAM (>24h) en caso OP #${opLabel} (${tiendaLabel})`
         });
       }
 
@@ -130,17 +170,18 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
           id: `kam_cat_${c.id || c.casoOp}`,
           caso: c,
           tipo: 'kam_cat',
-          titulo: 'Push KAM Catálogo Pendiente (>24h)',
+          titulo: 'Supervisión: Push KAM Catálogo (>24h)',
           hora: horaTexto,
-          mensaje: `Falta push con KAM (>24 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+          mensaje: `Escalamiento con KAM (>24h) en caso OP #${opLabel} (${tiendaLabel})`
         });
       }
     });
   }
 
-  // 2. ALERTAS DE PUSH DE SEGUIMIENTO (>= 4 HORAS):
-  // Solo sobre los casos propios asignados al usuario (Agente o TL para sus casos)
-  // Condiciones obligatorias: Debe tener Fecha de Inicio real, faltar push y tiempo >= 4 horas
+  // 2. ALERTAS DE PUSH DE SEGUIMIENTO (>= 4 HORAS) PARA AGENTES:
+  // Solo sobre los casos asignados al usuario
+  // Condiciones: Seguimiento POS API o Catálogo activo, faltar push y tiempo >= 4 horas
+  // Si ya realizó el push (en datos de sheet, respuesta o sesión/local), NUNCA alertar de nuevo.
   const misCasos = casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
 
   misCasos.forEach(c => {
@@ -148,39 +189,54 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
     const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
     const tiendaLabel = c.tienda || 'Sin tienda';
 
-    // Push de Seguimiento POS (≥ 4 hrs)
-    if (alertas.requierePushPos) {
+    const idsCaso = [
+      String(c.id || '').trim().toLowerCase(),
+      String(c.casoOp || '').trim().toLowerCase(),
+      String(c.vendorId || c.vendor_id || '').trim().toLowerCase()
+    ].filter(Boolean);
+
+    const hizoPushPosRegistrado = idsCaso.some(id => 
+      pushesRegistrados.has(`pos_${id}`) || pushesRegistrados.has(id)
+    );
+    const hizoPushCatRegistrado = idsCaso.some(id => 
+      pushesRegistrados.has(`cat_${id}`) || pushesRegistrados.has(id)
+    );
+
+    // Push de Seguimiento POS (≥ 4 hrs) - Solo si NO ha realizado el push
+    const tienePushPosEfectivo = alertas.tienePushPos || 
+      Boolean(c.fechaPushPos && c.fechaPushPos !== '-' && c.fechaPushPos !== 'S/V' && String(c.fechaPushPos).trim() !== '') || 
+      c.respuestaPos === 'Si' || 
+      c.respuestaPos === 'No' || 
+      c.pushKamPos === true || c.pushKamPos === 'TRUE' ||
+      hizoPushPosRegistrado;
+
+    if (alertas.requierePushPos && !tienePushPosEfectivo) {
       resultados.push({
         id: `push_pos_${c.id || c.casoOp}`,
         caso: c,
         tipo: 'push_pos',
-        titulo: 'Push de Seguimiento POS Pendiente',
+        titulo: 'Push de Seguimiento POS Pendiente (≥ 4h)',
         hora: horaTexto,
         mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
       });
     }
 
-    // Push de Seguimiento Catálogo (≥ 4 hrs)
-    if (alertas.requierePushCat) {
+    // Push de Seguimiento Catálogo (≥ 4 hrs) - Solo si NO ha realizado el push
+    const tienePushCatEfectivo = alertas.tienePushCat || 
+      Boolean(c.fechaPushCat && c.fechaPushCat !== '-' && c.fechaPushCat !== 'S/V' && String(c.fechaPushCat).trim() !== '') || 
+      c.respuestaCat === 'Si' || 
+      c.respuestaCat === 'No' || 
+      c.pushKamCat === true || c.pushKamCat === 'TRUE' ||
+      hizoPushCatRegistrado;
+
+    if (alertas.requierePushCat && !tienePushCatEfectivo) {
       resultados.push({
         id: `push_cat_${c.id || c.casoOp}`,
         caso: c,
         tipo: 'push_cat',
-        titulo: 'Push de Seguimiento Catálogo Pendiente',
+        titulo: 'Push de Seguimiento Catálogo Pendiente (≥ 4h)',
         hora: horaTexto,
         mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-      });
-    }
-
-    // Alerta de SLA de la OP si no tiene seguimiento activo (≥ 4 hrs)
-    if (alertas.trackSeguimiento === 'op' && alertas.esSlaMayorA4) {
-      resultados.push({
-        id: `sla_op_${c.id || c.casoOp}`,
-        caso: c,
-        tipo: 'sla_op',
-        titulo: 'Alerta SLA OP Pendiente (≥ 4h)',
-        hora: horaTexto,
-        mensaje: `Caso OP #${opLabel} (${tiendaLabel}) superó el SLA de 4 horas (${alertas.tiempoTexto}) sin seguimiento activo`
       });
     }
   });
@@ -189,8 +245,25 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
 }
 
 export default function Dashboard({ role, email, nombreUsuario, onLogout }: DashboardProps) {
-  const tieneAccesoSupervisor = useMemo(() => esSupervisor(role), [role]);
-  const puedeRegistrar = useMemo(() => puedeRegistrarCasos(role), [role]);
+  const miembroActual = useMemo(() => identificarMiembro(email), [email]);
+  const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
+
+  const [modoSupervisorDemo, setModoSupervisorDemo] = useState<boolean>(() => {
+    try {
+      if (email === 'supervisor.demo@pedidosya.com') return true;
+      return localStorage.getItem('peya_modo_supervisor_demo') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const rolEfectivo = useMemo(() => {
+    if (modoSupervisorDemo) return 'Supervisor';
+    return role || 'Agente';
+  }, [modoSupervisorDemo, role]);
+
+  const tieneAccesoSupervisor = useMemo(() => esSupervisor(rolEfectivo), [rolEfectivo]);
+  const puedeRegistrar = useMemo(() => puedeRegistrarCasos(rolEfectivo), [rolEfectivo]);
 
   // Sidebar responsivo y colapsable
   const [sidebarColapsado, setSidebarColapsado] = useState<boolean>(false);
@@ -235,7 +308,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   // Lista dinámica de pestañas permitidas para el usuario autenticado (desde Firestore o por defecto)
   const [pestanasPermitidas, setPestanasPermitidas] = useState<string[]>(() => {
-    const porDefecto = obtenerPestanasPorDefecto(role);
+    const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
     return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto;
   });
 
@@ -246,7 +319,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   const [activeTab, setActiveTabState] = useState<string>(() => {
     const saved = sessionStorage.getItem('peya_onb_active_tab');
-    const tabsDefecto = obtenerPestanasPorDefecto(role);
+    const tabsDefecto = obtenerPestanasPorDefecto(rolEfectivo);
     const tabsValidas = !tieneAccesoSupervisor ? tabsDefecto.filter(p => p !== 'usuarios') : tabsDefecto;
     if (saved && tabsValidas.includes(saved)) {
       return saved;
@@ -258,6 +331,26 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     sessionStorage.setItem('peya_onb_active_tab', tab);
     setActiveTabState(tab);
   }, []);
+
+  const toggleModoSupervisorDemo = useCallback(() => {
+    setModoSupervisorDemo(prev => {
+      const nuevo = !prev;
+      try {
+        localStorage.setItem('peya_modo_supervisor_demo', String(nuevo));
+      } catch {}
+      const nuevoRol = nuevo ? 'Supervisor' : (role || 'Agente');
+      const tabsDef = obtenerPestanasPorDefecto(nuevoRol);
+      setPestanasPermitidas(tabsDef);
+      if (nuevo) {
+        sessionStorage.setItem('peya_onb_active_tab', 'tl');
+        setActiveTabState('tl');
+      } else {
+        sessionStorage.setItem('peya_onb_active_tab', 'inicio');
+        setActiveTabState('inicio');
+      }
+      return nuevo;
+    });
+  }, [role]);
 
   // Escuchar permisos de pestañas en tiempo real desde Firestore
   useEffect(() => {
@@ -349,12 +442,24 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     const targetCaso = alerta.caso;
     const idBuscado = String(targetCaso.casoOp || targetCaso.vendorId || targetCaso.id || '').trim();
 
-    if (puedeVerTab('tl')) {
+    // Si el usuario es supervisor (o está en la pestaña 'tl', o la alerta es kam_pos/kam_cat de supervisión):
+    // Debe mostrarle la fila al supervisor en "Casos en progreso global" ('tl')
+    const esAlertaSupervisor = alerta.tipo === 'kam_pos' || alerta.tipo === 'kam_cat';
+    const irACasosGlobales = puedeVerTab('tl') && (activeTab === 'tl' || esAlertaSupervisor || tieneAccesoSupervisor);
+
+    if (irACasosGlobales) {
       setActiveTab('tl');
-    } else if (puedeVerTab('inicio')) {
+    } else {
       setActiveTab('inicio');
-    } else if (pestanasPermitidas.length > 0) {
-      setActiveTab(pestanasPermitidas[0]);
+      const casoAlertas = analizarAlertasCaso(targetCaso);
+      if (alerta.tipo === 'push_pos' && casoAlertas.requierePushPos) {
+        setFiltroMisCasos('pushPos');
+      } else if (alerta.tipo === 'push_cat' && casoAlertas.requierePushCat) {
+        setFiltroMisCasos('pushCat');
+      } else {
+        setFiltroMisCasos('todos');
+      }
+      setCurrentPage(1);
     }
 
     setCasoResaltadoId(idBuscado);
@@ -363,18 +468,21 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const el = document.getElementById(`caso-row-${idBuscado}`) || 
                  document.getElementById(`caso-row-${targetCaso.id}`) ||
                  document.getElementById(`caso-row-${targetCaso.casoOp}`) ||
-                 document.getElementById(`caso-row-${targetCaso.vendorId}`);
+                 document.getElementById(`caso-row-${targetCaso.vendorId}`) ||
+                 document.querySelector(`[data-caso-op="${idBuscado}"]`) ||
+                 document.querySelector(`[data-caso-id="${idBuscado}"]`) ||
+                 document.querySelector(`[data-vendor-id="${idBuscado}"]`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }, 200);
+    }, 400);
 
     setAlertasPushActivas(prev => prev.filter(a => a.id !== alerta.id));
 
     setTimeout(() => {
       setCasoResaltadoId(prev => (prev === idBuscado ? null : prev));
-    }, 8000);
-  }, [puedeVerTab, pestanasPermitidas, setActiveTab]);
+    }, 9000);
+  }, [activeTab, puedeVerTab, tieneAccesoSupervisor, setActiveTab]);
 
   const manejarCerrarAlertaPush = useCallback((id: string | number) => {
     setAlertasPushActivas(prev => prev.filter(a => a.id !== id));
@@ -386,9 +494,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const casosCountRef = useRef<number>(0);
-
-  const miembroActual = useMemo(() => identificarMiembro(email), [email]);
-  const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
 
   const [formulario, setFormulario] = useState<FormularioNuevoCaso>(() => {
     return {
@@ -561,13 +666,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       alertaLoginEjecutadaRef.current = true;
       sessionStorage.setItem('peya_ultimo_timbre_ts', String(Date.now()));
 
-      const pendientes = detectarCasosPushPendientes(casosTotales, role, email, nombreUsuarioAutenticado);
+      const pendientes = detectarCasosPushPendientes(casosTotales, rolEfectivo, email, nombreUsuarioAutenticado);
       if (pendientes.length > 0) {
         reproducirCampana();
         setAlertasPushActivas(pendientes);
       }
     }
-  }, [casosTotales, role, email, nombreUsuarioAutenticado, reproducirCampana]);
+  }, [casosTotales, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
 
   // 2. Recordatorio continuo cada 30 minutos si aún existen casos con SLA >= 4h sin push
   useEffect(() => {
@@ -581,7 +686,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       if (ultimoTs === 0 || ahora - ultimoTs >= INTERVALO_RECORDATORIO_MS) {
         sessionStorage.setItem('peya_ultimo_timbre_ts', String(ahora));
-        const pendientes = detectarCasosPushPendientes(casosActuales, role, email, nombreUsuarioAutenticado);
+        const pendientes = detectarCasosPushPendientes(casosActuales, rolEfectivo, email, nombreUsuarioAutenticado);
         if (pendientes.length > 0) {
           reproducirCampana();
           setAlertasPushActivas(pendientes);
@@ -589,7 +694,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       }
     }, 15000);
     return () => clearInterval(timer);
-  }, [role, email, nombreUsuarioAutenticado, reproducirCampana]);
+  }, [rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
 
   const esCasoActivo = (c: any): boolean => {
     if (!c) return false;
@@ -603,7 +708,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const casosMostrados = useMemo(() => {
     if (activeTab === 'global') return casosTotales.filter(esCasoActivo);
     if (activeTab === 'inicio') {
-      return casosTotales.filter(c => esCasoActivo(c) && isAgentMatch(c, email, nombreUsuarioAutenticado));
+      return casosTotales.filter(c => {
+        const esMioActivo = esCasoActivo(c) && isAgentMatch(c, email, nombreUsuarioAutenticado);
+        const esMioHcAbierto = esCasoHcAbierto(c) && isHeroCareOwnerMatch(c, email, nombreUsuarioAutenticado);
+        return esMioActivo || esMioHcAbierto;
+      });
     }
     return casosTotales;
   }, [casosTotales, activeTab, email, nombreUsuarioAutenticado]);
@@ -617,20 +726,25 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   const casosConAlertas = useMemo(() => casosMostrados.map(c => ({ caso: c, alertas: analizarAlertasCaso(c) })), [casosMostrados, tickReloj]);
   
+  const totalTodosActivos = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso)).length, [casosConAlertas]);
+
   const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => {
+    if (!esCasoActivo(x.caso)) return false;
     const est = String(x.caso.estado || '').toLowerCase().trim();
     const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
     return !esSinOp && (est === 'en progreso' || est.includes('progreso'));
   }).length, [casosConAlertas]);
 
   const totalSinOportunidad = useMemo(() => casosConAlertas.filter(x => {
+    if (!esCasoActivo(x.caso)) return false;
     const est = String(x.caso.estado || '').toLowerCase().trim();
     return est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
   }).length, [casosConAlertas]);
 
-  const totalPos = useMemo(() => casosConAlertas.filter(x => x.alertas.requierePushPos).length, [casosConAlertas]);
-  const totalCat = useMemo(() => casosConAlertas.filter(x => x.alertas.requierePushCat).length, [casosConAlertas]);
-  const totalSla = useMemo(() => casosConAlertas.filter(x => x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico).length, [casosConAlertas]);
+  const totalPos = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && x.alertas.requierePushPos).length, [casosConAlertas]);
+  const totalCat = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && x.alertas.requierePushCat).length, [casosConAlertas]);
+  const totalSla = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico)).length, [casosConAlertas]);
+  const totalHcAbiertos = useMemo(() => casosConAlertas.filter(x => esCasoHcAbierto(x.caso)).length, [casosConAlertas]);
 
   useEffect(() => { setCurrentPage(1); }, [filtroMisCasos, columnaOrdenMisCasos, direccionOrdenMisCasos, rowsPerPage]);
 
@@ -638,6 +752,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     const filtrados = casosConAlertas.filter(x => {
       const est = String(x.caso.estado || '').toLowerCase().trim();
       const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
+
+      if (filtroMisCasos === 'hcAbiertos') {
+        return esCasoHcAbierto(x.caso);
+      }
+
+      // Los otros filtros aplican a los casos activos
+      if (!esCasoActivo(x.caso)) return false;
+
       if (filtroMisCasos === 'enProgreso') {
         return !esSinOp && (est === 'en progreso' || est.includes('progreso'));
       }
@@ -716,6 +838,23 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     const start = (currentPage - 1) * rowsPerPage;
     return listaFiltrada.slice(start, start + rowsPerPage);
   }, [listaFiltrada, currentPage, rowsPerPage]);
+
+  // Si se resalta un caso (ej. desde una alerta), asegurar que la paginación muestre la página donde está ubicado
+  useEffect(() => {
+    if (!casoResaltadoId || activeTab !== 'inicio') return;
+    const idx = listaFiltrada.findIndex(x => {
+      const c = x.caso;
+      return String(c.id || '').trim().toLowerCase() === casoResaltadoId.toLowerCase() || 
+             String(c.casoOp || '').trim().toLowerCase() === casoResaltadoId.toLowerCase() ||
+             String(c.vendorId || c.vendor_id || '').trim().toLowerCase() === casoResaltadoId.toLowerCase();
+    });
+    if (idx !== -1) {
+      const targetPage = Math.floor(idx / rowsPerPage) + 1;
+      if (targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+      }
+    }
+  }, [casoResaltadoId, activeTab, listaFiltrada, rowsPerPage, currentPage]);
 
   const manejarBusqueda = async (busquedaId: string) => {
     if (!busquedaId.trim()) return;
@@ -1055,6 +1194,29 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       setCasosSheets(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoActualizado } : c));
 
+      // Guardar inmediatamente en caché local para evitar retrocesos al sincronizar
+      try {
+        const local = localStorage.getItem('PEDA_CASOS_LOCAL');
+        if (local) {
+          const parsed = JSON.parse(local);
+          const updated = parsed.map((c: any) => coincideCaso(c) ? { ...c, ...casoActualizado } : c);
+          localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(updated));
+        }
+      } catch (_) {}
+
+      // Registrar en sesión para suprimir de inmediato cualquier alerta futura de push sobre este caso
+      registrarPushEnSesion([
+        caso.id,
+        caso.casoOp,
+        caso.vendorId,
+        caso.vendor_id,
+        idBuscado,
+        `${tipo}_${caso.id}`,
+        `${tipo}_${caso.casoOp}`,
+        `${tipo}_${caso.vendorId}`,
+        `${tipo}_${idBuscado}`
+      ]);
+
       // 2. Sincronizar directamente con Backend y Google Sheets
       try {
         const resPush = await fetch('/api/sheets/actualizar-caso', {
@@ -1075,7 +1237,12 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       setAlertasPushActivas(prev => prev.filter(a => {
         const c = a.caso;
-        return !(String(c?.id || '').trim() === idBuscado || String(c?.casoOp || '').trim() === idBuscado);
+        if (!c) return false;
+        const matchesOp = Boolean(c.casoOp && caso.casoOp && String(c.casoOp).trim() === String(caso.casoOp).trim());
+        const matchesId = Boolean(c.id && caso.id && String(c.id).trim() === String(caso.id).trim());
+        const matchesVen = Boolean((c.vendorId || c.vendor_id) && (caso.vendorId || caso.vendor_id) && String(c.vendorId || c.vendor_id).trim() === String(caso.vendorId || caso.vendor_id).trim());
+        const matchesSearch = Boolean(String(c.id || '').trim() === idBuscado || String(c.casoOp || '').trim() === idBuscado);
+        return !(matchesOp || matchesId || matchesVen || matchesSearch);
       }));
     } catch (err) {
       console.error("Error al registrar push:", err);
@@ -1186,6 +1353,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             <div className="p-4 border-t border-[#3A3A3E]">
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
               <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
+              <button 
+                type="button" 
+                onClick={() => { toggleModoSupervisorDemo(); setSidebarMovilAbierto(false); }} 
+                className={`w-full mt-2 px-3 py-2 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center justify-center gap-2 ${
+                  modoSupervisorDemo
+                    ? 'bg-amber-500/25 text-amber-300 border-amber-500/60 hover:bg-amber-500/35 shadow-sm'
+                    : 'bg-[#1A1A1C] hover:bg-[#2C2C32] text-amber-400 border-amber-500/30 hover:border-amber-400'
+                }`}
+                title="Alternar entre vista de Agente y vista de Supervisor Demo"
+              >
+                <span>👔</span>
+                <span>{modoSupervisorDemo ? 'Modo Supervisor Demo (Activo)' : 'Vista Supervisor Demo'}</span>
+              </button>
               <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1239,7 +1419,20 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             <>
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
               <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
-              <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
+              <button 
+                type="button" 
+                onClick={toggleModoSupervisorDemo} 
+                className={`w-full mt-2 px-3 py-2 rounded-lg text-xs font-bold border transition cursor-pointer flex items-center justify-center gap-2 ${
+                  modoSupervisorDemo
+                    ? 'bg-amber-500/25 text-amber-300 border-amber-500/60 hover:bg-amber-500/35 shadow-sm'
+                    : 'bg-[#1A1A1C] hover:bg-[#2C2C32] text-amber-400 border-amber-500/30 hover:border-amber-400'
+                }`}
+                title="Alternar entre vista de Agente y vista de Supervisor Demo para comprobar métricas y alertas"
+              >
+                <span>👔</span>
+                <span>{modoSupervisorDemo ? 'Modo Supervisor Demo' : 'Vista Supervisor Demo'}</span>
+              </button>
+              <div className="mt-3 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
               </div>
@@ -1435,12 +1628,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             <div className="space-y-6">
               <div className="flex flex-wrap gap-4 items-center justify-between">
                 <div className="flex flex-wrap gap-2">
-                  <AlertBadge tipo="todos" cantidad={casosConAlertas.length} activo={filtroMisCasos === 'todos'} onClick={setFiltroMisCasos} />
+                  <AlertBadge tipo="todos" cantidad={totalTodosActivos} activo={filtroMisCasos === 'todos'} onClick={setFiltroMisCasos} />
                   <AlertBadge tipo="enProgreso" cantidad={totalEnProgresoNormal} activo={filtroMisCasos === 'enProgreso'} onClick={setFiltroMisCasos} />
                   <AlertBadge tipo="sinOportunidad" cantidad={totalSinOportunidad} activo={filtroMisCasos === 'sinOportunidad'} onClick={setFiltroMisCasos} />
                   <AlertBadge tipo="pushPos" cantidad={totalPos} activo={filtroMisCasos === 'pushPos'} onClick={setFiltroMisCasos} />
                   <AlertBadge tipo="pushCat" cantidad={totalCat} activo={filtroMisCasos === 'pushCat'} onClick={setFiltroMisCasos} />
                   <AlertBadge tipo="sla" cantidad={totalSla} activo={filtroMisCasos === 'sla'} onClick={setFiltroMisCasos} />
+                  <AlertBadge tipo="hcAbiertos" cantidad={totalHcAbiertos} activo={filtroMisCasos === 'hcAbiertos'} onClick={setFiltroMisCasos} />
                 </div>
                 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1463,10 +1657,45 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   {/* Usuario autenticado */}
                   <div className="px-3 py-1.5 rounded-lg bg-pink-950/40 border border-pink-800/50 text-pink-300 text-xs font-semibold flex items-center gap-1.5 shadow-sm">
                     <span>👤</span>
-                    <span>Agente: {nombreUsuarioAutenticado}</span>
+                    <span>{tieneAccesoSupervisor ? 'Supervisor' : 'Agente'}: {nombreUsuarioAutenticado}</span>
                   </div>
+
+                  {/* Botón de alternar Vista Supervisor Demo */}
+                  <button
+                    type="button"
+                    onClick={toggleModoSupervisorDemo}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer shadow-sm ${
+                      modoSupervisorDemo
+                        ? 'bg-amber-500/25 text-amber-300 border-amber-500/60 hover:bg-amber-500/35'
+                        : 'bg-[#2C2C32] hover:bg-[#3A3A3E] text-amber-400 border-amber-500/40 hover:border-amber-400'
+                    }`}
+                    title={modoSupervisorDemo ? 'Modo Supervisor activo. Haz clic para volver a vista de Agente' : 'Probar vista de Supervisor Demo para comprobar métricas, SLAs y gestión global'}
+                  >
+                    <span>👔</span>
+                    <span>{modoSupervisorDemo ? 'Modo Supervisor Demo (Activo)' : 'Vista Supervisor Demo'}</span>
+                  </button>
                 </div>
               </div>
+
+              {/* Banner explicativo para Casos HC Abiertos */}
+              {filtroMisCasos === 'hcAbiertos' && (
+                <div className="bg-emerald-950/40 border border-emerald-700/60 rounded-xl px-4 py-3 text-xs text-emerald-300 flex items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">🎫</span>
+                    <div>
+                      <span className="font-bold text-white">Casos HC Abiertos ({totalHcAbiertos}):</span>{' '}
+                      Casos de OP u Onboarding cerrados satisfactoriamente que aún están en proceso para prueba con ticket de seguimiento HeroCare abierto asignados a ti como Propietario de Ticket HeroCare.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroMisCasos('todos')}
+                    className="text-[11px] underline hover:text-white cursor-pointer font-semibold shrink-0"
+                  >
+                    Volver a todos los activos
+                  </button>
+                </div>
+              )}
 
               {/* Tabla de Mis Casos con columnas redimensionables */}
               <div className="bg-[#202024] border border-[#3A3A3E] rounded-xl overflow-hidden shadow-lg">
@@ -1667,6 +1896,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                         <option value={15}>15</option>
                         <option value={20}>20</option>
                         <option value={50}>50</option>
+                        <option value={100}>100</option>
                       </select>
                       <span>casos</span>
                     </div>

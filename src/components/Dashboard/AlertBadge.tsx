@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type AlertBadgeType = 'todos' | 'enProgreso' | 'sinOportunidad' | 'pushPos' | 'pushCat' | 'sla' | string;
+export type AlertBadgeType = 'todos' | 'enProgreso' | 'sinOportunidad' | 'pushPos' | 'pushCat' | 'sla' | 'hcAbiertos' | string;
 
 export interface AlertBadgeProps {
   tipo: AlertBadgeType;
@@ -36,6 +36,10 @@ export default function AlertBadge({ tipo, cantidad, activo, onClick }: AlertBad
         return activo
           ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/30'
           : 'bg-rose-950/40 text-rose-500 border border-rose-900/50 hover:bg-rose-900/60 hover:text-white';
+      case 'hcAbiertos':
+        return activo
+          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
+          : 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/50 hover:bg-emerald-900/60 hover:text-white';
       default:
         return 'bg-[#2C2C32] text-[#B3B3B3]';
     }
@@ -49,6 +53,7 @@ export default function AlertBadge({ tipo, cantidad, activo, onClick }: AlertBad
       case 'pushPos': return '⚠️ Push POS API';
       case 'pushCat': return '📦 Push Catálogo';
       case 'sla': return '🚨 SLA Crítico';
+      case 'hcAbiertos': return '🎫 Casos HC Abiertos';
       default: return '';
     }
   };

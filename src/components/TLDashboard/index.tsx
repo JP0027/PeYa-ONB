@@ -249,6 +249,48 @@ export default function TLDashboard({
     return casosActivosOrdenados.slice(start, start + rowsPerPage);
   }, [casosActivosOrdenados, currentPage, rowsPerPage]);
 
+  // Si se resalta un caso (desde alertas de supervisor), paginar y ubicar automáticamente la fila en la tabla
+  useEffect(() => {
+    if (!casoResaltadoId) return;
+    const term = String(casoResaltadoId).trim().toLowerCase();
+
+    // 1. Buscar en la lista de casos activos ordenados
+    let idx = casosActivosOrdenados.findIndex(c => {
+      const matchId = String(c.id || '').trim().toLowerCase() === term;
+      const matchOp = String(c.casoOp || '').trim().toLowerCase() === term;
+      const matchVen = String(c.vendorId || c.vendor_id || '').trim().toLowerCase() === term;
+      return matchId || matchOp || matchVen;
+    });
+
+    // 2. Si un filtro lo está ocultando, reiniciar filtros para que sea visible
+    if (idx === -1) {
+      if (filtroAgente !== 'todos') setFiltroAgente('todos');
+      if (filtroPais !== 'todos') setFiltroPais('todos');
+      if (filtroEstado !== 'todos') setFiltroEstado('todos');
+      if (filtroEtapa !== 'todos') setFiltroEtapa('todos');
+      if (filtroKpi !== 'todos') setFiltroKpi('todos');
+      return;
+    }
+
+    // 3. Ajustar la página exacta
+    const targetPage = Math.floor(idx / rowsPerPage) + 1;
+    if (targetPage !== currentPage) {
+      setCurrentPage(targetPage);
+    }
+
+    // 4. Scroll suave hacia la fila
+    setTimeout(() => {
+      const el = document.getElementById(`caso-row-${casoResaltadoId}`) ||
+                 document.getElementById(`caso-row-${term}`) ||
+                 document.querySelector(`[data-caso-op="${term}"]`) ||
+                 document.querySelector(`[data-caso-id="${term}"]`) ||
+                 document.querySelector(`[data-vendor-id="${term}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 350);
+  }, [casoResaltadoId, casosActivosOrdenados, rowsPerPage, currentPage, filtroAgente, filtroPais, filtroEstado, filtroEtapa, filtroKpi]);
+
   // Métricas Generales
   let totalCasos = casosProcesados.length;
   let inProgressNormal = 0;
@@ -589,10 +631,12 @@ export default function TLDashboard({
                     const esCritico = c.esCritico || c.horasSLA >= 96;
                     const esProximo = !esCritico && (c.esProximoVencer || (c.horasSLA >= 72 && c.horasSLA < 96));
                     const opMostrada = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : 'Sin caso OP';
-                    const estaResaltado = casoResaltadoId && (
-                      String(c.id) === String(casoResaltadoId) ||
-                      String(c.casoOp) === String(casoResaltadoId) ||
-                      String(c.vendorId || c.vendor_id) === String(casoResaltadoId)
+                    const estaResaltado = Boolean(
+                      casoResaltadoId && (
+                        String(c.id || '').trim().toLowerCase() === String(casoResaltadoId).trim().toLowerCase() ||
+                        String(c.casoOp || '').trim().toLowerCase() === String(casoResaltadoId).trim().toLowerCase() ||
+                        String(c.vendorId || c.vendor_id || '').trim().toLowerCase() === String(casoResaltadoId).trim().toLowerCase()
+                      )
                     );
 
                     const tieneAccionPush = Boolean(c.faltaKamPos || c.faltaKamCat);
@@ -600,7 +644,10 @@ export default function TLDashboard({
                     return (
                       <tr 
                         key={c.id || c.casoOp} 
-                        id={`caso-row-${c.id || c.casoOp || c.vendorId}`}
+                        id={`caso-row-${c.casoOp || c.vendorId || c.id}`}
+                        data-caso-op={c.casoOp}
+                        data-caso-id={c.id}
+                        data-vendor-id={c.vendorId || c.vendor_id}
                         className={`transition ${
                           estaResaltado
                             ? 'bg-amber-500/25 ring-2 ring-amber-400 border-amber-400 shadow-xl shadow-amber-500/30 animate-pulse'
@@ -797,6 +844,8 @@ export default function TLDashboard({
                     <option value={10}>10</option>
                     <option value={15}>15</option>
                     <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
                   </select>
                   <span>casos</span>
                 </div>

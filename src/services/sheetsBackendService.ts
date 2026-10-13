@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { JWT } from 'google-auth-library';
 import { formatearFechaHora } from '../utils/onboardingRules';
+import { sheetsWriteQueue, SheetsWriteQueue } from './sheetsQueue';
 
 export interface CasoSheets {
   id: string;
@@ -814,10 +815,11 @@ export class SheetsService {
    * Elimina un caso tanto de Google Sheets (hoja Onboarding_New) como de memoria y caché local
    */
   public async eliminarCaso(casoIdOCasoOp: string, filaHint?: number): Promise<{ success: boolean; message: string; filaEliminada?: number }> {
-    const idStr = String(casoIdOCasoOp || '').trim();
-    if (!idStr && !filaHint) {
-      return { success: false, message: 'ID o Caso OP requerido.' };
-    }
+    return sheetsWriteQueue.enqueue(async () => {
+      const idStr = String(casoIdOCasoOp || '').trim();
+      if (!idStr && !filaHint) {
+        return { success: false, message: 'ID o Caso OP requerido.' };
+      }
 
     let filaTarget = 0;
     if (filaHint && filaHint >= 2) {
@@ -943,8 +945,9 @@ export class SheetsService {
         return c;
       });
 
-    this.guardarCasosCache(this.cachedCasosMemoria);
-    return { success: true, message: `Caso ${idStr} eliminado correctamente.`, filaEliminada: filaTarget };
+      this.guardarCasosCache(this.cachedCasosMemoria);
+      return { success: true, message: `Caso ${idStr} eliminado correctamente.`, filaEliminada: filaTarget };
+    });
   }
 
   /**
@@ -1061,170 +1064,104 @@ export class SheetsService {
    * Guarda o actualiza un caso directamente en el Google Sheet oficial vía API
    */
   public async sincronizarCasoConGoogleSheets(caso: CasoSheets): Promise<{ success: boolean; filaNumero?: number; error?: string }> {
-    const creds = await this.obtenerCredenciales();
-    if (!creds) {
-      return { success: false, error: 'Sin credenciales de Google Sheets' };
-    }
+    return sheetsWriteQueue.enqueue(async () => {
+      const creds = await this.obtenerCredenciales();
+      if (!creds) {
+        return { success: false, error: 'Sin credenciales de Google Sheets' };
+      }
 
-    try {
-      const token = await this.obtenerAuthToken();
-      const filaValores = this.mapearCasoAColumnasSheet(caso);
-
-      const esNuevo = Boolean((caso as any).esNuevo);
-      let filaTarget = 0;
-      let totalFilasHoja = 0;
-
-      // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
       try {
-        const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
-        const resCols = await fetch(urlCols, {
-          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-        });
-        if (resCols.ok) {
-          const dataCols = await resCols.json();
-          const rows = dataCols.values || [];
-          totalFilasHoja = rows.length;
+        const token = await this.obtenerAuthToken();
+        const filaValores = this.mapearCasoAColumnasSheet(caso);
 
-          const filaHint = Number(caso.filaNumero);
-          const venBuscado = String(caso.vendorId || (caso as any).vendor_id || '').trim();
-          const opBuscado = String(caso.casoOp || '').trim();
-          const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+        const esNuevo = Boolean((caso as any).esNuevo);
+        let filaTarget = 0;
+        let totalFilasHoja = 0;
 
-          // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
-          if (filaHint >= 3 && filaHint <= rows.length) {
-            const rowAtHint = rows[filaHint - 1] || [];
-            const opAtHint = String(rowAtHint[0] || '').trim();
-            const venAtHint = String(rowAtHint[1] || '').trim();
-            if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
-              filaTarget = filaHint;
-            }
-          }
-
-          // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba por casoOp real
-          if (!filaTarget && esOpValido) {
-            for (let i = rows.length - 1; i >= 0; i--) {
-              const op = String(rows[i]?.[0] || '').trim();
-              if (op === opBuscado) {
-                filaTarget = i + 1; // En A:B, rows[0] es fila 1, por tanto la fila es i + 1
-                break;
-              }
-            }
-          }
-
-          // 3. Si no encontró por casoOp, buscar por vendorId o id
-          if (!filaTarget && !esNuevo) {
-            const idBusqueda = String(caso.id || '').trim();
-            for (let i = rows.length - 1; i >= 0; i--) {
-              const op = String(rows[i]?.[0] || '').trim();
-              const ven = String(rows[i]?.[1] || '').trim();
-              if (
-                (venBuscado && ven === venBuscado) ||
-                (op && idBusqueda && (op === idBusqueda || idBusqueda.startsWith(op + '_')))
-              ) {
-                filaTarget = i + 1;
-                break;
-              }
-            }
-          }
-        }
-      } catch (eCols) {
-        console.warn('[SheetsService] Error consultando A:B para detectar base:', eCols);
-      }
-
-      const valFreezePos = caso.fechaFreezePos || caso.freezePos || '';
-      const valFreezeCat = caso.fechaFreezeCat || caso.freezeCat || '';
-      const valoresAF = filaValores.slice(0, 6);   // Columnas A:F (Índices 0..5)
-      const valoresHAA = filaValores.slice(7, 27); // Columnas H:AA (Índices 7..26) - Columna G omitida
-
-      // Si se encontró la fila en Sheets (a partir de la fila 3): ACTUALIZAR IN-PLACE
-      if (filaTarget >= 3) {
-        const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
-        const dataUpdates: any[] = [
-          {
-            range: `'Onboarding_New'!A${filaTarget}:F${filaTarget}`,
-            values: [valoresAF]
-          },
-          {
-            range: `'Onboarding_New'!H${filaTarget}:AA${filaTarget}`,
-            values: [valoresHAA]
-          }
-        ];
-
-        if (valFreezePos || valFreezeCat) {
-          dataUpdates.push({
-            range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
-            values: [[valFreezePos, valFreezeCat]]
+        // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
+        try {
+          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
+          const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
+            headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
           });
+          if (resCols.ok) {
+            const dataCols = await resCols.json();
+            const rows = dataCols.values || [];
+            totalFilasHoja = rows.length;
+
+            const filaHint = Number(caso.filaNumero);
+            const venBuscado = String(caso.vendorId || (caso as any).vendor_id || '').trim();
+            const opBuscado = String(caso.casoOp || '').trim();
+            const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+
+            // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
+            if (filaHint >= 3 && filaHint <= rows.length) {
+              const rowAtHint = rows[filaHint - 1] || [];
+              const opAtHint = String(rowAtHint[0] || '').trim();
+              const venAtHint = String(rowAtHint[1] || '').trim();
+              if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+                filaTarget = filaHint;
+              }
+            }
+
+            // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba por casoOp real
+            if (!filaTarget && esOpValido) {
+              for (let i = rows.length - 1; i >= 0; i--) {
+                const op = String(rows[i]?.[0] || '').trim();
+                if (op === opBuscado) {
+                  filaTarget = i + 1; // En A:B, rows[0] es fila 1, por tanto la fila es i + 1
+                  break;
+                }
+              }
+            }
+
+            // 3. Si no encontró por casoOp, buscar por vendorId o id
+            if (!filaTarget && !esNuevo) {
+              const idBusqueda = String(caso.id || '').trim();
+              for (let i = rows.length - 1; i >= 0; i--) {
+                const op = String(rows[i]?.[0] || '').trim();
+                const ven = String(rows[i]?.[1] || '').trim();
+                if (
+                  (venBuscado && ven === venBuscado) ||
+                  (op && idBusqueda && (op === idBusqueda || idBusqueda.startsWith(op + '_')))
+                ) {
+                  filaTarget = i + 1;
+                  break;
+                }
+              }
+            }
+          }
+        } catch (eCols) {
+          console.warn('[SheetsService] Error consultando A:B para detectar base:', eCols);
         }
 
-        const res = await fetch(urlBatch, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            valueInputOption: 'USER_ENTERED',
-            data: dataUpdates
-          })
-        });
+        const valFreezePos = caso.fechaFreezePos || caso.freezePos || '';
+        const valFreezeCat = caso.fechaFreezeCat || caso.freezeCat || '';
+        const valoresAF = filaValores.slice(0, 6);   // Columnas A:F (Índices 0..5)
+        const valoresHAA = filaValores.slice(7, 27); // Columnas H:AA (Índices 7..26) - Columna G omitida
 
-        if (!res.ok) {
-          const errText = await res.text();
-          console.warn(`[SheetsService] Error al actualizar fila ${filaTarget} en Sheets:`, errText);
-          return { success: false, error: errText };
-        }
+        // Si se encontró la fila en Sheets (a partir de la fila 3): ACTUALIZAR IN-PLACE
+        if (filaTarget >= 3) {
+          const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+          const dataUpdates: any[] = [
+            {
+              range: `'Onboarding_New'!A${filaTarget}:F${filaTarget}`,
+              values: [valoresAF]
+            },
+            {
+              range: `'Onboarding_New'!H${filaTarget}:AA${filaTarget}`,
+              values: [valoresHAA]
+            }
+          ];
 
-        caso.filaNumero = filaTarget;
-        console.log(`[SheetsService] Fila ${filaTarget} (OP ${caso.casoOp}) actualizada en Google Sheets (A:F y H:AA, Columna G preservada para ARRAYFORMULA).`);
-        return { success: true, filaNumero: filaTarget };
-      }
+          if (valFreezePos || valFreezeCat) {
+            dataUpdates.push({
+              range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
+              values: [[valFreezePos, valFreezeCat]]
+            });
+          }
 
-      // 2. Si es NUEVO CASO (o no se encontró en filas existentes):
-      // Se detectó la base: la última fila ocupada en la base es totalFilasHoja.
-      // La nueva fila a insertar es totalFilasHoja + 1.
-      const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : (this.cachedCasosMemoria.length + 3);
-
-      // Asegurar que la cuadrícula tenga capacidad para alojar nuevaFila
-      await this.asegurarCapacidadFilas(nuevaFila);
-
-      const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
-      const dataUpdatesNuevo: any[] = [
-        {
-          range: `'Onboarding_New'!A${nuevaFila}:F${nuevaFila}`,
-          values: [valoresAF]
-        },
-        {
-          range: `'Onboarding_New'!H${nuevaFila}:AA${nuevaFila}`,
-          values: [valoresHAA]
-        }
-      ];
-
-      if (valFreezePos || valFreezeCat) {
-        dataUpdatesNuevo.push({
-          range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
-          values: [[valFreezePos, valFreezeCat]]
-        });
-      }
-
-      let resNuevo = await fetch(urlBatchNuevo, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          valueInputOption: 'USER_ENTERED',
-          data: dataUpdatesNuevo
-        })
-      });
-
-      if (!resNuevo.ok) {
-        const errText = await resNuevo.text();
-        if (errText.includes('exceeds grid limits')) {
-          console.log(`[SheetsService] Reintentando tras expandir cuadrícula para fila ${nuevaFila}...`);
-          await this.asegurarCapacidadFilas(nuevaFila + 100);
-          resNuevo = await fetch(urlBatchNuevo, {
+          const res = await SheetsWriteQueue.fetchConReintento(urlBatch, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -1232,26 +1169,91 @@ export class SheetsService {
             },
             body: JSON.stringify({
               valueInputOption: 'USER_ENTERED',
-              data: dataUpdatesNuevo
+              data: dataUpdates
             })
           });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            console.warn(`[SheetsService] Error al actualizar fila ${filaTarget} en Sheets:`, errText);
+            return { success: false, error: errText };
+          }
+
+          caso.filaNumero = filaTarget;
+          console.log(`[SheetsService] Fila ${filaTarget} (OP ${caso.casoOp}) actualizada en Google Sheets (A:F y H:AA, Columna G preservada para ARRAYFORMULA).`);
+          return { success: true, filaNumero: filaTarget };
         }
+
+        // 2. Si es NUEVO CASO (o no se encontró en filas existentes):
+        const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : (this.cachedCasosMemoria.length + 3);
+
+        await this.asegurarCapacidadFilas(nuevaFila);
+
+        const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+        const dataUpdatesNuevo: any[] = [
+          {
+            range: `'Onboarding_New'!A${nuevaFila}:F${nuevaFila}`,
+            values: [valoresAF]
+          },
+          {
+            range: `'Onboarding_New'!H${nuevaFila}:AA${nuevaFila}`,
+            values: [valoresHAA]
+          }
+        ];
+
+        if (valFreezePos || valFreezeCat) {
+          dataUpdatesNuevo.push({
+            range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
+            values: [[valFreezePos, valFreezeCat]]
+          });
+        }
+
+        let resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            valueInputOption: 'USER_ENTERED',
+            data: dataUpdatesNuevo
+          })
+        });
+
         if (!resNuevo.ok) {
-          const finalErrText = await resNuevo.text();
-          console.warn(`[SheetsService] Error al insertar nueva fila ${nuevaFila} vía batchUpdate:`, finalErrText);
-          return { success: false, error: finalErrText };
+          const errText = await resNuevo.text();
+          if (errText.includes('exceeds grid limits')) {
+            console.log(`[SheetsService] Reintentando tras expandir cuadrícula para fila ${nuevaFila}...`);
+            await this.asegurarCapacidadFilas(nuevaFila + 100);
+            resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                valueInputOption: 'USER_ENTERED',
+                data: dataUpdatesNuevo
+              })
+            });
+          }
+          if (!resNuevo.ok) {
+            const finalErrText = await resNuevo.text();
+            console.warn(`[SheetsService] Error al insertar nueva fila ${nuevaFila} vía batchUpdate:`, finalErrText);
+            return { success: false, error: finalErrText };
+          }
         }
+
+        caso.filaNumero = nuevaFila;
+        this.guardarCasosCache(this.cachedCasosMemoria);
+
+        console.log(`[SheetsService] Nuevo caso OP ${caso.casoOp} insertado exitosamente en Google Sheets (Fila #${nuevaFila}, Columna G omitida para ARRAYFORMULA).`);
+        return { success: true, filaNumero: nuevaFila };
+      } catch (err: any) {
+        console.error('[SheetsService] Error sincronizando caso con Google Sheets:', err);
+        return { success: false, error: err.message };
       }
-
-      caso.filaNumero = nuevaFila;
-      this.guardarCasosCache(this.cachedCasosMemoria);
-
-      console.log(`[SheetsService] Nuevo caso OP ${caso.casoOp} insertado exitosamente en Google Sheets (Fila #${nuevaFila}, Columna G omitida para ARRAYFORMULA).`);
-      return { success: true, filaNumero: nuevaFila };
-    } catch (err: any) {
-      console.error('[SheetsService] Error sincronizando caso con Google Sheets:', err);
-      return { success: false, error: err.message };
-    }
+    });
   }
 
   public formatearFechaSheet(d: Date = new Date()): string {
@@ -1268,106 +1270,107 @@ export class SheetsService {
     tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat' | string, 
     fechaHora?: string
   ): Promise<{ success: boolean; message: string; caso?: CasoSheets; sheetsActualizado?: boolean }> {
-    const ahoraStr = fechaHora || this.formatearFechaSheet(new Date());
-    const idLimpio = String(casoId).trim();
+    return sheetsWriteQueue.enqueue(async () => {
+      const ahoraStr = fechaHora || this.formatearFechaSheet(new Date());
+      const idLimpio = String(casoId).trim();
 
-    const idx = this.cachedCasosMemoria.findIndex(c => 
-      String(c.id).trim() === idLimpio || 
-      String(c.casoOp).trim() === idLimpio ||
-      (c.casoOp && idLimpio.startsWith(c.casoOp))
-    );
+      const idx = this.cachedCasosMemoria.findIndex(c => 
+        String(c.id).trim() === idLimpio || 
+        String(c.casoOp).trim() === idLimpio ||
+        (c.casoOp && idLimpio.startsWith(c.casoOp))
+      );
 
-    if (idx === -1) {
-      return { success: false, message: `Caso ${casoId} no encontrado.` };
-    }
+      if (idx === -1) {
+        return { success: false, message: `Caso ${casoId} no encontrado.` };
+      }
 
-    const caso = this.cachedCasosMemoria[idx];
-    let colLetra = '';
-    let nuevoValor = '';
+      const caso = this.cachedCasosMemoria[idx];
+      let colLetra = '';
+      let nuevoValor = '';
 
-    if (tipo === 'pos') {
-      caso.fechaPushPos = ahoraStr;
-      colLetra = 'U';
-      nuevoValor = ahoraStr;
-    } else if (tipo === 'cat') {
-      caso.fechaPushCat = ahoraStr;
-      colLetra = 'Y';
-      nuevoValor = ahoraStr;
-    } else if (tipo === 'kam_pos') {
-      caso.pushKamPos = 'TRUE';
-      colLetra = 'W';
-      nuevoValor = 'TRUE';
-    } else if (tipo === 'kam_cat') {
-      caso.pushKamCat = 'TRUE';
-      colLetra = 'AA';
-      nuevoValor = 'TRUE';
-    }
+      if (tipo === 'pos') {
+        caso.fechaPushPos = ahoraStr;
+        colLetra = 'U';
+        nuevoValor = ahoraStr;
+      } else if (tipo === 'cat') {
+        caso.fechaPushCat = ahoraStr;
+        colLetra = 'Y';
+        nuevoValor = ahoraStr;
+      } else if (tipo === 'kam_pos') {
+        caso.pushKamPos = 'TRUE';
+        colLetra = 'W';
+        nuevoValor = 'TRUE';
+      } else if (tipo === 'kam_cat') {
+        caso.pushKamCat = 'TRUE';
+        colLetra = 'AA';
+        nuevoValor = 'TRUE';
+      }
 
-    this.cachedCasosMemoria[idx] = { ...caso };
-    this.guardarCasosCache(this.cachedCasosMemoria);
+      this.cachedCasosMemoria[idx] = { ...caso };
+      this.guardarCasosCache(this.cachedCasosMemoria);
 
-    let sheetsActualizado = false;
-    if (this.tieneCredenciales() && colLetra) {
-      try {
-        const token = await this.obtenerAuthToken();
-        let filaTarget = (caso.filaNumero && caso.filaNumero >= 2) ? caso.filaNumero : 0;
+      let sheetsActualizado = false;
+      if (this.tieneCredenciales() && colLetra) {
+        try {
+          const token = await this.obtenerAuthToken();
+          let filaTarget = (caso.filaNumero && caso.filaNumero >= 2) ? caso.filaNumero : 0;
 
-        // Buscar fila exacta en Google Sheets de abajo hacia arriba para evitar desfasajes
-        const opBuscado = String(caso.casoOp || caso.id || casoId).trim();
-        const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
-        const resCols = await fetch(urlCols, {
-          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-        });
-        if (resCols.ok) {
-          const dataCols = await resCols.json();
-          const rows = dataCols.values || [];
-          for (let i = rows.length - 1; i >= 0; i--) {
-            const op = String(rows[i]?.[0] || '').trim();
-            const ven = String(rows[i]?.[1] || '').trim();
-            if (
-              (op && op !== 'Sin caso OP' && op !== '-' && (op === opBuscado || opBuscado.startsWith(op + '_'))) ||
-              (!opBuscado && ven && ven === String(caso.vendorId))
-            ) {
-              filaTarget = i + 2;
-              break;
+          const opBuscado = String(caso.casoOp || caso.id || casoId).trim();
+          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
+          const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
+            headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+          });
+          if (resCols.ok) {
+            const dataCols = await resCols.json();
+            const rows = dataCols.values || [];
+            for (let i = rows.length - 1; i >= 0; i--) {
+              const op = String(rows[i]?.[0] || '').trim();
+              const ven = String(rows[i]?.[1] || '').trim();
+              if (
+                (op && op !== 'Sin caso OP' && op !== '-' && (op === opBuscado || opBuscado.startsWith(op + '_'))) ||
+                (!opBuscado && ven && ven === String(caso.vendorId))
+              ) {
+                filaTarget = i + 2;
+                break;
+              }
             }
           }
-        }
 
-        if (filaTarget >= 2) {
-          caso.filaNumero = filaTarget;
-          const celda = `'Onboarding_New'!${colLetra}${filaTarget}`;
-          const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(celda)}?valueInputOption=USER_ENTERED`;
-          const res = await fetch(url, {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              range: celda,
-              values: [[nuevoValor]]
-            })
-          });
-          if (res.ok) {
-            sheetsActualizado = true;
-            console.log(`[SheetsService] Celda ${celda} actualizada en Google Sheets con "${nuevoValor}".`);
-          } else {
-            const errText = await res.text();
-            console.warn(`[SheetsService] Advertencia al actualizar celda ${celda} en Google Sheets:`, errText);
+          if (filaTarget >= 2) {
+            caso.filaNumero = filaTarget;
+            const celda = `'Onboarding_New'!${colLetra}${filaTarget}`;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(celda)}?valueInputOption=USER_ENTERED`;
+            const res = await SheetsWriteQueue.fetchConReintento(url, {
+              method: 'PUT',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                range: celda,
+                values: [[nuevoValor]]
+              })
+            });
+            if (res.ok) {
+              sheetsActualizado = true;
+              console.log(`[SheetsService] Celda ${celda} actualizada en Google Sheets con "${nuevoValor}".`);
+            } else {
+              const errText = await res.text();
+              console.warn(`[SheetsService] Advertencia al actualizar celda ${celda} en Google Sheets:`, errText);
+            }
           }
+        } catch (err) {
+          console.warn(`[SheetsService] Error actualizando celda ${colLetra} en Google Sheets:`, err);
         }
-      } catch (err) {
-        console.warn(`[SheetsService] Error actualizando celda ${colLetra} en Google Sheets:`, err);
       }
-    }
 
-    return { 
-      success: true, 
-      message: `Push ${tipo.toUpperCase()} registrado correctamente.`, 
-      caso: this.cachedCasosMemoria[idx], 
-      sheetsActualizado 
-    };
+      return { 
+        success: true, 
+        message: `Push ${tipo.toUpperCase()} registrado correctamente.`, 
+        caso: this.cachedCasosMemoria[idx], 
+        sheetsActualizado 
+      };
+    });
   }
 
   /**

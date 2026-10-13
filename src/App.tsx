@@ -253,6 +253,40 @@ export default function App() {
             </svg>
             <span>Iniciar sesión con cuenta Google</span>
           </button>
+
+          <div className="flex items-center my-1">
+            <div className="flex-1 border-t border-[#3A3A3E]"></div>
+            <span className="px-2.5 text-[10px] text-[#9CA3AF] uppercase font-mono tracking-wider">Acceso Rápido Demo</span>
+            <div className="flex-1 border-t border-[#3A3A3E]"></div>
+          </div>
+
+          <button
+            onClick={() => {
+              guardarSesion({
+                email: 'supervisor.demo@pedidosya.com',
+                displayName: 'Supervisor Demo'
+              }, 'Supervisor');
+            }}
+            className="w-full bg-gradient-to-r from-amber-600/30 to-amber-500/20 border border-amber-500/60 hover:border-amber-400 hover:from-amber-600/40 hover:to-amber-500/30 text-amber-200 px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-amber-950/40 cursor-pointer"
+            title="Ingresar directamente con permisos de Supervisor para verificar métricas, SLAs y gestión"
+          >
+            <span className="text-base">👔</span>
+            <span>Vista Supervisor Demo</span>
+          </button>
+
+          <button
+            onClick={() => {
+              guardarSesion({
+                email: 'agente.demo@pedidosya.com',
+                displayName: 'Agente Demo'
+              }, 'Agente');
+            }}
+            className="w-full bg-[#1A1A1C] border border-[#3A3A3E] hover:border-gray-500 hover:bg-[#2C2C32] text-gray-300 px-4 py-2.5 rounded-xl font-medium transition flex items-center justify-center gap-2 text-xs shadow-md cursor-pointer"
+            title="Ingresar directamente como Agente para verificar Mis Casos y alertas de push"
+          >
+            <span>💼</span>
+            <span>Vista Agente Demo</span>
+          </button>
         </div>
 
         {error && (

@@ -46,7 +46,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const token = await getToken();
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:N")}?valueRenderOption=FORMATTED_VALUE`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:O")}?valueRenderOption=FORMATTED_VALUE`;
     const apiRes = await fetch(url, {
       headers: { 
         Authorization: `Bearer ${token}`,
@@ -63,7 +63,7 @@ export default async function handler(req: any, res: any) {
     const data = await apiRes.json();
     const rows = data.values || [];
 
-    const integraciones: { nombre: string; sponsorship: string }[] = [];
+    const integraciones: { nombre: string; sponsorship: string; contactos?: string }[] = [];
     const paisesSet = new Set<string>();
     const oportunidadesSet = new Set<string>();
     const assetsSet = new Set<string>();
@@ -71,34 +71,59 @@ export default async function handler(req: any, res: any) {
     const estadosSet = new Set<string>();
     const etapasSet = new Set<string>();
 
-    for (let i = 1; i < rows.length; i++) {
+    // Detectar si la primera o segunda fila es encabezado
+    let headerIdx = 0;
+    for (let i = 0; i < Math.min(3, rows.length); i++) {
+      const lineStr = (rows[i] || []).map((c: any) => String(c || '').toLowerCase()).join(' ');
+      if (lineStr.includes('país') || lineStr.includes('pais') || lineStr.includes('oportunidad')) {
+        headerIdx = i;
+        break;
+      }
+    }
+
+    const headers: string[] = (rows[headerIdx] || []).map((h: any) => String(h || '').trim().toLowerCase());
+    const findCol = (name: string, fallbackIdx: number): number => {
+      const idx = headers.findIndex(h => h.includes(name));
+      return idx >= 0 ? idx : fallbackIdx;
+    };
+
+    const colPais = findCol('país', 4);
+    const colOportunidad = findCol('oportunidad', 6);
+    const colAsset = findCol('asset', 8);
+    const colAgente = findCol('agente', 10);
+    const colEstado = findCol('estado', 12);
+    const colEtapa = findCol('etapa', 14);
+
+    for (let i = headerIdx + 1; i < rows.length; i++) {
       const r = rows[i] || [];
       const nombreInt = String(r[0] || '').trim();
       const sponsInt = String(r[1] || '').trim().toUpperCase();
+      const contactosInt = String(r[2] || '').trim();
       if (nombreInt && !nombreInt.toLowerCase().includes('integración') && !nombreInt.toLowerCase().includes('integracion')) {
         integraciones.push({
           nombre: nombreInt,
-          sponsorship: sponsInt === 'SI' || sponsInt === 'SÍ' ? 'SI' : 'NO'
+          sponsorship: (sponsInt === 'SI' || sponsInt === 'SÍ' || sponsInt === 'TRUE' || sponsInt === 'VERDADERO') ? 'SI' : 'NO',
+          contactos: contactosInt
         });
       }
 
-      const pais = String(r[3] || '').trim();
-      if (pais && pais.toLowerCase() !== 'país' && pais.toLowerCase() !== 'pais') paisesSet.add(pais);
+      const pais = String(r[colPais] || '').trim();
+      if (pais && !pais.toLowerCase().includes('país') && !pais.toLowerCase().includes('pais')) paisesSet.add(pais);
 
-      const op = String(r[5] || '').trim();
-      if (op && op.toLowerCase() !== 'oportunidad') oportunidadesSet.add(op);
+      const op = String(r[colOportunidad] || '').trim();
+      if (op && !op.toLowerCase().includes('oportunidad')) oportunidadesSet.add(op);
 
-      const asset = String(r[7] || '').trim();
-      if (asset && asset.toLowerCase() !== 'asset') assetsSet.add(asset);
+      const asset = String(r[colAsset] || '').trim();
+      if (asset && !asset.toLowerCase().includes('asset')) assetsSet.add(asset);
 
-      const agente = String(r[9] || '').trim();
-      if (agente && agente.toLowerCase() !== 'agente') agentesSet.add(agente);
+      const agente = String(r[colAgente] || '').trim();
+      if (agente && !agente.toLowerCase().includes('agente')) agentesSet.add(agente);
 
-      const estado = String(r[11] || '').trim();
-      if (estado && estado.toLowerCase() !== 'estado' && estado.toLowerCase() !== 'estado del caso') estadosSet.add(estado);
+      const estado = String(r[colEstado] || '').trim();
+      if (estado && !estado.toLowerCase().includes('estado')) estadosSet.add(estado);
 
-      const etapa = String(r[13] || '').trim();
-      if (etapa && etapa.toLowerCase() !== 'etapa' && etapa.toLowerCase() !== 'etapa del onboarding') etapasSet.add(etapa);
+      const etapa = String(r[colEtapa] || '').trim();
+      if (etapa && !etapa.toLowerCase().includes('etapa')) etapasSet.add(etapa);
     }
 
     return res.status(200).json({

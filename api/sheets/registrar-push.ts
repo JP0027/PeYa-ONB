@@ -1,4 +1,5 @@
 import { JWT } from 'google-auth-library';
+import { sheetsWriteQueue, SheetsWriteQueue } from './sheetsQueue';
 
 const SPREADSHEET_ID = process.env.VITE_GOOGLE_SHEET_ID || '1obGQuhQx0FcxdoHNYUMzGqOzLFalhA63W8ze1tygHkk';
 
@@ -57,16 +58,17 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: 'Se requiere casoId o casoOp' });
     }
 
-    const token = await getToken();
+    const resultado = await sheetsWriteQueue.enqueue(async () => {
+      const token = await getToken();
 
-    // 1. Consultar hoja completa A2:AO para detectar la fila y los valores actuales
-    let filaTarget = (typeof filaNumero === 'number' && filaNumero >= 2) ? filaNumero : 0;
-    let targetRowData: any[] = [];
+      // 1. Consultar hoja completa A2:AO para detectar la fila y los valores actuales
+      let filaTarget = (typeof filaNumero === 'number' && filaNumero >= 2) ? filaNumero : 0;
+      let targetRowData: any[] = [];
 
-    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AO?valueRenderOption=FORMATTED_VALUE`;
-    const resCols = await fetch(urlCols, {
-      headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-    });
+      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AO?valueRenderOption=FORMATTED_VALUE`;
+      const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
+        headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+      });
 
     if (resCols.ok) {
       const dataCols = await resCols.json();
@@ -199,12 +201,12 @@ export default async function handler(req: any, res: any) {
         values: [['TRUE']]
       });
     } else {
-      return res.status(400).json({ success: false, error: `Tipo de push desconocido: ${tipo}` });
+      return { statusCode: 400, body: { success: false, error: `Tipo de push desconocido: ${tipo}` } };
     }
 
     // 3. Ejecutar batchUpdate atómico
     const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
-    const apiRes = await fetch(urlBatch, {
+    const apiRes = await SheetsWriteQueue.fetchConReintento(urlBatch, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -218,19 +220,25 @@ export default async function handler(req: any, res: any) {
 
     if (!apiRes.ok) {
       const errText = await apiRes.text();
-      return res.status(apiRes.status).json({ success: false, error: errText });
+      return { statusCode: apiRes.status, body: { success: false, error: errText } };
     }
 
-    return res.status(200).json({
-      success: true,
-      filaNumero: filaTarget,
-      tipo,
-      fecha: fechaHoraPush,
-      updates: dataUpdates,
-      message: `Push ${tipo} y reglas automáticas registradas exitosamente en fila #${filaTarget}.`
-    });
-  } catch (err: any) {
-    console.error('[API registrar-push] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+    return {
+      statusCode: 200,
+      body: {
+        success: true,
+        filaNumero: filaTarget,
+        tipo,
+        fecha: fechaHoraPush,
+        updates: dataUpdates,
+        message: `Push ${tipo} y reglas automáticas registradas exitosamente en fila #${filaTarget}.`
+      }
+    };
+  });
+
+  return res.status(resultado.statusCode || 200).json(resultado.body || resultado);
+} catch (err: any) {
+  console.error('[API registrar-push] Error:', err);
+  return res.status(500).json({ success: false, error: err.message });
+}
 }

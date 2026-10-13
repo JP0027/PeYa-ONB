@@ -1,4 +1,5 @@
 import { JWT } from 'google-auth-library';
+import { sheetsWriteQueue, SheetsWriteQueue } from './sheetsQueue';
 
 const SPREADSHEET_ID = process.env.VITE_GOOGLE_SHEET_ID || '1obGQuhQx0FcxdoHNYUMzGqOzLFalhA63W8ze1tygHkk';
 const SHEET_GID_ONBOARDING_NEW = 104076048; // GID oficial de la hoja Onboarding_New
@@ -44,96 +45,108 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: 'Se requiere casoId, casoOp o filaNumero' });
     }
 
-    const token = await getToken();
-    let filaTarget = typeof filaNumero === 'number' && filaNumero >= 3 ? filaNumero : 0;
+    const resultado = await sheetsWriteQueue.enqueue(async () => {
+      const token = await getToken();
+      let filaTarget = typeof filaNumero === 'number' && filaNumero >= 3 ? filaNumero : 0;
 
-    // 1. Si tenemos filaNumero, verificar que la fila corresponda a este caso
-    if (filaTarget >= 3 && target) {
-      const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
-      const resCheck = await fetch(urlCheck, {
-        headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-      });
-      if (resCheck.ok) {
-        const dataCheck = await resCheck.json();
-        const row = dataCheck.values?.[0] || [];
-        const opVal = String(row[0] || '').trim();
-        const venVal = String(row[1] || '').trim();
-        if (opVal !== target && venVal !== target && !target.includes(opVal)) {
-          // La fila se movió, buscar la posición real
-          filaTarget = 0;
-        }
-      }
-    }
-
-    // 2. Si no sabemos la fila exacta o se movió, buscarla en 'Onboarding_New'!A2:B
-    if (!filaTarget || filaTarget < 3) {
-      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
-      const resCols = await fetch(urlCols, {
-        headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-      });
-
-      if (resCols.ok) {
-        const dataCols = await resCols.json();
-        const rows = dataCols.values || [];
-        for (let i = 0; i < rows.length; i++) {
-          const op = String(rows[i]?.[0] || '').trim();
-          const ven = String(rows[i]?.[1] || '').trim();
-          if (
-            (op && (op === target || target.startsWith(op + '_'))) ||
-            (ven && (ven === target || target.startsWith(ven + '_')))
-          ) {
-            filaTarget = i + 2; // i=0 es la fila 2 (encabezados), i=1 es la fila 3
-            break;
+      // 1. Si tenemos filaNumero, verificar que la fila corresponda a este caso
+      if (filaTarget >= 3 && target) {
+        const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
+        const resCheck = await SheetsWriteQueue.fetchConReintento(urlCheck, {
+          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+        });
+        if (resCheck.ok) {
+          const dataCheck = await resCheck.json();
+          const row = dataCheck.values?.[0] || [];
+          const opVal = String(row[0] || '').trim();
+          const venVal = String(row[1] || '').trim();
+          if (opVal !== target && venVal !== target && !target.includes(opVal)) {
+            filaTarget = 0;
           }
         }
       }
-    }
 
-    if (!filaTarget || filaTarget < 3) {
-      return res.status(404).json({
-        success: false,
-        error: `No se encontró la fila correspondiente al caso ${target} en Google Sheets.`
-      });
-    }
+      // 2. Si no sabemos la fila exacta o se movió, buscarla en 'Onboarding_New'!A2:B
+      if (!filaTarget || filaTarget < 3) {
+        const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
+        const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
+          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+        });
 
-    // 3. Ejecutar eliminación de la fila en Google Sheets
-    const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
-    const resBatch = await fetch(urlBatch, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            deleteDimension: {
-              range: {
-                sheetId: SHEET_GID_ONBOARDING_NEW,
-                dimension: 'ROWS',
-                startIndex: filaTarget - 1,
-                endIndex: filaTarget
-              }
+        if (resCols.ok) {
+          const dataCols = await resCols.json();
+          const rows = dataCols.values || [];
+          for (let i = 0; i < rows.length; i++) {
+            const op = String(rows[i]?.[0] || '').trim();
+            const ven = String(rows[i]?.[1] || '').trim();
+            if (
+              (op && (op === target || target.startsWith(op + '_'))) ||
+              (ven && (ven === target || target.startsWith(ven + '_')))
+            ) {
+              filaTarget = i + 2;
+              break;
             }
           }
-        ]
-      })
-    });
+        }
+      }
 
-    if (!resBatch.ok) {
-      const errText = await resBatch.text();
-      return res.status(resBatch.status).json({
-        success: false,
-        error: `Error al eliminar en Google Sheets: ${errText}`
+      if (!filaTarget || filaTarget < 3) {
+        return {
+          statusCode: 404,
+          body: {
+            success: false,
+            error: `No se encontró la fila correspondiente al caso ${target} en Google Sheets.`
+          }
+        };
+      }
+
+      // 3. Ejecutar eliminación de la fila en Google Sheets
+      const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
+      const resBatch = await SheetsWriteQueue.fetchConReintento(urlBatch, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              deleteDimension: {
+                range: {
+                  sheetId: SHEET_GID_ONBOARDING_NEW,
+                  dimension: 'ROWS',
+                  startIndex: filaTarget - 1,
+                  endIndex: filaTarget
+                }
+              }
+            }
+          ]
+        })
       });
-    }
 
-    return res.status(200).json({
-      success: true,
-      message: `Fila ${filaTarget} eliminada correctamente de Google Sheets`,
-      filaEliminada: filaTarget,
-      casoOp: target
+      if (!resBatch.ok) {
+        const errText = await resBatch.text();
+        return {
+          statusCode: resBatch.status,
+          body: {
+            success: false,
+            error: `Error al eliminar en Google Sheets: ${errText}`
+          }
+        };
+      }
+
+      return {
+        statusCode: 200,
+        body: {
+          success: true,
+          message: `Fila ${filaTarget} eliminada correctamente de Google Sheets`,
+          filaEliminada: filaTarget,
+          casoOp: target
+        }
+      };
     });
+
+    return res.status(resultado.statusCode || 200).json(resultado.body || resultado);
   } catch (err: any) {
     console.error('Error en /api/sheets/eliminar-caso:', err);
     return res.status(500).json({ success: false, error: err.message });
