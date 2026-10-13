@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
 import { LISTA_ASSETS } from '../../data/catalogoOnboarding';
@@ -253,26 +253,28 @@ export default function TablaOnboardingCasos({
           if (!est.includes('kam') || (!est.includes('fallido') && !est.includes('cancel'))) return false;
         } else if (filtroEstado === 'apiVendor') {
           if (!est.includes('api vendor') && !est.includes('vendor')) return false;
+        } else {
+          if (est !== filtroEstado.toLowerCase().trim()) return false;
         }
       }
 
-      // 3. Filtro de país
+      // 3. Filtro de país (acumulativo)
       if (filtroPais !== 'todos') {
-        if (String(c.pais || '').toLowerCase() !== filtroPais.toLowerCase()) return false;
+        if (String(c.pais || '').trim().toLowerCase() !== filtroPais.trim().toLowerCase()) return false;
       }
       
-      // 4. Filtro de asset
+      // 4. Filtro de asset (acumulativo)
       if (filtroAsset !== 'todos') {
-        if (String(c.asset || '').toLowerCase() !== filtroAsset.toLowerCase()) return false;
+        if (String(c.asset || '').trim().toLowerCase() !== filtroAsset.trim().toLowerCase()) return false;
       }
 
-      // 5. Filtro de Año
+      // 5. Filtro de Año (acumulativo)
       const p = parseFecha(c.fechaCreacion || '');
       if (filtroAnio !== 'todos') {
         if (!p || p.anio !== filtroAnio) return false;
       }
       
-      // 6. Filtro de Mes
+      // 6. Filtro de Mes (acumulativo)
       if (filtroMes !== 'todos') {
         if (!p || p.mes !== filtroMes) return false;
       }
@@ -339,7 +341,12 @@ export default function TablaOnboardingCasos({
     }
 
     return filtrados;
-  }, [casos, busqueda, filtroEstado, filtroPais, columnaOrden, direccionOrden]);
+  }, [casos, busqueda, filtroEstado, filtroPais, filtroAsset, filtroAnio, filtroMes, columnaOrden, direccionOrden]);
+
+  // Restablecer a la página 1 cuando cambie cualquiera de los filtros acumulativos
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [busqueda, filtroEstado, filtroPais, filtroAsset, filtroAnio, filtroMes, columnaOrden, direccionOrden]);
 
   // Paginación
   const totalPaginas = Math.max(1, Math.ceil(casosFiltrados.length / casosPorPagina));
@@ -593,6 +600,27 @@ export default function TablaOnboardingCasos({
                   ))}
                 </select>
               </div>
+            )}
+
+            {/* Botón Limpiar filtros cuando haya filtros acumulados activos */}
+            {(filtroEstado !== 'todos' || filtroPais !== 'todos' || filtroAsset !== 'todos' || filtroAnio !== 'todos' || filtroMes !== 'todos' || busqueda.trim() !== '') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroEstado('todos');
+                  setFiltroPais('todos');
+                  setFiltroAsset('todos');
+                  setFiltroAnio('todos');
+                  setFiltroMes('todos');
+                  setBusqueda('');
+                  setPaginaActual(1);
+                }}
+                className="bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border border-[#E85A80]/40 rounded-xl px-3 py-1.5 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                title="Restablecer todos los filtros acumulados"
+              >
+                <span>✕</span>
+                <span>Limpiar filtros</span>
+              </button>
             )}
 
             {/* Botón Descargar Excel según filtros actuales */}

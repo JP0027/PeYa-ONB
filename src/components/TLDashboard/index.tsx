@@ -171,10 +171,10 @@ export default function TLDashboard({
           if (c.pais !== filtroPais) return false;
         }
       }
-      if (filtroEstado !== 'todos' && c.estado !== filtroEstado) return false;
-      if (filtroEtapa !== 'todos' && (limpiarTextoEtapa(c.etapa) || 'Sin etapa') !== filtroEtapa) return false;
+      if (filtroEstado !== 'todos' && String(c.estado || '').trim().toLowerCase() !== filtroEstado.trim().toLowerCase()) return false;
+      if (filtroEtapa !== 'todos' && (limpiarTextoEtapa(c.etapa) || 'Sin etapa').trim().toLowerCase() !== filtroEtapa.trim().toLowerCase()) return false;
       if (filtroAsset !== 'todos') {
-        if (String(c.asset || '').toLowerCase() !== filtroAsset.toLowerCase()) return false;
+        if (String(c.asset || '').trim().toLowerCase() !== filtroAsset.trim().toLowerCase()) return false;
       }
 
       if (filtroKpi !== 'todos') {
@@ -204,9 +204,12 @@ export default function TLDashboard({
     return casosProcesados.filter(c => c.esActivo);
   }, [casosProcesados]);
 
-  // Ordenar casos activos
+  // Ordenar casos activos / filtrados
   const casosActivosOrdenados = useMemo(() => {
-    const ordenados = [...casosFiltrados.filter(c => c.esActivo)];
+    const base = (filtroEstado === 'todos' && filtroKpi === 'todos')
+      ? casosFiltrados.filter(c => c.esActivo)
+      : casosFiltrados;
+    const ordenados = [...base];
 
     ordenados.sort((a, b) => {
       let valA: any = 0;

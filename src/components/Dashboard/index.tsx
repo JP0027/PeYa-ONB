@@ -734,9 +734,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   const listaFiltrada = useMemo(() => {
     const filtrados = casosConAlertas.filter(x => {
-      // Filtro de Asset
+      // Filtro de Asset acumulativo
       if (filtroAsset !== 'todos') {
-        if (String(x.caso.asset || '').toLowerCase() !== filtroAsset.toLowerCase()) return false;
+        if (String(x.caso.asset || '').trim().toLowerCase() !== filtroAsset.trim().toLowerCase()) return false;
       }
 
       const est = String(x.caso.estado || '').toLowerCase().trim();
@@ -838,7 +838,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       if (valA > valB) return direccionOrdenMisCasos === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [casosConAlertas, filtroMisCasos, columnaOrdenMisCasos, direccionOrdenMisCasos]);
+  }, [casosConAlertas, filtroMisCasos, filtroAsset, columnaOrdenMisCasos, direccionOrdenMisCasos]);
 
   const totalPages = Math.ceil(listaFiltrada.length / rowsPerPage);
   const paginatedLista = useMemo(() => {
@@ -1643,42 +1643,79 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 </div>
               </div>
 
-              {/* Barra de Filtro de Asset para Mis Casos */}
+              {/* Barra de Filtros Combinados para Mis Casos */}
               <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="text-xs text-[#B3B3B3] font-bold uppercase tracking-wide flex items-center gap-1.5">
-                    <span>💻</span>
-                    <span>Filtro Asset:</span>
-                  </span>
-                  <select
-                    value={filtroAsset}
-                    onChange={e => {
-                      setFiltroAsset(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="bg-[#121212] border border-[#3A3A3E] hover:border-[#E85A80] text-xs text-white rounded-lg px-3 py-1.5 focus:border-[#E85A80] transition cursor-pointer"
-                  >
-                    <option value="todos">Todos los Assets ({listaAssetsMisCasos.length})</option>
-                    {listaAssetsMisCasos.map(a => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
-                  {filtroAsset !== 'todos' && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Filtro Estado */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-[#B3B3B3] font-bold uppercase tracking-wide flex items-center gap-1">
+                      <span>📊</span>
+                      <span>Estado:</span>
+                    </span>
+                    <select
+                      value={filtroMisCasos}
+                      onChange={e => {
+                        setFiltroMisCasos(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="bg-[#121212] border border-[#3A3A3E] hover:border-[#E85A80] text-xs text-white rounded-lg px-2.5 py-1.5 focus:border-[#E85A80] transition cursor-pointer font-medium"
+                    >
+                      <option value="todos">Todos los Activos ({totalTodosActivos})</option>
+                      <option value="enProgreso">En Progreso ({totalEnProgresoNormal})</option>
+                      <option value="sinOportunidad">Sin Oportunidad ({totalSinOportunidad})</option>
+                      <option value="pushPos">Push POS ({totalPos})</option>
+                      <option value="pushCat">Push Catálogo ({totalCat})</option>
+                      <option value="sla">En Riesgo SLA ({totalSla})</option>
+                      <option value="hcAbiertos">HC Abiertos ({totalHcAbiertos})</option>
+                    </select>
+                  </div>
+
+                  {/* Filtro Asset */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-[#B3B3B3] font-bold uppercase tracking-wide flex items-center gap-1">
+                      <span>💻</span>
+                      <span>Asset:</span>
+                    </span>
+                    <select
+                      value={filtroAsset}
+                      onChange={e => {
+                        setFiltroAsset(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="bg-[#121212] border border-[#3A3A3E] hover:border-[#E85A80] text-xs text-white rounded-lg px-2.5 py-1.5 focus:border-[#E85A80] transition cursor-pointer font-medium"
+                    >
+                      <option value="todos">Todos los Assets ({listaAssetsMisCasos.length})</option>
+                      {listaAssetsMisCasos.map(a => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Botón Limpiar filtros cuando haya alguno activo */}
+                  {(filtroMisCasos !== 'todos' || filtroAsset !== 'todos') && (
                     <button
                       type="button"
                       onClick={() => {
+                        setFiltroMisCasos('todos');
                         setFiltroAsset('todos');
                         setCurrentPage(1);
                       }}
-                      className="text-xs text-[#F46C8E] hover:text-pink-300 underline font-semibold cursor-pointer flex items-center gap-1"
+                      className="text-xs text-[#F46C8E] hover:text-pink-300 underline font-semibold cursor-pointer flex items-center gap-1 bg-[#2C2C32] px-2.5 py-1 rounded-lg border border-[#E85A80]/40 transition"
+                      title="Restablecer filtros acumulados"
                     >
                       <span>✕</span>
-                      <span>Limpiar filtro asset ({filtroAsset})</span>
+                      <span>Limpiar filtros</span>
                     </button>
                   )}
                 </div>
+
                 <div className="text-xs text-[#B3B3B3] flex items-center gap-2">
                   <span>Mostrando: <strong className="text-white">{listaFiltrada.length}</strong> casos</span>
+                  {(filtroMisCasos !== 'todos' || filtroAsset !== 'todos') && (
+                    <span className="px-2 py-0.5 rounded bg-pink-950/40 border border-pink-800/40 text-pink-300 text-[11px] font-semibold">
+                      Filtros combinados activos
+                    </span>
+                  )}
                 </div>
               </div>
 
