@@ -853,9 +853,19 @@ export class SheetsService {
           }
         } catch (e) { }
 
+        // Extraer número de fila del idStr si viene formateado ("_r30" o "_30")
+        let rowFromId = 0;
+        const matchRow = idStr.match(/_r?(\d+)$/);
+        if (matchRow) {
+          rowFromId = parseInt(matchRow[1], 10);
+        }
+        if ((!filaTarget || filaTarget < 2) && rowFromId >= 3) {
+          filaTarget = rowFromId;
+        }
+
         // 1. Si tenemos filaTarget, verificar rápidamente si coincide
-        if (filaTarget >= 2 && idStr) {
-          const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
+        if (filaTarget >= 2) {
+          const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:C${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
           const resCheck = await fetch(urlCheck, {
             headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
           });
@@ -864,15 +874,23 @@ export class SheetsService {
             const row = dataCheck.values?.[0] || [];
             const opVal = String(row[0] || '').trim();
             const venVal = String(row[1] || '').trim();
-            if (opVal !== idStr && venVal !== idStr && !idStr.includes(opVal)) {
+            const tieVal = String(row[2] || '').trim();
+
+            const targetLow = idStr.toLowerCase();
+            const matchesOp = opVal && opVal !== '-' && targetLow.includes(opVal.toLowerCase());
+            const matchesVen = venVal && targetLow.includes(venVal.toLowerCase());
+            const matchesTie = tieVal && targetLow.includes(tieVal.toLowerCase());
+            const isExactRow = (rowFromId && rowFromId === filaTarget);
+
+            if (!matchesOp && !matchesVen && !matchesTie && !isExactRow) {
               filaTarget = 0; // Desfasada, buscar posición exacta
             }
           }
         }
 
-        // 2. Si no encontramos la fila exacta en memoria o se desfasó, buscar en A2:B
+        // 2. Si no encontramos la fila exacta o se desfasó, buscar en A2:C
         if (!filaTarget || filaTarget < 2) {
-          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
+          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:C?valueRenderOption=FORMATTED_VALUE`;
           const resCols = await fetch(urlCols, {
             headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
           });
@@ -880,13 +898,21 @@ export class SheetsService {
             const dataCols = await resCols.json();
             const rows = dataCols.values || [];
             for (let i = 0; i < rows.length; i++) {
+              const sheetRow = i + 2;
               const op = String(rows[i]?.[0] || '').trim();
               const ven = String(rows[i]?.[1] || '').trim();
+              const tie = String(rows[i]?.[2] || '').trim();
+
+              if (rowFromId && sheetRow === rowFromId) {
+                filaTarget = sheetRow;
+                break;
+              }
               if (
-                (op && (op === idStr || idStr.startsWith(op + '_'))) ||
-                (ven && (ven === idStr || idStr.startsWith(ven + '_')))
+                (op && (op === idStr || idStr.startsWith(op + '_') || idStr.includes(op))) ||
+                (ven && (ven === idStr || idStr.startsWith(ven + '_') || idStr.includes(ven))) ||
+                (tie && (tie === idStr || idStr.includes(tie)))
               ) {
-                filaTarget = i + 2;
+                filaTarget = sheetRow;
                 break;
               }
             }
@@ -1107,12 +1133,17 @@ export class SheetsService {
             const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
 
             // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
-            if (filaHint >= 3 && filaHint <= rows.length) {
-              const rowAtHint = rows[filaHint - 1] || [];
-              const opAtHint = String(rowAtHint[0] || '').trim();
-              const venAtHint = String(rowAtHint[1] || '').trim();
-              if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+            if (filaHint >= 3) {
+              if (!esNuevo) {
+                // Edición de caso existente: apuntar directamente a su fila exacta en Google Sheets
                 filaTarget = filaHint;
+              } else if (filaHint <= rows.length) {
+                const rowAtHint = rows[filaHint - 1] || [];
+                const opAtHint = String(rowAtHint[0] || '').trim();
+                const venAtHint = String(rowAtHint[1] || '').trim();
+                if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+                  filaTarget = filaHint;
+                }
               }
             }
 
@@ -1121,7 +1152,7 @@ export class SheetsService {
               for (let i = rows.length - 1; i >= 0; i--) {
                 const op = String(rows[i]?.[0] || '').trim();
                 if (op === opBuscado) {
-                  filaTarget = i + 1; // En A:B, rows[0] es fila 1, por tanto la fila es i + 1
+                  filaTarget = i + 1; // En A:C, rows[0] es fila 1, por tanto la fila es i + 1
                   break;
                 }
               }
@@ -1141,6 +1172,11 @@ export class SheetsService {
                   break;
                 }
               }
+            }
+
+            // 4. Si es edición de un caso existente y no se encontró en búsquedas, forzar filaHint
+            if (!filaTarget && !esNuevo && filaHint >= 3) {
+              filaTarget = filaHint;
             }
           }
         } catch (eCols) {

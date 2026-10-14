@@ -65,11 +65,18 @@ export default async function handler(req: any, res: any) {
     }
 
     const token = await getToken();
-    let filaTarget = typeof filaNumero === 'number' && filaNumero >= 3 ? filaNumero : 0;
+    // Extraer número de fila si el ID viene con sufijo "_r30" o "_30"
+    let rowFromId = 0;
+    const matchRow = target.match(/_r?(\d+)$/);
+    if (matchRow) {
+      rowFromId = parseInt(matchRow[1], 10);
+    }
 
-    // 1. Si tenemos filaNumero, verificar que la fila corresponda a este caso
-    if (filaTarget >= 3 && target) {
-      const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
+    let filaTarget = (typeof filaNumero === 'number' && filaNumero >= 3) ? filaNumero : (rowFromId >= 3 ? rowFromId : 0);
+
+    // 1. Si tenemos filaTarget, verificar que la fila corresponda a este caso
+    if (filaTarget >= 3) {
+      const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:C${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
       const resCheck = await fetchConReintento(urlCheck, {
         headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
       });
@@ -78,15 +85,23 @@ export default async function handler(req: any, res: any) {
         const row = dataCheck.values?.[0] || [];
         const opVal = String(row[0] || '').trim();
         const venVal = String(row[1] || '').trim();
-        if (opVal !== target && venVal !== target && !target.includes(opVal)) {
+        const tieVal = String(row[2] || '').trim();
+
+        const targetLow = target.toLowerCase();
+        const matchesOp = opVal && opVal !== '-' && targetLow.includes(opVal.toLowerCase());
+        const matchesVen = venVal && targetLow.includes(venVal.toLowerCase());
+        const matchesTie = tieVal && targetLow.includes(tieVal.toLowerCase());
+        const isExactRow = (filaNumero && filaNumero === filaTarget) || (rowFromId && rowFromId === filaTarget);
+
+        if (!matchesOp && !matchesVen && !matchesTie && !isExactRow) {
           filaTarget = 0;
         }
       }
     }
 
-    // 2. Si no sabemos la fila exacta o se movió, buscarla en 'Onboarding_New'!A2:B
+    // 2. Si no sabemos la fila exacta o se desfasó, buscarla en 'Onboarding_New'!A2:C
     if (!filaTarget || filaTarget < 3) {
-      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
+      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:C?valueRenderOption=FORMATTED_VALUE`;
       const resCols = await fetchConReintento(urlCols, {
         headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
       });
@@ -95,13 +110,21 @@ export default async function handler(req: any, res: any) {
         const dataCols = await resCols.json();
         const rows = dataCols.values || [];
         for (let i = 0; i < rows.length; i++) {
+          const sheetRow = i + 2;
           const op = String(rows[i]?.[0] || '').trim();
           const ven = String(rows[i]?.[1] || '').trim();
+          const tie = String(rows[i]?.[2] || '').trim();
+
+          if (rowFromId && sheetRow === rowFromId) {
+            filaTarget = sheetRow;
+            break;
+          }
           if (
-            (op && (op === target || target.startsWith(op + '_'))) ||
-            (ven && (ven === target || target.startsWith(ven + '_')))
+            (op && (op === target || target.startsWith(op + '_') || target.includes(op))) ||
+            (ven && (ven === target || target.startsWith(ven + '_') || target.includes(ven))) ||
+            (tie && (tie === target || target.includes(tie)))
           ) {
-            filaTarget = i + 2;
+            filaTarget = sheetRow;
             break;
           }
         }

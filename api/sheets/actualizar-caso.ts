@@ -214,12 +214,17 @@ export default async function handler(req: any, res: any) {
         const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
 
         // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
-        if (filaHint >= 3 && filaHint <= rows.length) {
-          const rowAtHint = rows[filaHint - 1] || [];
-          const opAtHint = String(rowAtHint[0] || '').trim();
-          const venAtHint = String(rowAtHint[1] || '').trim();
-          if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+        if (filaHint >= 3) {
+          if (!esNuevo) {
+            // Edición de caso existente: apuntar directamente a su fila exacta en Google Sheets
             filaTarget = filaHint;
+          } else if (filaHint <= rows.length) {
+            const rowAtHint = rows[filaHint - 1] || [];
+            const opAtHint = String(rowAtHint[0] || '').trim();
+            const venAtHint = String(rowAtHint[1] || '').trim();
+            if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+              filaTarget = filaHint;
+            }
           }
         }
 
@@ -248,6 +253,11 @@ export default async function handler(req: any, res: any) {
               break;
             }
           }
+        }
+
+        // 4. Si es edición de un caso existente y no se encontró en búsquedas, forzar filaHint
+        if (!filaTarget && !esNuevo && filaHint >= 3) {
+          filaTarget = filaHint;
         }
       }
 

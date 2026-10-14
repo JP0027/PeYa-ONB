@@ -94,7 +94,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const token = await getToken();
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Onboarding_New'!A2:AZ")}?valueRenderOption=FORMATTED_VALUE`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Onboarding_New'!A1:AZ")}?valueRenderOption=FORMATTED_VALUE`;
     const apiRes = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -232,8 +232,8 @@ export default async function handler(req: any, res: any) {
       const estadoNorm = estado.toLowerCase().trim();
       const esActivo = estadoNorm === 'en progreso' || estadoNorm === 'nuevo' || estadoNorm === 'abierto' || estadoNorm.includes('ticket hc') || estadoNorm.includes('sin oportunidad');
 
-      const filaNumero = headerRowIdx + 2 + idx;
-      const idUnico = (casoOp && casoOp !== '-') ? `${casoOp}_${filaNumero}` : (vendorId ? `${vendorId}_${filaNumero}` : `fila_${filaNumero}`);
+      const filaNumero = headerRowIdx + idx + 2;
+      const idUnico = (casoOp && vendorId) ? `${casoOp}_${vendorId}_r${filaNumero}` : ((casoOp && casoOp !== '-') ? `${casoOp}_r${filaNumero}` : (vendorId ? `${vendorId}_r${filaNumero}` : `CASO-${filaNumero}`));
 
       casos.push({
         id: idUnico,
