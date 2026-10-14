@@ -213,51 +213,45 @@ export default async function handler(req: any, res: any) {
         const opBuscado = String(casoData.casoOp || '').trim();
         const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
 
-        // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
-        if (filaHint >= 3) {
-          if (!esNuevo) {
-            // Edición de caso existente: apuntar directamente a su fila exacta en Google Sheets
+        // Solo buscar filaTarget si estamos EDITANDO un caso existente (!esNuevo)
+        // Si esNuevo === true, SIEMPRE se insertará una nueva fila al final de la tabla (nuevaFila = totalFilasHoja + 1)
+        if (!esNuevo) {
+          // 1. Prioridad: Verificar por número de fila en Sheets
+          if (filaHint >= 3) {
             filaTarget = filaHint;
-          } else if (filaHint <= rows.length) {
-            const rowAtHint = rows[filaHint - 1] || [];
-            const opAtHint = String(rowAtHint[0] || '').trim();
-            const venAtHint = String(rowAtHint[1] || '').trim();
-            if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
-              filaTarget = filaHint;
+          }
+
+          // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba por casoOp
+          if (!filaTarget && esOpValido) {
+            for (let i = rows.length - 1; i >= 0; i--) {
+              const op = String(rows[i]?.[0] || '').trim();
+              if (op === opBuscado) {
+                filaTarget = i + 1;
+                break;
+              }
             }
           }
-        }
 
-        // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba tomando el último registrado si se repite casoOp
-        if (!filaTarget && esOpValido) {
-          for (let i = rows.length - 1; i >= 0; i--) {
-            const op = String(rows[i]?.[0] || '').trim();
-            if (op === opBuscado) {
-              filaTarget = i + 1;
-              break;
+          // 3. Buscar por vendorId o id
+          if (!filaTarget) {
+            for (let i = rows.length - 1; i >= 0; i--) {
+              const op = String(rows[i]?.[0] || '').trim();
+              const ven = String(rows[i]?.[1] || '').trim();
+              if (
+                (venBuscado && ven === venBuscado) ||
+                (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
+                (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
+              ) {
+                filaTarget = i + 1;
+                break;
+              }
             }
           }
-        }
 
-        // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba (evita duplicar filas)
-        if (!filaTarget) {
-          for (let i = rows.length - 1; i >= 0; i--) {
-            const op = String(rows[i]?.[0] || '').trim();
-            const ven = String(rows[i]?.[1] || '').trim();
-            if (
-              (venBuscado && ven === venBuscado) ||
-              (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
-              (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
-            ) {
-              filaTarget = i + 1;
-              break;
-            }
+          // 4. Si no se encontró en búsquedas, forzar filaHint
+          if (!filaTarget && filaHint >= 3) {
+            filaTarget = filaHint;
           }
-        }
-
-        // 4. Si es edición de un caso existente y no se encontró en búsquedas, forzar filaHint
-        if (!filaTarget && !esNuevo && filaHint >= 3) {
-          filaTarget = filaHint;
         }
       }
 
