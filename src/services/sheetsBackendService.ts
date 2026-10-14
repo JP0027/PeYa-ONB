@@ -1053,10 +1053,11 @@ export class SheetsService {
       const sheetIdOnboardingNew = sheetObj.properties.sheetId;
       const rowCountActual = sheetObj.properties?.gridProperties?.rowCount || 0;
 
-      if (filaRequerida > rowCountActual) {
-        // Expandir EXACTAMENTE la cantidad de filas requeridas (1 fila para el nuevo caso)
-        const nuevoRowCount = filaRequerida;
-        console.log(`[SheetsService] Expandiendo cuadrícula de Onboarding_New de ${rowCountActual} a ${nuevoRowCount} filas (exactamente 1 fila nueva)...`);
+      if (rowCountActual < filaRequerida + 2) {
+        // Asegurar que la cuadrícula tenga espacio de sobra (+2 filas) ANTES de escribir
+        // para evitar que Google Sheets USER_ENTERED auto-agregue 50 filas vacías
+        const nuevoRowCount = filaRequerida + 2;
+        console.log(`[SheetsService] Asegurando margen en cuadrícula de Onboarding_New de ${rowCountActual} a ${nuevoRowCount} filas...`);
         const urlUpdate = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
         await fetch(urlUpdate, {
           method: 'POST',
@@ -1083,6 +1084,51 @@ export class SheetsService {
       }
     } catch (e) {
       console.warn('[SheetsService] Error asegurando capacidad de filas:', e);
+    }
+  }
+
+  /**
+   * Recorta la cuadrícula de Onboarding_New para que tenga EXACTAMENTE filaFinal filas (0 filas vacías sobrantes)
+   */
+  public async recortarFilasExactas(filaFinal: number): Promise<void> {
+    try {
+      const token = await this.obtenerAuthToken();
+      const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(title,sheetId,gridProperties.rowCount)`;
+      const resMeta = await fetch(urlMeta, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!resMeta.ok) return;
+
+      const dataMeta = await resMeta.json();
+      const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.title === 'Onboarding_New');
+      if (!sheetObj) return;
+      const sheetIdOnboardingNew = sheetObj.properties.sheetId;
+
+      const urlUpdate = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
+      await fetch(urlUpdate, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              updateSheetProperties: {
+                properties: {
+                  sheetId: sheetIdOnboardingNew,
+                  gridProperties: {
+                    rowCount: filaFinal
+                  }
+                },
+                fields: 'gridProperties.rowCount'
+              }
+            }
+          ]
+        })
+      });
+    } catch (e) {
+      console.warn('[SheetsService] Error recortando filas exactas:', e);
     }
   }
 
@@ -1228,8 +1274,6 @@ export class SheetsService {
         // 2. Si es NUEVO CASO (o no se encontró en filas existentes):
         const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : (this.cachedCasosMemoria.length + 3);
 
-        await this.asegurarCapacidadFilas(nuevaFila);
-
         const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
         const dataUpdatesNuevo: any[] = [
           {
@@ -1249,7 +1293,7 @@ export class SheetsService {
           });
         }
 
-        let resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
+        const resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1262,27 +1306,9 @@ export class SheetsService {
         });
 
         if (!resNuevo.ok) {
-          const errText = await resNuevo.text();
-          if (errText.includes('exceeds grid limits')) {
-            console.log(`[SheetsService] Reintentando tras expandir cuadrícula para fila ${nuevaFila}...`);
-            await this.asegurarCapacidadFilas(nuevaFila + 100);
-            resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                valueInputOption: 'USER_ENTERED',
-                data: dataUpdatesNuevo
-              })
-            });
-          }
-          if (!resNuevo.ok) {
-            const finalErrText = await resNuevo.text();
-            console.warn(`[SheetsService] Error al insertar nueva fila ${nuevaFila} vía batchUpdate:`, finalErrText);
-            return { success: false, error: finalErrText };
-          }
+          const finalErrText = await resNuevo.text();
+          console.warn(`[SheetsService] Error al insertar nueva fila ${nuevaFila} vía batchUpdate:`, finalErrText);
+          return { success: false, error: finalErrText };
         }
 
         caso.filaNumero = nuevaFila;

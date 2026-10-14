@@ -474,7 +474,7 @@ export default function AdminCatalogoView({
                     return (
                       <tr key={idxOriginal} className="hover:bg-[#1a1d27]/70 transition">
                         <td className="p-3 text-center text-[#9CA3AF] font-mono text-[10px]">
-                          {idxOriginal + 1}
+                          {idxOriginal + 2}
                         </td>
 
                         <td className="p-3">

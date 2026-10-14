@@ -157,7 +157,7 @@ async function guardarSeccionIntegraciones(seccion: string, items: any[]): Promi
       const nombreInt = String(r[0] || '').trim();
       const sponsInt = String(r[1] || '').trim().toUpperCase();
       const contactosInt = String(r[2] || '').trim();
-      if (nombreInt && !nombreInt.toLowerCase().includes('integración') && !nombreInt.toLowerCase().includes('integracion')) {
+      if (nombreInt) {
         integraciones.push({
           nombre: nombreInt,
           sponsorship: (sponsInt === 'SI' || sponsInt === 'SÍ' || sponsInt === 'TRUE' || sponsInt === 'VERDADERO') ? 'SI' : 'NO',
@@ -166,22 +166,22 @@ async function guardarSeccionIntegraciones(seccion: string, items: any[]): Promi
       }
 
       const pais = String(r[4] || '').trim();
-      if (pais && !pais.toLowerCase().includes('país') && !pais.toLowerCase().includes('pais')) paisesSet.add(pais);
+      if (pais) paisesSet.add(pais);
 
       const op = String(r[6] || '').trim();
-      if (op && !op.toLowerCase().includes('oportunidad')) oportunidadesSet.add(op);
+      if (op) oportunidadesSet.add(op);
 
       const asset = String(r[8] || '').trim();
-      if (asset && !asset.toLowerCase().includes('asset')) assetsSet.add(asset);
+      if (asset) assetsSet.add(asset);
 
       const agente = String(r[10] || '').trim();
-      if (agente && !agente.toLowerCase().includes('agente')) agentesSet.add(agente);
+      if (agente) agentesSet.add(agente);
 
       const estado = String(r[12] || '').trim();
-      if (estado && !estado.toLowerCase().includes('estado')) estadosSet.add(estado);
+      if (estado) estadosSet.add(estado);
 
       const etapa = String(r[14] || '').trim();
-      if (etapa && !etapa.toLowerCase().includes('etapa')) etapasSet.add(etapa);
+      if (etapa) etapasSet.add(etapa);
     }
 
     catalogos = {
@@ -280,7 +280,7 @@ export default async function handler(req: any, res: any) {
       const nombreInt = String(r[0] || '').trim();
       const sponsInt = String(r[1] || '').trim().toUpperCase();
       const contactosInt = String(r[2] || '').trim();
-      if (nombreInt && !nombreInt.toLowerCase().includes('integración') && !nombreInt.toLowerCase().includes('integracion')) {
+      if (nombreInt) {
         integraciones.push({
           nombre: nombreInt,
           sponsorship: (sponsInt === 'SI' || sponsInt === 'SÍ' || sponsInt === 'TRUE' || sponsInt === 'VERDADERO') ? 'SI' : 'NO',
@@ -289,22 +289,22 @@ export default async function handler(req: any, res: any) {
       }
 
       const pais = String(r[colPais] || '').trim();
-      if (pais && !pais.toLowerCase().includes('país') && !pais.toLowerCase().includes('pais')) paisesSet.add(pais);
+      if (pais) paisesSet.add(pais);
 
       const op = String(r[colOportunidad] || '').trim();
-      if (op && !op.toLowerCase().includes('oportunidad')) oportunidadesSet.add(op);
+      if (op) oportunidadesSet.add(op);
 
       const asset = String(r[colAsset] || '').trim();
-      if (asset && !asset.toLowerCase().includes('asset')) assetsSet.add(asset);
+      if (asset) assetsSet.add(asset);
 
       const agente = String(r[colAgente] || '').trim();
-      if (agente && !agente.toLowerCase().includes('agente')) agentesSet.add(agente);
+      if (agente) agentesSet.add(agente);
 
       const estado = String(r[colEstado] || '').trim();
-      if (estado && !estado.toLowerCase().includes('estado')) estadosSet.add(estado);
+      if (estado) estadosSet.add(estado);
 
       const etapa = String(r[colEtapa] || '').trim();
-      if (etapa && !etapa.toLowerCase().includes('etapa')) etapasSet.add(etapa);
+      if (etapa) etapasSet.add(etapa);
     }
 
     return res.status(200).json({

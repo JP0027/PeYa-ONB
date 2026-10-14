@@ -55,7 +55,7 @@ export default async function handler(req: any, res: any) {
       const nombreInt = String(r[0] || '').trim();
       const sponsInt = String(r[1] || '').trim().toUpperCase();
       const contactosInt = String(r[2] || '').trim();
-      if (nombreInt && !nombreInt.toLowerCase().includes('integración') && !nombreInt.toLowerCase().includes('integracion')) {
+      if (nombreInt) {
         integraciones.push({
           nombre: nombreInt,
           sponsorship: (sponsInt === 'SI' || sponsInt === 'SÍ' || sponsInt === 'TRUE' || sponsInt === 'VERDADERO') ? 'SI' : 'NO',

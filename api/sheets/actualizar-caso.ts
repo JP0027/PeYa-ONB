@@ -308,34 +308,6 @@ export default async function handler(req: any, res: any) {
         // INSERTAR nuevo caso detectando exactamente la última fila de la base
         const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 1878;
 
-        try {
-          const sheetIdOnboardingNew = 104076048;
-          const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
-          const resMeta = await fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
-          if (resMeta.ok) {
-            const dataMeta = await resMeta.json();
-            const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
-            const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
-            if (nuevaFila > rowCountActual) {
-              const nuevoRowCount = nuevaFila + 50;
-              await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  requests: [{
-                    updateSheetProperties: {
-                      properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevoRowCount } },
-                      fields: 'gridProperties.rowCount'
-                    }
-                  }]
-                })
-              });
-            }
-          }
-        } catch (eMeta) {
-          console.warn('Error verificando gridProperties:', eMeta);
-        }
-
         const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
         const dataUpdatesNuevo: any[] = [
           {
@@ -355,7 +327,7 @@ export default async function handler(req: any, res: any) {
           });
         }
 
-        let apiRes = await fetchConReintento(urlBatchNuevo, {
+        const apiRes = await fetchConReintento(urlBatchNuevo, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -368,31 +340,8 @@ export default async function handler(req: any, res: any) {
         });
 
         if (!apiRes.ok) {
-          const errText = await apiRes.text();
-          if (errText.includes('exceeds grid limits')) {
-            const sheetIdOnboardingNew = 104076048;
-            await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                requests: [{
-                  updateSheetProperties: {
-                    properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevaFila + 200 } },
-                    fields: 'gridProperties.rowCount'
-                  }
-                }]
-              })
-            });
-            apiRes = await fetchConReintento(urlBatchNuevo, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataUpdatesNuevo })
-            });
-          }
-          if (!apiRes.ok) {
-            const finalErr = await apiRes.text();
-            throw new Error(`Google Sheets API [${apiRes.status}]: ${finalErr}`);
-          }
+          const finalErr = await apiRes.text();
+          throw new Error(`Google Sheets API [${apiRes.status}]: ${finalErr}`);
         }
 
         return res.status(200).json({
