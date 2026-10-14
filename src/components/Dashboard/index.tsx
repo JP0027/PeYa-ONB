@@ -178,13 +178,12 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
     });
   }
 
-  // 2. ALERTAS DE PUSH DE SEGUIMIENTO (>= 4 HORAS) PARA AGENTES:
-  // Solo sobre los casos asignados al usuario
-  // Condiciones: Seguimiento POS API o Catálogo activo, faltar push y tiempo >= 4 horas
-  // Si ya realizó el push (en datos de sheet, respuesta o sesión/local), NUNCA alertar de nuevo.
+  // 2. ALERTAS DE PUSH DE SEGUIMIENTO (>= 4 HORAS)
+  // Evalúa los casos asignados al agente. Si es supervisor/TL o no hay casos asignados explícitamente, evalúa los casos activos.
   const misCasos = casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
+  const casosAAnalizar = (esRolSupervisor || misCasos.length === 0) ? casosActivos : misCasos;
 
-  misCasos.forEach(c => {
+  casosAAnalizar.forEach(c => {
     const alertas = analizarAlertasCaso(c);
     const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
     const tiendaLabel = c.tienda || 'Sin tienda';
@@ -211,14 +210,17 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
       hizoPushPosRegistrado;
 
     if (alertas.requierePushPos && !tienePushPosEfectivo) {
-      resultados.push({
-        id: `push_pos_${c.id || c.casoOp}`,
-        caso: c,
-        tipo: 'push_pos',
-        titulo: 'Push de Seguimiento POS Pendiente (≥ 4h)',
-        hora: horaTexto,
-        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-      });
+      // Evitar duplicar si ya fue agregado por la sección 1 (supervisor)
+      if (!resultados.some(r => r.id === `push_pos_${c.id || c.casoOp}`)) {
+        resultados.push({
+          id: `push_pos_${c.id || c.casoOp}`,
+          caso: c,
+          tipo: 'push_pos',
+          titulo: 'Push de Seguimiento POS Pendiente (≥ 4h)',
+          hora: horaTexto,
+          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+        });
+      }
     }
 
     // Push de Seguimiento Catálogo (≥ 4 hrs) - Solo si NO ha realizado el push
@@ -230,14 +232,16 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
       hizoPushCatRegistrado;
 
     if (alertas.requierePushCat && !tienePushCatEfectivo) {
-      resultados.push({
-        id: `push_cat_${c.id || c.casoOp}`,
-        caso: c,
-        tipo: 'push_cat',
-        titulo: 'Push de Seguimiento Catálogo Pendiente (≥ 4h)',
-        hora: horaTexto,
-        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-      });
+      if (!resultados.some(r => r.id === `push_cat_${c.id || c.casoOp}`)) {
+        resultados.push({
+          id: `push_cat_${c.id || c.casoOp}`,
+          caso: c,
+          tipo: 'push_cat',
+          titulo: 'Push de Seguimiento Catálogo Pendiente (≥ 4h)',
+          hora: horaTexto,
+          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+        });
+      }
     }
   });
 
@@ -630,41 +634,36 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, []);
 
-  // 1. Al cargar casos / iniciar sesión: sonar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
+  // 1. Al cargar o actualizar casos: detectar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
   useEffect(() => {
     if (casosTotales.length === 0) return;
 
-    if (!alertaLoginEjecutadaRef.current) {
-      alertaLoginEjecutadaRef.current = true;
-      sessionStorage.setItem('peya_ultimo_timbre_ts', String(Date.now()));
-
-      const pendientes = detectarCasosPushPendientes(casosTotales, rolEfectivo, email, nombreUsuarioAutenticado);
-      if (pendientes.length > 0) {
-        reproducirCampana();
-        setAlertasPushActivas(pendientes);
-      }
+    const pendientes = detectarCasosPushPendientes(casosTotales, rolEfectivo, email, nombreUsuarioAutenticado);
+    if (pendientes.length > 0) {
+      setAlertasPushActivas(prev => {
+        const idsPrevios = new Set(prev.map(a => String(a.id)));
+        const tieneNuevasAlertas = pendientes.some(p => !idsPrevios.has(String(p.id)));
+        if (tieneNuevasAlertas) {
+          reproducirCampana();
+        }
+        return pendientes;
+      });
+    } else {
+      setAlertasPushActivas([]);
     }
   }, [casosTotales, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
 
-  // 2. Recordatorio continuo cada 30 minutos si aún existen casos con SLA >= 4h sin push
+  // 2. Recordatorio continuo cada 5 minutos si aún existen casos con SLA >= 4h sin push
   useEffect(() => {
     const timer = setInterval(() => {
       const casosActuales = casosTotalesRef.current || [];
       if (casosActuales.length === 0) return;
 
-      const ultimoTs = parseInt(sessionStorage.getItem('peya_ultimo_timbre_ts') || '0', 10);
-      const ahora = Date.now();
-      const INTERVALO_RECORDATORIO_MS = 30 * 60 * 1000; // 30 minutos
-
-      if (ultimoTs === 0 || ahora - ultimoTs >= INTERVALO_RECORDATORIO_MS) {
-        sessionStorage.setItem('peya_ultimo_timbre_ts', String(ahora));
-        const pendientes = detectarCasosPushPendientes(casosActuales, rolEfectivo, email, nombreUsuarioAutenticado);
-        if (pendientes.length > 0) {
-          reproducirCampana();
-          setAlertasPushActivas(pendientes);
-        }
+      const pendientes = detectarCasosPushPendientes(casosActuales, rolEfectivo, email, nombreUsuarioAutenticado);
+      if (pendientes.length > 0) {
+        setAlertasPushActivas(pendientes);
       }
-    }, 15000);
+    }, 5 * 60 * 1000); // 5 minutos
     return () => clearInterval(timer);
   }, [rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
 
@@ -2022,8 +2021,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       {/* Notificación de confirmación: capa superior, visible incluso con modales abiertos */}
       {notificacion && (
-        <div className={`fixed top-4 right-4 z-[99999] px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce pointer-events-none ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : notificacion.tipo === 'info' ? 'bg-sky-600 text-white' : 'bg-emerald-600 text-white'}`}>
-          {notificacion.texto}
+        <div className={`fixed top-5 right-5 z-[999999] px-5 py-3.5 rounded-2xl text-sm font-bold shadow-2xl transition-all duration-300 backdrop-blur-md flex items-center gap-3 border ${
+          notificacion.tipo === 'error' 
+            ? 'bg-rose-950/95 border-rose-500 text-rose-200 shadow-rose-950/50' 
+            : notificacion.tipo === 'info' 
+            ? 'bg-sky-950/95 border-sky-500 text-sky-200 shadow-sky-950/50' 
+            : 'bg-emerald-950/95 border-emerald-500 text-emerald-200 shadow-emerald-950/50'
+        }`}>
+          <span className="text-xl shrink-0">
+            {notificacion.tipo === 'error' ? '🚨' : notificacion.tipo === 'info' ? 'ℹ️' : '✅'}
+          </span>
+          <span>{notificacion.texto}</span>
         </div>
       )}
     </div>

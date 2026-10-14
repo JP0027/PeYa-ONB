@@ -173,13 +173,17 @@ export function isAgentMatch(
     return false;
   }
 
-  // 2. Si no es un miembro conocido en la lista fija, comparación directa estricta
+  // 2. Si no es un miembro conocido en la lista fija, comparación directa y por coincidencia de subcadena
   for (const tLower of targetsLower) {
     if (tLower === emailNormalizado) return true;
+    if (emailNormalizado.length >= 4 && tLower.includes(emailNormalizado)) return true;
   }
 
   for (const tNorm of targetsNormalizados) {
     if (tNorm === nombreNormalizado) return true;
+    if (nombreNormalizado.length >= 3 && tNorm.length >= 3) {
+      if (tNorm.includes(nombreNormalizado) || nombreNormalizado.includes(tNorm)) return true;
+    }
   }
 
   return false;
