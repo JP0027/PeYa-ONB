@@ -1158,8 +1158,8 @@ export class SheetsService {
               }
             }
 
-            // 3. Si no encontró por casoOp, buscar por vendorId o id
-            if (!filaTarget && !esNuevo) {
+            // 3. Si no encontró por casoOp, buscar por vendorId o id (evita duplicar filas)
+            if (!filaTarget) {
               const idBusqueda = String(caso.id || '').trim();
               for (let i = rows.length - 1; i >= 0; i--) {
                 const op = String(rows[i]?.[0] || '').trim();

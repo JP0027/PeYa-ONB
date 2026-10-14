@@ -239,8 +239,8 @@ export default async function handler(req: any, res: any) {
           }
         }
 
-        // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba
-        if (!filaTarget && !esNuevo) {
+        // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba (evita duplicar filas)
+        if (!filaTarget) {
           for (let i = rows.length - 1; i >= 0; i--) {
             const op = String(rows[i]?.[0] || '').trim();
             const ven = String(rows[i]?.[1] || '').trim();

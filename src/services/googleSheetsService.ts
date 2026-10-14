@@ -766,10 +766,7 @@ export async function importarCasosCSV(csvText: string, origen: string = 'Archiv
  * Soporta Netlify y localmente usando caché de navegador
  */
 export async function consultarCasosGoogleSheets(): Promise<any[]> {
-  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
-  const urlsAIntentar = isNetlify
-    ? ['https://pe-ya-onb.vercel.app/api/sheets/casos', '/api/sheets/casos']
-    : ['/api/sheets/casos', 'https://pe-ya-onb.vercel.app/api/sheets/casos'];
+  const urlsAIntentar = ['/api/sheets/casos'];
 
   for (const baseUrl of urlsAIntentar) {
     try {
@@ -859,10 +856,7 @@ export async function actualizarCasoEnSheets(casoActualizado: any): Promise<any>
   }
 
   const gasUrl = obtenerGasUrl();
-  const endpoints = [
-    '/api/sheets/actualizar-caso',
-    'https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso'
-  ];
+  const endpoints = ['/api/sheets/actualizar-caso'];
 
   for (const endpoint of endpoints) {
     try {
@@ -921,10 +915,7 @@ export async function eliminarCasoGoogleSheets(casoId: string, casoOp?: string, 
     }
   } catch (_) {}
 
-  const endpoints = [
-    '/api/sheets/eliminar-caso',
-    'https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso'
-  ];
+  const endpoints = ['/api/sheets/eliminar-caso'];
 
   let lastError: any = null;
 

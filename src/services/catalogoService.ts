@@ -96,11 +96,7 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
  * Consulta los catálogos en vivo directamente desde la hoja Integraciones_Sponsorship
  */
 export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefecto | null> {
-  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
-
-  const urlsAIntentar = isNetlify
-    ? ['https://pe-ya-onb.vercel.app/api/sheets/catalogos', '/api/sheets/catalogos']
-    : ['/api/sheets/catalogos', 'https://pe-ya-onb.vercel.app/api/sheets/catalogos'];
+  const urlsAIntentar = ['/api/sheets/catalogos'];
 
   for (const baseUrl of urlsAIntentar) {
     try {
@@ -138,12 +134,7 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
  * Guarda una sección específica del catálogo impactando directamente en la hoja Integraciones_Sponsorship
  */
 export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]): Promise<any> {
-  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
-
-  const urlsAIntentar = [
-    '/api/sheets/catalogos',
-    'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
-  ];
+  const urlsAIntentar = ['/api/sheets/catalogos'];
 
   let ultimoError: any = null;
 

@@ -1224,21 +1224,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         `${tipo}_${idBuscado}`
       ]);
 
-      // 2. Sincronizar directamente con Backend y Google Sheets
-      try {
-        const resPush = await fetch('/api/sheets/actualizar-caso', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(casoActualizado)
-        });
-
-        if (!resPush.ok) {
-          await actualizarCasoEnSheets(casoActualizado).catch(() => {});
-        }
-      } catch (e) {
-        console.warn('Error sincronizando push con sheets, usando fallback:', e);
-        await actualizarCasoEnSheets(casoActualizado).catch(() => {});
-      }
+      // 2. Sincronizar directamente con Google Sheets
+      await actualizarCasoEnSheets(casoActualizado).catch(e => {
+        console.warn('Error sincronizando push con sheets:', e);
+      });
 
       mostrarNotificacion('Actualizado', "success");
 
