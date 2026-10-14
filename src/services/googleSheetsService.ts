@@ -859,11 +859,10 @@ export async function actualizarCasoEnSheets(casoActualizado: any): Promise<any>
   }
 
   const gasUrl = obtenerGasUrl();
-  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
-
-  const endpoints = isNetlify
-    ? ['https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso', '/api/sheets/actualizar-caso']
-    : ['/api/sheets/actualizar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso'];
+  const endpoints = [
+    '/api/sheets/actualizar-caso',
+    'https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso'
+  ];
 
   for (const endpoint of endpoints) {
     try {
@@ -922,11 +921,10 @@ export async function eliminarCasoGoogleSheets(casoId: string, casoOp?: string, 
     }
   } catch (_) {}
 
-  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
-
-  const endpoints = isNetlify
-    ? ['https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso', '/api/sheets/eliminar-caso']
-    : ['/api/sheets/eliminar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso'];
+  const endpoints = [
+    '/api/sheets/eliminar-caso',
+    'https://pe-ya-onb.vercel.app/api/sheets/eliminar-caso'
+  ];
 
   let lastError: any = null;
 

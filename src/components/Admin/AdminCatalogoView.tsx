@@ -111,38 +111,27 @@ export default function AdminCatalogoView({
   // Guardar cambio en catálogo (impacta en Firestore en tiempo real y en Google Sheets si está disponible)
   const persistirCambios = async (nuevaLista: any[], mensajeAccion?: string) => {
     setGuardando(true);
-    const msg = mensajeAccion || `Guardando cambios en ${categoriaMeta?.label || 'catálogo'} y sincronizando...`;
+    const msg = mensajeAccion || `Guardando cambios en ${categoriaMeta?.label || 'catálogo'} en Google Sheets...`;
     if (setCargandoOperacion) {
       setCargandoOperacion(msg);
     }
     try {
-      const nuevosCatalogos = {
-        ...catalogos,
-        [categoriaActiva]: nuevaLista
-      };
-
-      // 1. Guardar en Google Sheets (hoja Integraciones_Sponsorship - fuente principal)
-      try {
-        const resSheets = await guardarSeccionEnGoogleSheets(categoriaActiva, nuevaLista);
-        if (resSheets?.catalogos && onActualizarCatalogos) {
-          onActualizarCatalogos(resSheets.catalogos);
+      const resSheets = await guardarSeccionEnGoogleSheets(categoriaActiva, nuevaLista);
+      if (resSheets?.catalogos && onActualizarCatalogos) {
+        onActualizarCatalogos(resSheets.catalogos);
+      } else {
+        const nuevosCatalogos = {
+          ...catalogos,
+          [categoriaActiva]: nuevaLista
+        };
+        if (onActualizarCatalogos) {
+          onActualizarCatalogos(nuevosCatalogos);
         }
-      } catch (sheetsErr) {
-        console.warn('Notice guardando en Google Sheets:', sheetsErr);
       }
-
-      // 2. Actualizar estado en UI inmediatamente
-      if (onActualizarCatalogos) {
-        onActualizarCatalogos(nuevosCatalogos);
-      }
-
-      // 3. Respaldar en Firestore en segundo plano (sin bloquear)
-      guardarCatalogosEnFirestore(nuevosCatalogos as any).catch(() => {});
-
-      mostrarNotificacion && mostrarNotificacion('Actualizado', 'success');
+      mostrarNotificacion && mostrarNotificacion('Guardado correctamente en Google Sheets', 'success');
     } catch (err: any) {
-      console.error('Error guardando catálogo:', err);
-      mostrarNotificacion && mostrarNotificacion(`❌ Error al guardar: ${err.message}`, 'error');
+      console.error('Error guardando catálogo en Google Sheets:', err);
+      mostrarNotificacion && mostrarNotificacion(`❌ Error al guardar en Google Sheets: ${err.message}`, 'error');
     } finally {
       setGuardando(false);
       if (setCargandoOperacion) {

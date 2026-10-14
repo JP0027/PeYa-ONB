@@ -140,19 +140,10 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
 export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]): Promise<any> {
   const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
 
-  const urlsAIntentar = isNetlify
-    ? [
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
-        '/api/sheets/catalogos/guardar-seccion',
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos',
-        '/api/sheets/catalogos'
-      ]
-    : [
-        '/api/sheets/catalogos/guardar-seccion',
-        '/api/sheets/catalogos',
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
-      ];
+  const urlsAIntentar = [
+    '/api/sheets/catalogos',
+    'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
+  ];
 
   let ultimoError: any = null;
 
@@ -242,18 +233,7 @@ export async function guardarCatalogosEnFirestore(nuevosCatalogos: CatalogosPorD
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nuevosCatalogos));
   } catch (_) {}
-
-  try {
-    const docRef = doc(db, FIRESTORE_DOC_PATH[0], FIRESTORE_DOC_PATH[1]);
-    await setDoc(docRef, {
-      ...nuevosCatalogos,
-      actualizadoEn: new Date().toISOString()
-    }, { merge: true });
-    return { success: true };
-  } catch (error) {
-    console.error('[catalogoService] Error guardando en Firestore:', error);
-    throw error;
-  }
+  return { success: true };
 }
 
 /**

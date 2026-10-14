@@ -1,5 +1,23 @@
-import { JWT } from 'google-auth-library';
-import { sheetsWriteQueue, SheetsWriteQueue } from './sheetsQueue';
+async function fetchConReintento(url: string, options: RequestInit, maxReintentos: number = 4): Promise<Response> {
+  let ultimoError: any = null;
+  for (let intento = 0; intento < maxReintentos; intento++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 429 || res.status >= 500) {
+        const esperaMs = (800 * Math.pow(2, intento)) + Math.floor(Math.random() * 300);
+        await new Promise(r => setTimeout(r, esperaMs));
+        continue;
+      }
+      return res;
+    } catch (err: any) {
+      ultimoError = err;
+      const esperaMs = (800 * Math.pow(2, intento)) + Math.floor(Math.random() * 300);
+      if (intento === maxReintentos - 1) throw err;
+      await new Promise(r => setTimeout(r, esperaMs));
+    }
+  }
+  throw ultimoError || new Error('Google Sheets API request failed');
+}
 
 const SPREADSHEET_ID = process.env.VITE_GOOGLE_SHEET_ID || '1obGQuhQx0FcxdoHNYUMzGqOzLFalhA63W8ze1tygHkk';
 const CREDS_B64 = 'ew0KICAidHlwZSI6ICJzZXJ2aWNlX2FjY291bnQiLA0KICAicHJvamVjdF9pZCI6ICJvbmItZGF0YSIsDQogICJwcml2YXRlX2tleV9pZCI6ICIyODRkZTRiY2ViMWJkNzc2NmEyZjA2NjhmMzU3ODhkZjM4MDFjZTU1IiwNCiAgInByaXZhdGVfa2V5IjogIi0tLS0tQkVHSU4gUFJJVkFURSBLRVktLS0tLVxuTUlJRXZnSUJBREFOQmdrcWhraUc5dzBCQVFFRkFBU0NCS2d3Z2dTa0FnRUFBb0lCQVFEZzFOdk9RNDR6OUtvVVxub0lvZkswRDFiRFBGc3EvS0VoNTRlL01YWGNoajZ4T29jSGZ4am9ONXRpZlA0dmFEN0lyVWhCZVFENlpTZ2R0Q1xuNFVnK3dLUUJqWVA3T1FTQWM2czBYSzBsbnJYNmkzY0o1NDJOWHd2V2RYRXJ5SmVuTDU4WU91WHRoTmIweFM2TFxuYStwa2V1Vk85TVRzYzByanZWMEpUQ1BPK3NaaDFzeGFhcXZzSlVpT3YrSWNHcFo0R2ljVmVtTURWS3FUR3NzWlxubkQyL1FFdkMzR2Rrb3BoNkEvdStDYWw2M1hYdURWeE1oQlNTWnNuV0Rla21pbkV3N2g1cGptNXprYklsQlJodVxuanowYk1oaTlTYjhOYXF5dTZQUXdNY0gveXBCKzF6Rkh2aXB4dDFYK1hWZzJ1N21WM2p0OUg3RnhIYWRuaHlXQVxuWm5Ic3VRZEZBZ01CQUFFQ2dnRUFDRTd3RDlJV1JnYm92Qm9SKzBTTmJNOENwaHAyMHVMOWhrVktVK3c1ZExFaVxuQ1FEeSt4VzI5NzlLcWF6V1N1OXBwL1hPVmNWYm5PNllqQzJvRGsyWnpKdzVWWVlqWVBNbFQxVGlGSGhRMEVFK1xueW1VVFZEZEFIWkk1ekR6b1FjWTBQUXNtMFFnRGdOM0NoN3R3QTN1T2VzUk5KMUc4REQ0YUJlSEVRYWlwdm13YlxuREJtcVZrTng3UFJxS0pWaTVubSt2OFo4YXluK1dsTDdjOGluZm9CeEJuRjh6dTNvaW4xaGtNeHR4Z2hQOWF2clxuMzM5TURTRktVWDJvOHY3bXhoNUk5TnZQb0ZmUkI4eEJ2V0trTWRQWEJUSXp2UDl5YVRJQndUdXI3aGNFa2VveVxuT3BSMnVpZkU4aHNqbUpqajZuNGRtWXZSNlFmOFlEYTBxQUNHK0NaQk1RS0JnUUQ3TWorMzNVdThkUmllOVZFVVxuWTZzRFUvWVlMb0Q5NGgzUEJyV0JDamFsMzVWanJRejg3bFB6WGpUcU4rVjBsdHM0T2ZFSDBSOUlwbGlnTDRtelxuNVJSbUVLYWZjZC9QVExOMVNLVjd1NHJ0bUV4V1JZb2xOSERjeGpoaDBTcEQrbGhFWFgxUXpOOGs2bnhDNmlVTFxuNHl1RWpJQ1dVL2lNYnI5MytValhqSUErZlFLQmdRRGxJWW5yR1NUVEV2bkF6TDFFQXFTSVBuaHpVWEhjUXFISVxuNjNISHhhaGxnZ3VIWWEwWVNkTHgyNWc1TGNpUDV6YkZCRi9Vb2lGMHpvaEMwVWd2WngyN3YvbVJrMkZNcE1aaVxuY1F2MXlmMFdiQ2loeVpvRUZ2QmFsTzd5VHpCWElXTUZrV2ZPSlF3bkZZYThvL2tObzBNSEI1WHFCNU1RNktJOFxubk9PYjlkdmVhUUtCZ0JnemJTUWZzKzVDTWM4T3YzTUJielp3M21MU0NDZHRvNFdRbGVnS3ZkMFpQMkZOQ05WTlxuZU5VWG5HMThXU1QwYThacy9xWE1KZ0Z2MVZZSmZuRFFmemllSGc5NmZ4K1B1akp3ZjFEK2JwSVpmREZMbmRXYlxueWN2YlpRODNnYVR1OTVZT2s4WTNGc0NOdnM4TGsrb2pSc3dNWlU4V1kvblRxYXE3WDZNMHJCNVpBb0dCQUxaYlxuMWdkOVVIaUpEcXNxaDZ1Y0t0U2dXMzcwSUJsOEVvVDFGZTQzMnNsSEVlUGlrai9WYVlUQ0Q4bmFMVmlTWFYyNlxuR0ljRHJucm5jVDAwa1MzZzlLSWJyUVgyZFNicHNWWmh3SElURzFHQUxXcHVLQnovSUxZRytKRnpBdmNsaEVqSFxuTEFXK0tJam1zZ0JxeEduZE9SaGNLaTFEY0FHeUZJVUhISU5nem1lWkFvR0JBSWgrWjhiMUx3V1dIcVBGR1VJblxubWtYN1dONkxRZGI2VnloMU5KVSsrUlR1QzFBTmdpdGt0YmE2c3ZVd1dKbzBNN0pTaFduZ2ZhSlZ0dVhjZEU5b1xuU1d0L2hrZXJOV1hBdURHZTREUDhTY0tiZWI4MVNEcDdteVk1WlR0bTVBRldqbUNYeFBkQmp5M05NSm1GbDNSOFxuVVoxNE5LQzhQVjVKbGVnRWRkZU54UTNoXG4tLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tXG4iLA0KICAiY2xpZW50X2VtYWlsIjogIm9uYi1pbnRlZ3JhY2lvbmVzQG9uYi1kYXRhLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwNCiAgImNsaWVudF9pZCI6ICIxMDQxNjU3MjMyMTE5NjUyNjY5NzQiLA0KICAiYXV0aF91cmkiOiAiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tL28vb2F1dGgyL2F1dGgiLA0KICAidG9rZW5fdXJpIjogImh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwNCiAgImF1dGhfcHJvdmlkZXJfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9vYXV0aDIvdjEvY2VydHMiLA0KICAiY2xpZW50X3g1MDlfY2VydF91cmwiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vcm9ib3QvdjEvbWV0YWRhdGEveDUwOS9vbmItaW50ZWdyYWNpb25lcyU0MG9uYi1kYXRhLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwNCiAgInVuaXZlcnNlX2RvbWFpbiI6ICJnb29nbGVhcGlzLmNvbSINCn0NCg==';
@@ -159,8 +177,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: 'Se requiere id, casoOp o vendorId' });
     }
 
-    const resultado = await sheetsWriteQueue.enqueue(async () => {
-      const token = await getToken();
+    const token = await getToken();
       const idBusqueda = String(casoData.casoOp || casoData.id || casoData.vendorId || '').trim();
       const esNuevo = Boolean(casoData.esNuevo);
       let filaTarget = 0;
@@ -168,7 +185,7 @@ export default async function handler(req: any, res: any) {
 
       // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
       const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
-      const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
+      const resCols = await fetchConReintento(urlCols, {
         headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
       });
       if (resCols.ok) {
@@ -245,7 +262,7 @@ export default async function handler(req: any, res: any) {
           values: [[valFreezePos, valFreezeCat]]
         });
 
-        const apiRes = await SheetsWriteQueue.fetchConReintento(urlBatch, {
+        const apiRes = await fetchConReintento(urlBatch, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -278,14 +295,14 @@ export default async function handler(req: any, res: any) {
         try {
           const sheetIdOnboardingNew = 104076048;
           const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
-          const resMeta = await SheetsWriteQueue.fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
+          const resMeta = await fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
           if (resMeta.ok) {
             const dataMeta = await resMeta.json();
             const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
             const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
             if (nuevaFila > rowCountActual) {
               const nuevoRowCount = nuevaFila + 50;
-              await SheetsWriteQueue.fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+              await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -322,7 +339,7 @@ export default async function handler(req: any, res: any) {
           });
         }
 
-        let apiRes = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
+        let apiRes = await fetchConReintento(urlBatchNuevo, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -338,7 +355,7 @@ export default async function handler(req: any, res: any) {
           const errText = await apiRes.text();
           if (errText.includes('exceeds grid limits')) {
             const sheetIdOnboardingNew = 104076048;
-            await SheetsWriteQueue.fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+            await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
               method: 'POST',
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -350,7 +367,7 @@ export default async function handler(req: any, res: any) {
                 }]
               })
             });
-            apiRes = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
+            apiRes = await fetchConReintento(urlBatchNuevo, {
               method: 'POST',
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataUpdatesNuevo })
@@ -362,19 +379,13 @@ export default async function handler(req: any, res: any) {
           }
         }
 
-        return {
-          statusCode: 200,
-          body: {
-            success: true,
-            created: true,
-            filaNumero: nuevaFila,
-            message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila}, Columna G omitida)`
-          }
-        };
+        return res.status(200).json({
+          success: true,
+          created: true,
+          filaNumero: nuevaFila,
+          message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila}, Columna G omitida)`
+        });
       }
-    });
-
-    return res.status(resultado.statusCode || 200).json(resultado.body || resultado);
   } catch (err: any) {
     console.error('Error en /api/sheets/actualizar-caso:', err);
     return res.status(500).json({ success: false, error: err.message });

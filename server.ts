@@ -377,7 +377,7 @@ async function startServer() {
   });
 
   // Guardar columna/sección del catálogo en hoja Integraciones_Sponsorship
-  app.post('/api/sheets/catalogos/guardar-seccion', async (req, res) => {
+  const manejarGuardarSeccionCatalogo = async (req: any, res: any) => {
     try {
       const { seccion, items } = req.body;
       if (!seccion || !Array.isArray(items)) {
@@ -392,10 +392,13 @@ async function startServer() {
         res.status(400).json({ success: false, error: resultado.message });
       }
     } catch (err: any) {
-      console.error('[API /api/sheets/catalogos/guardar-seccion] Error:', err);
+      console.error('[API /api/sheets/catalogos] Error:', err);
       res.status(500).json({ success: false, error: err.message });
     }
-  });
+  };
+
+  app.post('/api/sheets/catalogos', manejarGuardarSeccionCatalogo);
+  app.post('/api/sheets/catalogos/guardar-seccion', manejarGuardarSeccionCatalogo);
 
   // Obtener lista de integraciones de Sponsorship (retrocompatibilidad)
   app.get('/api/sheets/integraciones', async (req, res) => {
