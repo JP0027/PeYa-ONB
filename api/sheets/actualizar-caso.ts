@@ -308,6 +308,43 @@ export default async function handler(req: any, res: any) {
         // INSERTAR nuevo caso detectando exactamente la última fila de la base
         const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 1878;
 
+        // Asegurar que la cuadrícula de Sheets tenga capacidad exacta para la nueva fila
+        try {
+          const sheetIdOnboardingNew = 104076048;
+          const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets(properties(sheetId,title,gridProperties))`;
+          const resMeta = await fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
+          if (resMeta.ok) {
+            const meta = await resMeta.json();
+            const sheetObj = meta.sheets?.find((s: any) => s.properties?.title === 'Onboarding_New' || s.properties?.sheetId === sheetIdOnboardingNew);
+            const rowCount = sheetObj?.properties?.gridProperties?.rowCount || 0;
+            const targetSheetId = sheetObj?.properties?.sheetId || sheetIdOnboardingNew;
+
+            if (nuevaFila > rowCount && rowCount > 0) {
+              const filasAAgregar = nuevaFila - rowCount;
+              await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  requests: [
+                    {
+                      appendDimension: {
+                        sheetId: targetSheetId,
+                        dimension: 'ROWS',
+                        length: filasAAgregar
+                      }
+                    }
+                  ]
+                })
+              });
+            }
+          }
+        } catch (errCap) {
+          console.warn('Advertencia asegurando capacidad para nueva fila:', errCap);
+        }
+
         const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
         const dataUpdatesNuevo: any[] = [
           {
