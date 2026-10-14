@@ -185,15 +185,28 @@ export default async function handler(req: any, res: any) {
       let filaTarget = 0;
       let totalFilasHoja = 0;
 
-      // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
-      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
+      // 1. Consultar 'Onboarding_New'!A:C para detectar el número real de filas con datos en la base antes de escribir
+      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:C?valueRenderOption=FORMATTED_VALUE`;
       const resCols = await fetchConReintento(urlCols, {
         headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
       });
       if (resCols.ok) {
         const dataCols = await resCols.json();
         const rows = dataCols.values || [];
-        totalFilasHoja = rows.length;
+
+        // Encontrar la ÚLTIMA fila real con datos (donde N° Caso OP, ID o Tienda no sea vacío)
+        let ultimaFilaConDatos = 0;
+        for (let i = rows.length - 1; i >= 0; i--) {
+          const r = rows[i] || [];
+          const op = String(r[0] || '').trim();
+          const ven = String(r[1] || '').trim();
+          const tie = String(r[2] || '').trim();
+          if (op || ven || tie) {
+            ultimaFilaConDatos = i + 1; // Fila 1-indexed en la hoja
+            break;
+          }
+        }
+        totalFilasHoja = ultimaFilaConDatos;
 
         const filaHint = Number(casoData.filaNumero);
         const venBuscado = String(casoData.vendorId || casoData.vendor_id || '').trim();

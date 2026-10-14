@@ -48,7 +48,19 @@ export default async function handler(req: any, res: any) {
 
     const json = await apiRes.json();
     const rows = json.values || [];
-    const totalFilas = rows.length;
+    
+    let ultimaFilaConDatos = 0;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = rows[i] || [];
+      const op = String(row[0] || '').trim();
+      const ven = String(row[1] || '').trim();
+      if (op || ven) {
+        ultimaFilaConDatos = i + 1;
+        break;
+      }
+    }
+
+    const totalFilas = ultimaFilaConDatos || (rows.length > 0 ? rows.length : 2);
     const totalCasos = Math.max(0, totalFilas - 2);
     const proximaFilaNueva = totalFilas + 1;
 
