@@ -1,3 +1,5 @@
+import { JWT } from 'google-auth-library';
+
 async function fetchConReintento(url: string, options: RequestInit, maxReintentos: number = 4): Promise<Response> {
   let ultimoError: any = null;
   for (let intento = 0; intento < maxReintentos; intento++) {
@@ -279,15 +281,12 @@ export default async function handler(req: any, res: any) {
           throw new Error(`Google Sheets API [${apiRes.status}]: ${errText}`);
         }
 
-        return {
-          statusCode: 200,
-          body: {
-            success: true,
-            updated: true,
-            filaNumero: filaTarget,
-            message: `Caso actualizado en Google Sheets (Fila #${filaTarget}, Columna G omitida)`
-          }
-        };
+        return res.status(200).json({
+          success: true,
+          updated: true,
+          filaNumero: filaTarget,
+          message: `Caso actualizado en Google Sheets (Fila #${filaTarget}, Columna G omitida)`
+        });
       } else {
         // INSERTAR nuevo caso detectando exactamente la última fila de la base
         const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 1878;

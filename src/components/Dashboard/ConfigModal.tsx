@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  guardarCasosEnFirestore, 
   generarScriptAppsScriptParaFirebase 
 } from '../../services/firebaseCasosService';
 import { 
@@ -63,11 +62,6 @@ export default function ConfigModal({ visible, onCerrar, onSincronizar, casosCou
     setProcesandoCsv(true);
     try {
       const res = await importarCasosCSV(textoCSV, 'Archivo CSV');
-      if (Array.isArray(res.casos) && res.casos.length > 0) {
-        guardarCasosEnFirestore(res.casos).catch(err => {
-          console.warn("[Firebase] Error guardando batch en Firestore:", err);
-        });
-      }
       mostrarNotificacion(`¡Éxito! Se importaron ${res.total} casos.`, "success");
       onSincronizar();
       onCerrar();
