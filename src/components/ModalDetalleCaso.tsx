@@ -19,7 +19,8 @@ import {
   esPushKamRealizado,
   resolverOportunidad
 } from '../utils/onboardingRules';
-import SearchableSelect from './Common/SearchableSelect';
+import SearchableSelect, { OptionItem } from './Common/SearchableSelect';
+import ModalContactosIntegracion from './Common/ModalContactosIntegracion';
 
 export interface ModalDetalleCasoProps {
   caso: any;
@@ -34,6 +35,7 @@ export interface ModalDetalleCasoProps {
   paises?: string[];
   assets?: string[];
   integraciones?: string[];
+  integracionesDetalle?: Array<{ nombre: string; sponsorship: string; contactos?: string }>;
 }
 
 /** Formatea la fecha si existe; si está vacía la mantiene vacía (formatearFechaHora('') devolvería la fecha actual) */
@@ -56,8 +58,11 @@ export default function ModalDetalleCaso({
   agentes = LISTA_AGENTES,
   paises = LISTA_PAISES,
   assets = LISTA_ASSETS,
-  integraciones = []
+  integraciones = [],
+  integracionesDetalle = []
 }: ModalDetalleCasoProps) {
+  const [modalContactosAbierto, setModalContactosAbierto] = useState<boolean>(false);
+  const [integracionParaContactos, setIntegracionParaContactos] = useState<string>('');
   const casoOpLimpio = useMemo(() => {
     const raw = String(caso?.casoOp || '').trim();
     if (!raw || raw === '-' || raw.toLowerCase() === 'sin caso op' || raw.toLowerCase() === 'null' || raw.startsWith('TEMP_') || raw.startsWith('SIN_OP_') || raw.includes('_r')) {
@@ -107,7 +112,7 @@ export default function ModalDetalleCaso({
     freezeCat: caso?.fechaFreezeCat || caso?.freezeCat || '',
     fechaFreezeCat: caso?.fechaFreezeCat || caso?.freezeCat || '',
 
-    sla_inicio: caso?.sla_inicio || formatearFechaHora(new Date())
+    sla_inicio: fmtFechaOVacio(caso?.sla_inicio || caso?.fechaInicioSeguimientoOP || caso?.fechaInicioSeguimiento)
   }));
 
   const [guardando, setGuardando] = useState<boolean>(false);
@@ -131,6 +136,7 @@ export default function ModalDetalleCaso({
         sponsorship: caso.sponsorship || obtenerSponsorship(intLimpia || prev.integracion || 'Datalive'),
         descuentosBajoEstructuraSponsorship: caso.descuentosBajoEstructuraSponsorship || obtenerSponsorship(intLimpia || prev.integracion || 'Datalive'),
         oportunidad: opLimpia,
+        sla_inicio: fmtFechaOVacio(caso.sla_inicio || caso.fechaInicioSeguimientoOP || caso.fechaInicioSeguimiento || prev.sla_inicio),
         pushKamPos: esPushKamRealizado(caso.pushKamPos),
         pushKamCat: esPushKamRealizado(caso.pushKamCat),
         respuestaPos: normalizarRespuesta(caso.respuestaPos),
@@ -150,6 +156,33 @@ export default function ModalDetalleCaso({
     }
     return Array.from(new Set(lista));
   }, [integraciones, form.integracion, caso]);
+
+  // Lista de opciones enriquecidas con contactos para SearchableSelect
+  const listaIntegracionesOpciones: OptionItem[] = useMemo(() => {
+    if (Array.isArray(integracionesDetalle) && integracionesDetalle.length > 0) {
+      return integracionesDetalle.map(i => ({
+        label: i.nombre,
+        value: i.nombre,
+        badge: i.sponsorship,
+        contactos: i.contactos || ''
+      }));
+    }
+    return listaIntegracionesFinal.map(i => ({
+      label: i,
+      value: i,
+      badge: obtenerSponsorship(i),
+      contactos: ''
+    }));
+  }, [integracionesDetalle, listaIntegracionesFinal]);
+
+  // Buscar detalle de contactos para la integración seleccionada o abierta
+  const integracionObjetivoNombre = integracionParaContactos || form.integracion || '';
+  const integracionEncontrada = useMemo(() => {
+    if (!integracionObjetivoNombre) return null;
+    return integracionesDetalle.find(
+      i => i.nombre.toLowerCase().trim() === integracionObjetivoNombre.toLowerCase().trim()
+    );
+  }, [integracionesDetalle, integracionObjetivoNombre]);
 
   // Análisis de alertas de Push y SLA para badge compacto
   const alertas = analizarAlertasCaso(form);
@@ -251,8 +284,8 @@ export default function ModalDetalleCaso({
   const tituloCasoOp = form.casoOp && form.casoOp !== '-' ? form.casoOp : 'Sin caso OP';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-      <div className="bg-[#202024] border border-[#3A3A3E] rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/40 dark:bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn">
+      <div className="bg-white dark:bg-[#202024] border border-slate-200 dark:border-[#3A3A3E] rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
         
         {/* Banner de confirmación de guardado visible delante del modal */}
         {mensajeGuardado && (
@@ -271,23 +304,23 @@ export default function ModalDetalleCaso({
           </div>
         )}
 
-        {/* HEADER MODAL - Simple y elegante */}
-        <div className="p-4 sm:p-5 border-b border-[#3A3A3E] bg-[#161618] flex items-center justify-between gap-4">
+        {/* HEADER MODAL */}
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#3A3A3E] bg-slate-50 dark:bg-[#161618] flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#E85A80]/20 border border-[#E85A80]/40 flex items-center justify-center text-[#F46C8E] font-bold text-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#E85A80]/20 border border-[#E85A80]/40 flex items-center justify-center text-[#DB2777] dark:text-[#F46C8E] font-bold text-sm">
               OP
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-bold text-white font-mono">
-                  Caso OP: <span className={tituloCasoOp === 'Sin caso OP' ? 'text-[#B3B3B3] italic font-sans' : 'text-[#F46C8E]'}>{tituloCasoOp}</span>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-mono">
+                  Caso OP: <span className={tituloCasoOp === 'Sin caso OP' ? 'text-slate-500 dark:text-[#B3B3B3] italic font-sans' : 'text-[#DB2777] dark:text-[#F46C8E]'}>{tituloCasoOp}</span>
                 </h3>
                 <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium border ${
                   form.estado.toLowerCase().includes('cerrado') 
-                    ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800' 
+                    ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' 
                     : form.estado.toLowerCase().includes('fallido')
-                    ? 'bg-rose-950/80 text-rose-300 border-rose-800'
-                    : 'bg-cyan-950/80 text-cyan-300 border-cyan-800'
+                    ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+                    : 'bg-cyan-100 dark:bg-cyan-950/80 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800'
                 }`}>
                   {form.estado}
                 </span>
@@ -297,8 +330,8 @@ export default function ModalDetalleCaso({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#B3B3B3] mt-0.5">
-                <strong className="text-gray-200">{form.tienda || 'Sin tienda'}</strong> • Vendor ID: <span className="font-mono text-[#F46C8E]">{form.vendorId || 'N/A'}</span> • {form.pais || 'Sin país'}
+              <p className="text-xs text-slate-600 dark:text-[#B3B3B3] mt-0.5">
+                <strong className="text-slate-800 dark:text-gray-200">{form.tienda || 'Sin tienda'}</strong> • Vendor ID: <span className="font-mono text-[#DB2777] dark:text-[#F46C8E] font-bold">{form.vendorId || 'N/A'}</span> • {form.pais || 'Sin país'}
               </p>
             </div>
           </div>
@@ -308,7 +341,7 @@ export default function ModalDetalleCaso({
               type="button"
               onClick={usarDatosParaNuevaOp}
               title="Replicar tienda y datos en el formulario para una nueva OP"
-              className="hidden sm:flex items-center gap-1.5 text-sm bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#F46C8E] border border-[#E85A80]/30 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 text-sm bg-white hover:bg-pink-50 dark:bg-[#2C2C32] dark:hover:bg-[#3A3A3E] text-[#DB2777] dark:text-[#F46C8E] border border-pink-200 dark:border-[#E85A80]/30 px-3 py-1.5 rounded-lg transition font-medium cursor-pointer shadow-sm"
             >
               <span>➕</span>
               <span>Replicar Tienda</span>
@@ -316,7 +349,7 @@ export default function ModalDetalleCaso({
             <button 
               type="button"
               onClick={alCerrar} 
-              className="text-[#B3B3B3] hover:text-white p-2 rounded-lg hover:bg-[#2C2C32] text-lg transition cursor-pointer min-h-[44px]"
+              className="text-slate-500 hover:text-slate-900 dark:text-[#B3B3B3] dark:hover:text-white p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-[#2C2C32] text-lg transition cursor-pointer min-h-[44px]"
             >
               ✕
             </button>
@@ -324,15 +357,15 @@ export default function ModalDetalleCaso({
         </div>
 
         {/* TABS SIMPLES: Exactamente 2 pestañas */}
-        <div className="bg-[#121212] px-5 pt-2 border-b border-[#3A3A3E] flex items-center justify-between gap-2">
+        <div className="bg-slate-100 dark:bg-[#121212] px-5 pt-2 border-b border-slate-200 dark:border-[#3A3A3E] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setTabActiva('datos')}
               className={`px-4 py-2 text-xs font-bold rounded-t-lg transition border-b-2 cursor-pointer ${
                 tabActiva === 'datos' 
-                  ? 'border-[#E85A80] text-[#F46C8E] bg-[#202024]' 
-                  : 'border-transparent text-[#B3B3B3] hover:text-gray-200'
+                  ? 'border-[#E85A80] text-[#DB2777] dark:text-[#F46C8E] bg-white dark:bg-[#202024]' 
+                  : 'border-transparent text-slate-600 dark:text-[#B3B3B3] hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
               📝 Datos del caso
@@ -342,13 +375,13 @@ export default function ModalDetalleCaso({
               onClick={() => setTabActiva('seguimiento')}
               className={`px-4 py-2 text-xs font-bold rounded-t-lg transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
                 tabActiva === 'seguimiento' 
-                  ? 'border-[#E85A80] text-[#F46C8E] bg-[#202024]' 
-                  : 'border-transparent text-[#B3B3B3] hover:text-gray-200'
+                  ? 'border-[#E85A80] text-[#DB2777] dark:text-[#F46C8E] bg-white dark:bg-[#202024]' 
+                  : 'border-transparent text-slate-600 dark:text-[#B3B3B3] hover:text-slate-900 dark:hover:text-gray-200'
               }`}
             >
               <span>⏱️ Seguimiento</span>
               {(alertas.requierePushPos || alertas.requierePushCat) && (
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
               )}
             </button>
           </div>
@@ -441,7 +474,22 @@ export default function ModalDetalleCaso({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[#B3B3B3] font-medium">Integración</label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[#B3B3B3] font-medium">Integración</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIntegracionParaContactos(form.integracion || '');
+                        setModalContactosAbierto(true);
+                      }}
+                      className="text-[10px] bg-pink-950/80 hover:bg-pink-900 text-pink-300 border border-pink-700/60 px-2 py-0.5 rounded flex items-center gap-1 transition cursor-pointer"
+                      title="Ver contactos de correo de esta integración"
+                    >
+                      <span>👥</span>
+                      <span>Contactos</span>
+                      <span>↗️</span>
+                    </button>
+                  </div>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${form.sponsorship === 'SI' ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300' : 'bg-[#2C2C32]/80 border-[#3A3A3E] text-[#B3B3B3]'}`}>
                     Sponsorship: {form.sponsorship || 'NO'}
                   </span>
@@ -462,11 +510,11 @@ export default function ModalDetalleCaso({
                     });
                     setCambioDetectado(true);
                   }}
-                  options={listaIntegracionesFinal.map(i => ({
-                    label: i,
-                    value: i,
-                    badge: obtenerSponsorship(i)
-                  }))}
+                  options={listaIntegracionesOpciones}
+                  onVerContactos={(op) => {
+                    setIntegracionParaContactos(op.value);
+                    setModalContactosAbierto(true);
+                  }}
                   placeholder="Buscar integración..."
                   searchPlaceholder="Escribe para buscar integración..."
                 />
@@ -592,6 +640,31 @@ export default function ModalDetalleCaso({
                 />
               </div>
 
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[#B3B3B3] font-medium">Fecha de inicio de seguimiento de OP</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      manejarCambio({ target: { name: 'sla_inicio', value: formatearFechaHora(new Date()) } });
+                    }}
+                    className="text-[10px] bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded cursor-pointer border border-cyan-700/60 flex items-center gap-1"
+                    title="Estampar fecha y hora actual"
+                  >
+                    <span>🕒</span>
+                    <span>Ahora</span>
+                  </button>
+                </div>
+                <input 
+                  type="text" 
+                  name="sla_inicio" 
+                  value={form.sla_inicio || ''} 
+                  onChange={manejarCambio}
+                  placeholder="DD/MM/YYYY HH:mm"
+                  className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-emerald-300 font-mono min-h-[44px]"
+                />
+              </div>
+
               {form.fechaCierre && (
                 <div>
                   <label className="text-emerald-400 block mb-1 font-medium">Fecha de Cierre</label>
@@ -626,19 +699,19 @@ export default function ModalDetalleCaso({
             <div className="space-y-4 text-xs">
               
               {/* POS API */}
-              <div className="bg-[#121212] border border-[#3A3A3E] rounded-xl p-3.5 sm:p-4">
-                <div className="flex items-center justify-between border-b border-[#3A3A3E] pb-2 mb-3">
+              <div className="bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#3A3A3E] rounded-xl p-3.5 sm:p-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#3A3A3E] pb-2 mb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🖥️</span>
-                    <h4 className="font-bold text-white text-sm">Seguimiento POS API</h4>
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">Seguimiento POS API</h4>
                     {alertas.tiempoTranscurridoPos && alertas.tiempoTranscurridoPos !== '-' && (
-                      <span className="bg-[#2C2C32] text-cyan-300 font-mono text-[10px] px-2 py-0.5 rounded border border-[#3A3A3E]">
+                      <span className="bg-slate-200 dark:bg-[#2C2C32] text-cyan-800 dark:text-cyan-300 font-mono text-[10px] px-2 py-0.5 rounded border border-slate-300 dark:border-[#3A3A3E]">
                         {alertas.tiempoTranscurridoPos}
                       </span>
                     )}
                   </div>
                   {alertas.requierePushPos && (
-                    <span className="bg-amber-950 text-amber-400 border border-amber-800 px-2 py-0.5 rounded text-[10px]">
+                    <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-800 px-2 py-0.5 rounded text-[10px]">
                       ⚠️ No realizo push
                     </span>
                   )}
@@ -646,20 +719,20 @@ export default function ModalDetalleCaso({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[#B3B3B3] block mb-1">Fecha de Inicio POS API</label>
+                    <label className="text-slate-700 dark:text-[#B3B3B3] block mb-1">Fecha de Inicio POS API</label>
                     <input 
                       type="text" 
                       name="fechaInicioPos" 
                       value={form.fechaInicioPos} 
                       onChange={manejarCambio}
                       placeholder="DD/MM/YYYY HH:mm o S/V"
-                      className="w-full bg-[#202024] border border-[#3A3A3E] rounded p-2 text-white font-mono text-xs min-h-[44px]"
+                      className="w-full bg-white dark:bg-[#202024] border border-slate-300 dark:border-[#3A3A3E] rounded p-2 text-slate-900 dark:text-white font-mono text-xs min-h-[44px]"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-[#B3B3B3]">Fecha Push POS API</label>
+                      <label className="text-slate-700 dark:text-[#B3B3B3]">Fecha Push POS API</label>
                       <button
                         type="button"
                         onClick={() => {
@@ -678,17 +751,17 @@ export default function ModalDetalleCaso({
                       value={form.fechaPushPos} 
                       onChange={manejarCambio}
                       placeholder="DD/MM/YYYY HH:mm"
-                      className="w-full bg-[#202024] border border-[#3A3A3E] rounded p-2 text-white font-mono text-xs min-h-[44px]"
+                      className="w-full bg-white dark:bg-[#202024] border border-slate-300 dark:border-[#3A3A3E] rounded p-2 text-slate-900 dark:text-white font-mono text-xs min-h-[44px]"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[#B3B3B3] block mb-1">Respuesta POS API</label>
+                    <label className="text-slate-700 dark:text-[#B3B3B3] block mb-1">Respuesta POS API</label>
                     <select 
                       name="respuestaPos" 
                       value={normalizarRespuesta(form.respuestaPos)} 
                       onChange={manejarCambio}
-                      className="w-full bg-[#202024] border border-[#3A3A3E] rounded p-2 text-white font-semibold text-xs min-h-[44px]"
+                      className="w-full bg-white dark:bg-[#202024] border border-slate-300 dark:border-[#3A3A3E] rounded p-2 text-slate-900 dark:text-white font-semibold text-xs min-h-[44px]"
                     >
                       <option value="">Seleccione...</option>
                       <option value="Si">Si</option>
@@ -698,7 +771,7 @@ export default function ModalDetalleCaso({
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-[#3A3A3E]/80 flex items-center justify-between text-[11px] text-[#B3B3B3]">
+                <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#3A3A3E]/80 flex items-center justify-between text-[11px] text-slate-700 dark:text-[#B3B3B3]">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -707,30 +780,30 @@ export default function ModalDetalleCaso({
                       onChange={manejarCambio}
                       className="accent-pink-600 rounded cursor-pointer w-4 h-4 min-h-[44px]"
                     />
-                    <span className="font-medium text-gray-200">Push KAM POS</span>
+                    <span className="font-bold text-slate-800 dark:text-gray-200">Push KAM POS</span>
                   </label>
                   {form.freezePos && (
                     <div>
-                      Freeze: <span className="font-mono text-cyan-400">{form.freezePos}</span>
+                      Freeze: <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">{form.freezePos}</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* CATÁLOGO */}
-              <div className="bg-[#121212] border border-[#3A3A3E] rounded-xl p-3.5 sm:p-4">
-                <div className="flex items-center justify-between border-b border-[#3A3A3E] pb-2 mb-3">
+              <div className="bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#3A3A3E] rounded-xl p-3.5 sm:p-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#3A3A3E] pb-2 mb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-base">📋</span>
-                    <h4 className="font-bold text-white text-sm">Seguimiento Catálogo</h4>
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">Seguimiento Catálogo</h4>
                     {alertas.tiempoTranscurridoCat && alertas.tiempoTranscurridoCat !== '-' && (
-                      <span className="bg-[#2C2C32] text-pink-300 font-mono text-[10px] px-2 py-0.5 rounded border border-[#3A3A3E]">
+                      <span className="bg-slate-200 dark:bg-[#2C2C32] text-pink-700 dark:text-pink-300 font-mono text-[10px] px-2 py-0.5 rounded border border-slate-300 dark:border-[#3A3A3E]">
                         {alertas.tiempoTranscurridoCat}
                       </span>
                     )}
                   </div>
                   {alertas.requierePushCat && (
-                    <span className="bg-pink-950 text-[#F46C8E] border border-pink-800 px-2 py-0.5 rounded text-[10px]">
+                    <span className="bg-pink-100 dark:bg-pink-950 text-pink-800 dark:text-[#F46C8E] border border-pink-300 dark:border-pink-800 px-2 py-0.5 rounded text-[10px]">
                       📦 No realizo push
                     </span>
                   )}
@@ -738,20 +811,20 @@ export default function ModalDetalleCaso({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[#B3B3B3] block mb-1">Fecha de Inicio Catálogo</label>
+                    <label className="text-slate-700 dark:text-[#B3B3B3] block mb-1">Fecha de Inicio Catálogo</label>
                     <input 
                       type="text" 
                       name="fechaInicioCat" 
                       value={form.fechaInicioCat} 
                       onChange={manejarCambio}
                       placeholder="DD/MM/YYYY HH:mm o S/V"
-                      className="w-full bg-[#202024] border border-[#3A3A3E] rounded p-2 text-white font-mono text-xs min-h-[44px]"
+                      className="w-full bg-white dark:bg-[#202024] border border-slate-300 dark:border-[#3A3A3E] rounded p-2 text-slate-900 dark:text-white font-mono text-xs min-h-[44px]"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-[#B3B3B3]">Fecha Push Catálogo</label>
+                      <label className="text-slate-700 dark:text-[#B3B3B3]">Fecha Push Catálogo</label>
                       <button
                         type="button"
                         onClick={() => {
@@ -770,17 +843,17 @@ export default function ModalDetalleCaso({
                       value={form.fechaPushCat} 
                       onChange={manejarCambio}
                       placeholder="DD/MM/YYYY HH:mm"
-                      className="w-full bg-[#202024] border border-[#3A3A3E] rounded p-2 text-white font-mono text-xs min-h-[44px]"
+                      className="w-full bg-white dark:bg-[#202024] border border-slate-300 dark:border-[#3A3A3E] rounded p-2 text-slate-900 dark:text-white font-mono text-xs min-h-[44px]"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[#B3B3B3] block mb-1">Respuesta Catálogo</label>
+                    <label className="text-slate-700 dark:text-[#B3B3B3] block mb-1">Respuesta Catálogo</label>
                     <select 
                       name="respuestaCat" 
                       value={normalizarRespuesta(form.respuestaCat)} 
                       onChange={manejarCambio}
-                      className="w-full bg-[#202024] border border-[#3A3A3E] rounded p-2 text-white font-semibold text-xs min-h-[44px]"
+                      className="w-full bg-white dark:bg-[#202024] border border-slate-300 dark:border-[#3A3A3E] rounded p-2 text-slate-900 dark:text-white font-semibold text-xs min-h-[44px]"
                     >
                       <option value="">Seleccione...</option>
                       <option value="Si">Si</option>
@@ -790,7 +863,7 @@ export default function ModalDetalleCaso({
                   </div>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-[#3A3A3E]/80 flex items-center justify-between text-[11px] text-[#B3B3B3]">
+                <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-[#3A3A3E]/80 flex items-center justify-between text-[11px] text-slate-700 dark:text-[#B3B3B3]">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -799,11 +872,11 @@ export default function ModalDetalleCaso({
                       onChange={manejarCambio}
                       className="accent-pink-600 rounded cursor-pointer w-4 h-4 min-h-[44px]"
                     />
-                    <span className="font-medium text-gray-200">Push KAM Catálogo</span>
+                    <span className="font-bold text-slate-800 dark:text-gray-200">Push KAM Catálogo</span>
                   </label>
                   {form.freezeCat && (
                     <div>
-                      Freeze: <span className="font-mono text-cyan-400">{form.freezeCat}</span>
+                      Freeze: <span className="font-mono text-cyan-600 dark:text-cyan-400 font-bold">{form.freezeCat}</span>
                     </div>
                   )}
                 </div>
@@ -814,16 +887,16 @@ export default function ModalDetalleCaso({
 
         </div>
 
-        {/* FOOTER ACTIONS - Limpio y centrado en Guardar y Replicar */}
-        <div className="p-4 border-t border-[#3A3A3E] bg-[#161618] flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs text-[#B3B3B3] flex items-center gap-2">
+        {/* FOOTER ACTIONS */}
+        <div className="p-4 border-t border-slate-200 dark:border-[#3A3A3E] bg-slate-50 dark:bg-[#161618] flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-slate-600 dark:text-[#B3B3B3] flex items-center gap-2">
             {caso.filaNumero && (
-              <span className="text-[#B3B3B3] font-mono text-[11px]">
+              <span className="text-slate-600 dark:text-[#B3B3B3] font-mono text-[11px]">
                 Fila: #{caso.filaNumero}
               </span>
             )}
             {cambioDetectado && (
-              <span className="text-amber-400 text-[11px] flex items-center gap-1 font-medium">
+              <span className="text-amber-600 dark:text-amber-400 text-[11px] flex items-center gap-1 font-bold">
                 ● Cambios no guardados
               </span>
             )}
@@ -833,14 +906,14 @@ export default function ModalDetalleCaso({
             <button
               type="button"
               onClick={usarDatosParaNuevaOp}
-              className="px-3.5 py-2 text-sm bg-[#2C2C32] hover:bg-[#3A3A3E] text-pink-300 border border-pink-900/40 rounded-lg transition font-medium cursor-pointer min-h-[44px]"
+              className="px-3.5 py-2 text-sm bg-white hover:bg-pink-50 dark:bg-[#2C2C32] dark:hover:bg-[#3A3A3E] text-[#DB2777] dark:text-pink-300 border border-pink-200 dark:border-pink-900/40 rounded-lg transition font-medium cursor-pointer min-h-[44px] shadow-sm"
             >
               ➕ Replicar Tienda
             </button>
             <button
               type="button"
               onClick={alCerrar}
-              className="px-3.5 py-2 text-sm text-[#B3B3B3] hover:text-white transition cursor-pointer min-h-[44px]"
+              className="px-3.5 py-2 text-sm text-slate-600 hover:text-slate-900 dark:text-[#B3B3B3] dark:hover:text-white transition cursor-pointer min-h-[44px]"
             >
               Cerrar
             </button>
@@ -854,6 +927,16 @@ export default function ModalDetalleCaso({
             </button>
           </div>
         </div>
+
+        {/* Modal de Contactos de la Integración */}
+        {modalContactosAbierto && (
+          <ModalContactosIntegracion
+            integracionNombre={integracionObjetivoNombre || 'Sin selección'}
+            contactosRaw={integracionEncontrada?.contactos || ''}
+            sponsorship={form.sponsorship || 'NO'}
+            onCerrar={() => setModalContactosAbierto(false)}
+          />
+        )}
 
       </div>
     </div>

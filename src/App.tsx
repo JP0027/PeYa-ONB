@@ -41,7 +41,7 @@ export default function App() {
     try {
       if (userData) {
         localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(userData));
-        localStorage.setItem(LOCAL_ROLE_KEY, userRole || 'Agente / Supervisor');
+        localStorage.setItem(LOCAL_ROLE_KEY, userRole || 'Supervisor');
       } else {
         localStorage.removeItem(LOCAL_SESSION_KEY);
         localStorage.removeItem(LOCAL_ROLE_KEY);
@@ -230,20 +230,22 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#121212] text-white p-4 py-8">
-        <div className="w-16 h-16 bg-[#E85A80] rounded-2xl flex items-center justify-center font-black text-white text-2xl mb-4 shadow-lg shadow-pink-900/40">
-          PY
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 dark:bg-[#121212] text-slate-900 dark:text-white p-4 py-8 select-none">
+        <div className="w-16 h-16 bg-[#E85A80] rounded-2xl flex items-center justify-center font-black text-white text-3xl mb-4 shadow-xl shadow-pink-900/30">
+          O
         </div>
         <h1 className="text-3xl sm:text-4xl font-black mb-1 text-[#E85A80] text-center tracking-tight">PeYa ONB</h1>
-        <p className="text-[#B3B3B3] mb-8 text-center max-w-sm text-sm">
+        <p className="text-slate-600 dark:text-[#B3B3B3] mb-8 text-center max-w-sm text-sm">
           Sistema de gestión operativa de Onboarding para PedidosYa
         </p>
 
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+        <div className="flex flex-col gap-3.5 w-full max-w-sm">
+
           {/* BOTÓN ÚNICO DE GOOGLE AUTH */}
           <button 
+            type="button"
             onClick={login} 
-            className="w-full bg-[#1A1A1C] border border-[#3A3A3E] hover:border-[#E85A80] px-6 py-3.5 rounded-xl font-semibold hover:bg-[#2C2C32] transition flex items-center justify-center gap-3 text-base shadow-xl cursor-pointer min-h-[44px]"
+            className="w-full bg-white dark:bg-[#1A1A1C] border border-slate-300 dark:border-[#3A3A3E] hover:border-[#E85A80] px-6 py-3.5 rounded-xl font-bold text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-[#2C2C32] transition flex items-center justify-center gap-3 text-sm shadow-md cursor-pointer min-h-[44px]"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
@@ -256,7 +258,7 @@ export default function App() {
         </div>
 
         {error && (
-          <div className="mt-6 max-w-md bg-red-950/40 border border-red-800 text-red-300 px-4 py-3 rounded-xl text-xs text-center shadow-lg">
+          <div className="mt-6 max-w-md bg-rose-100 dark:bg-red-950/40 border border-rose-300 dark:border-red-800 text-rose-800 dark:text-red-300 px-4 py-3 rounded-xl text-xs text-center shadow-lg font-medium">
             {error}
           </div>
         )}

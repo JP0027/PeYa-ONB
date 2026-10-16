@@ -29,9 +29,14 @@ export interface AdminCatalogoViewProps {
   onSeleccionarCaso?: (caso: any) => void;
   onActualizarCaso?: (caso: any) => Promise<void> | void;
   onEliminarCaso?: (caso: any) => Promise<void> | void;
+  onActualizarCasosMasivo?: (casos: any[]) => Promise<void>;
+  onEliminarCasosMasivo?: (casos: any[]) => Promise<void>;
+  onAgregarCasosMasivo?: (casosNuevos: any[]) => Promise<void>;
+  nombreUsuarioAutenticado?: string;
   sincronizando?: boolean;
   onForzarSyncCasos?: () => Promise<void> | void;
   setCargandoOperacion?: (texto: string | null) => void;
+  temaClaro?: boolean;
 }
 
 export default function AdminCatalogoView({
@@ -42,9 +47,14 @@ export default function AdminCatalogoView({
   onSeleccionarCaso,
   onActualizarCaso,
   onEliminarCaso,
+  onActualizarCasosMasivo,
+  onEliminarCasosMasivo,
+  onAgregarCasosMasivo,
+  nombreUsuarioAutenticado,
   sincronizando = false,
   onForzarSyncCasos,
-  setCargandoOperacion
+  setCargandoOperacion,
+  temaClaro
 }: AdminCatalogoViewProps) {
   const [categoriaActiva, setCategoriaActiva] = useState<string>('onboarding');
   const [busqueda, setBusqueda] = useState<string>('');
@@ -331,16 +341,16 @@ export default function AdminCatalogoView({
             <button
               onClick={recargarDesdeSheets}
               disabled={recargandoSheets || sincronizando || guardando}
-              className="bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 text-sm font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              className="btn-sincronizar-sheets bg-emerald-100 hover:bg-emerald-200 text-black dark:text-white border border-emerald-300 dark:bg-emerald-600 dark:hover:bg-emerald-500 dark:border-emerald-500 font-bold text-sm px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 min-h-[44px]"
               title="Recargar los datos directamente desde la hoja de Google Sheets"
             >
-              <span className={recargandoSheets || sincronizando ? 'animate-spin' : ''}>🔄</span>
-              <span>{recargandoSheets || sincronizando ? 'Actualizando datos...' : 'Sincronizar desde Sheets'}</span>
+              <span className={`text-black dark:text-white ${recargandoSheets || sincronizando ? 'animate-spin' : ''}`}>🔄</span>
+              <span className="text-black dark:text-white font-bold">{recargandoSheets || sincronizando ? 'Actualizando datos...' : 'Sincronizar desde Sheets'}</span>
             </button>
             <button
               onClick={manejarRestaurar}
               disabled={guardando}
-              className="bg-[#2C2C32]/80 hover:bg-[#3A3A3E] text-[#B3B3B3] border border-[#3A3A3E] text-sm font-semibold px-3 py-2 rounded-xl transition cursor-pointer min-h-[44px]"
+              className="bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-white font-bold text-sm px-3.5 py-2 rounded-xl transition cursor-pointer border border-slate-300 dark:border-[#3A3A3E] min-h-[44px]"
               title="Restaurar todos los catálogos a valores de fábrica"
             >
               Restaurar Valores Iniciales
@@ -349,7 +359,7 @@ export default function AdminCatalogoView({
         </div>
 
         {/* Selector de Categorías (Pills) */}
-        <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-[#3A3A3E]/80">
+        <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-slate-300 dark:border-[#3A3A3E]/80">
           {CATEGORIAS.map(cat => {
             const esActiva = categoriaActiva === cat.id;
             const count = cat.id === 'onboarding' ? casos.length : (catalogos[cat.id] || []).length;
@@ -361,14 +371,14 @@ export default function AdminCatalogoView({
                   setBusqueda('');
                   setEditandoIdx(null);
                 }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                   esActiva
-                    ? 'bg-[#E85A80] text-white shadow-lg shadow-pink-900/40 border border-[#E85A80]'
-                    : 'bg-[#121212] text-[#B3B3B3] hover:text-white hover:bg-[#2C2C32] border border-[#3A3A3E]'
+                    ? 'bg-[#E85A80] text-white font-bold shadow-md shadow-pink-900/30 border border-[#E85A80]'
+                    : 'bg-white hover:bg-pink-50 text-slate-800 dark:bg-[#27282e] dark:hover:bg-[#32333b] dark:text-white font-bold border border-slate-200 dark:border-[#3b3c46] shadow-xs'
                 }`}
               >
                 <span>{cat.label}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${esActiva ? 'bg-white/20 text-white' : 'bg-[#2C2C32] text-[#B3B3B3]'}`}>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${esActiva ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800 border border-slate-200 dark:bg-black/20 dark:text-white dark:border-transparent'}`}>
                   {count}
                 </span>
               </button>
@@ -381,8 +391,14 @@ export default function AdminCatalogoView({
       {categoriaActiva === 'onboarding' ? (
         <TablaOnboardingCasos
           casos={casos}
+          catalogos={catalogos}
+          nombreUsuarioAutenticado={nombreUsuarioAutenticado}
+          temaClaro={temaClaro}
           onEditarCaso={onSeleccionarCaso}
           onEliminarCaso={onEliminarCaso}
+          onActualizarCasosMasivo={onActualizarCasosMasivo}
+          onEliminarCasosMasivo={onEliminarCasosMasivo}
+          onAgregarCasosMasivo={onAgregarCasosMasivo}
           mostrarNotificacion={mostrarNotificacion}
           cargando={recargandoSheets || sincronizando}
         />
@@ -453,7 +469,7 @@ export default function AdminCatalogoView({
           <div className="bg-[#1A1A1C] border border-[#3A3A3E] rounded-2xl overflow-hidden shadow-lg">
             <div className="max-h-[500px] overflow-y-auto">
               <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-[#121212] text-[#B3B3B3] sticky top-0 uppercase tracking-wider border-b border-[#3A3A3E]">
+                <thead className="bg-slate-50 dark:bg-[#121212] text-slate-700 dark:text-[#B3B3B3] sticky top-0 uppercase tracking-wider border-b border-slate-200 dark:border-[#3A3A3E] font-bold">
                   <tr>
                     <th className="p-3 w-12 text-center">#</th>
                     <th className="p-3">Nombre / Valor</th>
@@ -463,7 +479,7 @@ export default function AdminCatalogoView({
                     <th className="p-3 w-28 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60">
+                <tbody className="divide-y divide-slate-200 dark:divide-gray-800/60">
                   {listaFiltrada.map((item, idx) => {
                     const idxOriginal = listaActual.indexOf(item);
                     const esIntegracion = categoriaActiva === 'integraciones';
@@ -472,8 +488,8 @@ export default function AdminCatalogoView({
                     const estaEditando = editandoIdx === idxOriginal;
 
                     return (
-                      <tr key={idxOriginal} className="hover:bg-[#1a1d27]/70 transition">
-                        <td className="p-3 text-center text-[#9CA3AF] font-mono text-[10px]">
+                      <tr key={idxOriginal} className="hover:bg-[#ffe4e6] dark:hover:bg-[#1a1d27]/70 transition">
+                        <td className="p-3 text-center text-slate-500 dark:text-[#9CA3AF] font-mono text-[10px]">
                           {idxOriginal + 2}
                         </td>
 
@@ -483,11 +499,11 @@ export default function AdminCatalogoView({
                               type="text"
                               value={valorEditado}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setValorEditado(e.target.value)}
-                              className="w-full bg-[#121212] border border-[#E85A80] rounded px-2 py-1 text-xs text-white"
+                              className="w-full bg-white dark:bg-[#121212] border border-[#E85A80] rounded px-2 py-1 text-xs text-slate-900 dark:text-white font-medium"
                               autoFocus
                             />
                           ) : (
-                            <span className="font-medium text-gray-200">{nombre}</span>
+                            <span className="font-bold text-slate-900 dark:text-gray-200">{nombre}</span>
                           )}
                         </td>
 

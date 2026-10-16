@@ -48,7 +48,7 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
       className={`border-b transition cursor-pointer ${
         estaResaltado 
           ? 'bg-amber-500/25 ring-2 ring-amber-400 border-amber-400 shadow-xl shadow-amber-500/30 animate-pulse' 
-          : 'border-[#3A3A3E] hover:bg-[#1a1d27]'
+          : 'border-[#3A3A3E] hover:bg-[#ffe4e6] dark:hover:bg-rose-950/40'
       }`}
     >
       <td className="p-3 text-xs">

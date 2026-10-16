@@ -471,6 +471,33 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const casosCountRef = useRef<number>(0);
 
+  const [temaClaro, setTemaClaro] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('peya_theme');
+      return saved ? saved === 'light' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (temaClaro) {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('theme-light');
+        document.body.classList.remove('dark');
+        document.body.classList.add('theme-light');
+        localStorage.setItem('peya_theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('theme-light');
+        document.body.classList.add('dark');
+        document.body.classList.remove('theme-light');
+        localStorage.setItem('peya_theme', 'dark');
+      }
+    } catch (e) {}
+  }, [temaClaro]);
+
   const [formulario, setFormulario] = useState<FormularioNuevoCaso>(() => {
     return {
       casoOp: '', vendorId: '', tienda: '', pais: '', kam: '',
@@ -886,6 +913,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       String(c.casoOp || c.id || '').toLowerCase() === term ||
       String(c.tienda || '').toLowerCase().includes(term)
     );
+    const termTrim = busquedaId.trim();
+    const soloDigitos = termTrim.replace(/\D/g, '');
+    const esSoloNumeros = /^\d+$/.test(termTrim);
+    const tienePrefijoOp = /^op[-_ ]?\d+/i.test(termTrim);
+
+    // Regla de distinción de campos:
+    // - Caso OP: 9 o más dígitos numéricos (ej. 123456789) o prefijo OP (ej. OP-123456789)
+    // - Vendor ID: Numérico con menos de 9 dígitos (1 a 8 dígitos)
+    // - Tienda: Alfanumérico / Nombre de local
+    const esCasoOp = tienePrefijoOp || (esSoloNumeros && termTrim.length >= 9) || (!esSoloNumeros && soloDigitos.length >= 9);
+    const esVendorId = esSoloNumeros && !esCasoOp && termTrim.length < 9;
+    const esTienda = !esCasoOp && !esVendorId;
+
     setBusquedaResultados(resultadosLocales);
     if (resultadosLocales.length > 0) {
       // Ordenar para tomar el último caso registrado (fila más alta en la base)
@@ -898,9 +938,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const d = casosOrdenados[0] || resultadosLocales[0];
       setFormulario(prev => ({
         ...prev, 
-        casoOp: '', 
-        vendorId: d.vendor_id || d.vendorId || busquedaId.trim(), 
-        tienda: d.tienda || '',
+        casoOp: d.casoOp || (esCasoOp ? termTrim : ''), 
+        vendorId: d.vendor_id || d.vendorId || (esVendorId ? termTrim : ''), 
+        tienda: d.tienda || (esTienda ? termTrim : ''),
         pais: d.pais || prev.pais || 'Argentina', 
         kam: d.kam || '', 
         integracion: d.integracion || 'Datalive',
@@ -913,11 +953,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       mostrarNotificacion(`Encontrados ${resultadosLocales.length} antecedentes.`, "success");
     } else {
       // Si no existen antecedentes, redirigir automáticamente a la pestaña de agregar caso nuevo
+      // Aplicar reglas de pre-llenado según el formato:
+      // - 9 dígitos / Prefijo OP -> N° Caso OP
+      // - < 9 dígitos numéricos -> Vendor ID
+      // - Alfanumérico -> Tienda
+      const casoOpNuevo = esCasoOp ? termTrim : '';
+      const vendorIdNuevo = esVendorId ? termTrim : '';
+      const tiendaNueva = esTienda ? termTrim : '';
+
       setFormulario(prev => ({ 
         ...prev, 
-        casoOp: '', 
-        vendorId: busquedaId.trim(),
-        tienda: '',
+        casoOp: casoOpNuevo, 
+        vendorId: vendorIdNuevo,
+        tienda: tiendaNueva,
         kam: '',
         fechaCreacion: '',
         sla_inicio: '',
@@ -930,7 +978,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         etapa: ''
       }));
       setSubTabNuevo('registro');
-      mostrarNotificacion(`Sin antecedentes previos para "${busquedaId.trim()}". Redirigiendo a nuevo registro.`, "info");
+      const tipoCampoMsg = esCasoOp ? 'N° Caso OP' : (esVendorId ? 'Vendor ID' : 'Tienda');
+      mostrarNotificacion(`Sin antecedentes previos para "${termTrim}". Redirigiendo a nuevo registro como ${tipoCampoMsg}.`, "info");
     }
     setCargandoBusqueda(false);
   };
@@ -1168,6 +1217,189 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   };
 
+  const actualizarCasosMasivo = async (casosAActualizar: any[]) => {
+    if (!casosAActualizar || casosAActualizar.length === 0) return;
+    setCargandoOperacion(`Preparando actualización de ${casosAActualizar.length} casos...`);
+    try {
+      const casosProcesados: any[] = [];
+      for (const casoRaw of casosAActualizar) {
+        const opInput = String(casoRaw.casoOp || '').trim();
+        const esOpValido = opInput && 
+          opInput !== '-' && 
+          opInput.toLowerCase() !== 'sin caso op' && 
+          !opInput.startsWith('TEMP_') && 
+          !opInput.startsWith('SIN_OP_') && 
+          !opInput.includes('_r');
+        const casoOpFinal = esOpValido ? opInput : '';
+        const opResuelta = resolverOportunidad(casoRaw.oportunidad, catalogosDinamicos.oportunidades);
+
+        const casoListo = procesarActualizacionCaso(casoRaw, {
+          ...casoRaw,
+          oportunidad: opResuelta,
+          esNuevo: false,
+          casoOp: casoOpFinal
+        });
+        casoListo.esNuevo = false;
+        casosProcesados.push(casoListo);
+      }
+
+      // Actualizar estado React de inmediato
+      const mapaActualizados = new Map<string, any>();
+      casosProcesados.forEach(c => {
+        if (c.id) mapaActualizados.set(String(c.id).trim(), c);
+        if (c.casoOp) mapaActualizados.set(String(c.casoOp).trim(), c);
+        if (c.filaNumero) mapaActualizados.set(`F_${c.filaNumero}`, c);
+      });
+
+      setCasosSheets(prev => prev.map(c => {
+        const porFila = c.filaNumero ? mapaActualizados.get(`F_${c.filaNumero}`) : null;
+        const porId = c.id ? mapaActualizados.get(String(c.id).trim()) : null;
+        const porOp = c.casoOp ? mapaActualizados.get(String(c.casoOp).trim()) : null;
+        const actualizado = porFila || porId || porOp;
+        return actualizado ? { ...c, ...actualizado } : c;
+      }));
+
+      // Guardar en Google Sheets en secuencia con progreso
+      let completados = 0;
+      for (const caso of casosProcesados) {
+        completados++;
+        setCargandoOperacion(`Actualizando caso ${completados} de ${casosProcesados.length} en Google Sheets...`);
+        await actualizarCasoEnSheets({ ...caso, esNuevo: false }).catch(err => {
+          console.warn('Sheets sync notice:', err);
+        });
+      }
+
+      mostrarNotificacion(`✅ ${casosProcesados.length} casos actualizados exitosamente`, 'success');
+    } catch (err: any) {
+      console.error('Error actualizando casos masivos:', err);
+      mostrarNotificacion(`❌ Error actualizando casos: ${err.message}`, 'error');
+    } finally {
+      setCargandoOperacion(null);
+    }
+  };
+
+  const eliminarCasosMasivo = async (casosAEliminar: any[]) => {
+    if (!casosAEliminar || casosAEliminar.length === 0) return;
+    setCargandoOperacion(`Preparando eliminación de ${casosAEliminar.length} casos...`);
+    try {
+      const idsAEliminar = new Set<string>();
+      const opsAEliminar = new Set<string>();
+      casosAEliminar.forEach(c => {
+        if (c.id) idsAEliminar.add(String(c.id).trim());
+        if (c.casoOp) opsAEliminar.add(String(c.casoOp).trim());
+      });
+
+      // 1. Actualizar estado local
+      setCasosSheets(prev => prev.filter(c => {
+        const cId = String(c.id || '').trim();
+        const cOp = String(c.casoOp || '').trim();
+        return !idsAEliminar.has(cId) && !opsAEliminar.has(cOp);
+      }));
+
+      // 2. Eliminar en Google Sheets
+      let completados = 0;
+      for (const caso of casosAEliminar) {
+        completados++;
+        setCargandoOperacion(`Eliminando caso ${completados} de ${casosAEliminar.length} en Google Sheets...`);
+        const targetId = String(caso.id || caso.casoOp || '').trim();
+        await eliminarCasoGoogleSheets(targetId, caso.casoOp, caso.filaNumero).catch(err => {
+          console.warn('Delete sheets notice:', err);
+        });
+      }
+
+      mostrarNotificacion(`✅ ${casosAEliminar.length} casos eliminados exitosamente`, 'success');
+    } catch (err: any) {
+      console.error('Error eliminando casos masivos:', err);
+      mostrarNotificacion(`❌ Error al eliminar casos: ${err.message}`, 'error');
+    } finally {
+      setCargandoOperacion(null);
+    }
+  };
+
+  const agregarCasosMasivo = async (casosNuevos: any[]) => {
+    if (!casosNuevos || casosNuevos.length === 0) return;
+    setCargandoOperacion(`Registrando ${casosNuevos.length} casos nuevos en Google Sheets...`);
+    try {
+      let proximaFila = 0;
+      try {
+        const resConteo = await fetch('/api/sheets/conteo-filas', { cache: 'no-store' });
+        if (resConteo.ok) {
+          const dataConteo = await resConteo.json();
+          if (dataConteo.success && dataConteo.proximaFilaNueva) {
+            proximaFila = dataConteo.proximaFilaNueva;
+          }
+        }
+      } catch (e) {
+        console.warn('Error consultando conteo de filas en base:', e);
+      }
+
+      if (!proximaFila) {
+        proximaFila = casosSheets.length + 3;
+      }
+
+      const ahora = formatearFechaHora(new Date());
+      const creadosFinales: any[] = [];
+      let filaCursor = proximaFila;
+      let contador = 0;
+
+      for (const raw of casosNuevos) {
+        contador++;
+        setCargandoOperacion(`Registrando caso nuevo ${contador} de ${casosNuevos.length}...`);
+
+        const opInput = String(raw.casoOp || '').trim();
+        const esOpValido = opInput && 
+          opInput !== '-' && 
+          opInput.toLowerCase() !== 'sin caso op' && 
+          !opInput.startsWith('TEMP_') && 
+          !opInput.startsWith('SIN_OP_') && 
+          !opInput.includes('_r');
+        const casoOpFinal = esOpValido ? opInput : '';
+        const docId = esOpValido ? opInput : `SIN_OP_${raw.vendorId || 'caso'}_r${filaCursor}`;
+        const opResuelta = resolverOportunidad(raw.oportunidad, catalogosDinamicos.oportunidades);
+
+        const fechaCreacionInput = String(raw.fechaCreacion || '').trim();
+        const fCreacion = fechaCreacionInput ? formatearFechaHora(fechaCreacionInput) : ahora;
+        const fInicio = formatearFechaHora(raw.sla_inicio || raw.fechaCreacion || ahora) || ahora;
+
+        const casoListo = procesarActualizacionCaso({}, {
+          ...raw,
+          oportunidad: opResuelta,
+          id: docId,
+          casoOp: casoOpFinal,
+          vendor_id: raw.vendorId,
+          agente: raw.propietarioTicket || raw.propietarioOportunidad || nombreUsuarioAutenticado,
+          propietarioOportunidad: raw.propietarioOportunidad || nombreUsuarioAutenticado,
+          propietarioTicket: raw.propietarioTicket || raw.propietarioOportunidad || nombreUsuarioAutenticado,
+          fechaCreacion: fCreacion,
+          sla_inicio: fInicio,
+          fechaInicioSeguimientoOP: fInicio,
+          filaNumero: filaCursor,
+          esNuevo: true,
+          actualizadoEn: new Date().toISOString()
+        });
+
+        const sheetsRes = await actualizarCasoEnSheets({ ...casoListo, esNuevo: true }).catch(err => {
+          console.warn('Sheets sync bulk new notice:', err);
+          return null;
+        });
+
+        const filaReal = sheetsRes?.caso?.filaNumero || sheetsRes?.filaNumero || filaCursor;
+        casoListo.filaNumero = filaReal;
+        casoListo.esNuevo = false;
+        creadosFinales.push(casoListo);
+        filaCursor = filaReal + 1;
+      }
+
+      setCasosSheets(prev => [...creadosFinales, ...prev]);
+      mostrarNotificacion(`✅ ${creadosFinales.length} casos agregados exitosamente`, 'success');
+    } catch (err: any) {
+      console.error('Error agregando casos masivos:', err);
+      mostrarNotificacion(`❌ Error agregando casos masivos: ${err.message}`, 'error');
+    } finally {
+      setCargandoOperacion(null);
+    }
+  };
+
   const manejarRegistrarPush = async (caso: any, tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat' | string) => {
     setCargandoOperacion('Registrando push...');
     try {
@@ -1283,7 +1515,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   };
 
   return (
-    <div className="flex h-screen bg-[#121212] text-gray-200 font-sans">
+    <div className="flex h-screen bg-[#f0f2f5] dark:bg-[#121212] text-slate-800 dark:text-gray-200 font-sans">
       <audio ref={audioRef} src="/ding.mp3" preload="auto" />
       
       {/* Alertas Push Flotantes Tipo Captura */}
@@ -1310,15 +1542,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       {sidebarMovilAbierto && (
         <div className="fixed inset-0 z-50 flex max-[1036px]:flex min-[1037px]:hidden">
           <div 
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
+            className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm" 
             onClick={() => setSidebarMovilAbierto(false)}
           />
-          <div className="relative w-72 bg-[#202024] border-r border-[#3A3A3E] flex flex-col h-full shadow-2xl z-10 animate-slideRight">
-            <div className="p-4 border-b border-[#3A3A3E] flex items-center justify-between">
-              <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+          <div className="relative w-72 bg-white dark:bg-[#202024] border-r border-slate-200 dark:border-[#3A3A3E] flex flex-col h-full shadow-2xl z-10 animate-slideRight">
+            <div className="p-4 border-b border-slate-200 dark:border-[#3A3A3E] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-[#E85A80] rounded-xl flex items-center justify-center font-black text-white text-sm shadow-md">O</div>
+                <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-slate-900 dark:text-white">ONB</span></h1>
+              </div>
               <button 
                 onClick={() => setSidebarMovilAbierto(false)} 
-                className="text-[#B3B3B3] hover:text-white p-1.5 rounded-lg hover:bg-[#2C2C32] text-lg cursor-pointer"
+                className="text-slate-500 hover:text-slate-900 dark:text-[#B3B3B3] dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#2C2C32] text-lg cursor-pointer"
               >
                 ✕
               </button>
@@ -1333,10 +1568,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                       setActiveTab(tab.id);
                       setSidebarMovilAbierto(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                       isActive 
-                        ? 'bg-[#E85A80]/20 text-[#F46C8E] border border-[#E85A80]/30 font-bold' 
-                        : 'text-[#B3B3B3] hover:bg-[#2C2C32] hover:text-gray-200'
+                        ? 'bg-[#E85A80] text-white font-black shadow-md shadow-pink-900/20' 
+                        : 'text-slate-700 dark:text-[#B3B3B3] hover:bg-slate-100 dark:hover:bg-[#2C2C32] hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     <span className="text-base">{tab.icono}</span>
@@ -1345,10 +1580,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 );
               })}
             </div>
-            <div className="p-4 border-t border-[#3A3A3E]">
+            <div className="p-4 border-t border-slate-200 dark:border-[#3A3A3E]">
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
-              <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
+              <button 
+                type="button"
+                onClick={() => setTemaClaro(prev => !prev)} 
+                className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition"
+                title={temaClaro ? "Modo Claro activo (Clic para Modo Oscuro)" : "Modo Oscuro activo (Clic para Modo Claro)"}
+              >
+                <span>{temaClaro ? '☀️' : '🌙'}</span>
+                <span>{temaClaro ? 'Modo Claro' : 'Modo Oscuro'}</span>
+              </button>
+              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
+              <div className="mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-[#B3B3B3]">
                 <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
               </div>
@@ -1358,17 +1602,20 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       )}
 
       {/* Sidebar de escritorio: colapsable y responsivo */}
-      <div className={`${sidebarColapsado ? 'w-20' : 'w-64'} bg-[#202024] border-r border-[#3A3A3E] flex flex-col hidden min-[1037px]:flex transition-all duration-300 select-none`}>
-        <div className={`p-4 border-b border-[#3A3A3E] flex items-center ${sidebarColapsado ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
+      <div className={`${sidebarColapsado ? 'w-20' : 'w-64'} bg-white dark:bg-[#202024] border-r border-slate-200 dark:border-[#3A3A3E] flex flex-col hidden min-[1037px]:flex transition-all duration-300 select-none`}>
+        <div className={`p-4 border-b border-slate-200 dark:border-[#3A3A3E] flex items-center ${sidebarColapsado ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
           {!sidebarColapsado ? (
-            <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-[#E85A80] rounded-xl flex items-center justify-center font-black text-white text-sm shadow-md">O</div>
+              <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-slate-900 dark:text-white">ONB</span></h1>
+            </div>
           ) : (
-            <span className="text-sm font-black text-[#E85A80]">PY</span>
+            <div className="w-8 h-8 bg-[#E85A80] rounded-xl flex items-center justify-center font-black text-white text-base shadow-md" title="PeYa ONB">O</div>
           )}
           <button
             type="button"
             onClick={() => setSidebarColapsado(prev => !prev)}
-            className="text-[#B3B3B3] hover:text-white bg-transparent border-0 text-base font-mono font-bold px-1.5 py-0.5 transition cursor-pointer select-none"
+            className="text-slate-500 hover:text-slate-900 dark:text-[#B3B3B3] dark:hover:text-white bg-transparent border-0 text-base font-mono font-bold px-1.5 py-0.5 transition cursor-pointer select-none"
             title={sidebarColapsado ? 'Expandir barra lateral' : 'Comprimir barra lateral'}
           >
             {sidebarColapsado ? '>' : '<'}
@@ -1383,10 +1630,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 title={sidebarColapsado ? tab.label : undefined}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                   isActive 
-                    ? 'bg-[#E85A80]/20 text-[#F46C8E] border border-[#E85A80]/30 font-bold' 
-                    : 'text-[#B3B3B3] hover:bg-[#2C2C32] hover:text-gray-200'
+                    ? 'bg-[#E85A80] text-white font-black shadow-md shadow-pink-900/20' 
+                    : 'text-slate-700 dark:text-[#B3B3B3] hover:bg-slate-100 dark:hover:bg-[#2C2C32] hover:text-slate-900 dark:hover:text-gray-200'
                 } ${sidebarColapsado ? 'justify-center px-1' : ''}`}
               >
                 <span className="text-base">{tab.icono}</span>
@@ -1396,11 +1643,20 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           })}
         </div>
 
-        <div className="p-3 border-t border-[#3A3A3E]">
+        <div className="p-3 border-t border-slate-200 dark:border-[#3A3A3E]">
           {!sidebarColapsado ? (
             <>
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
+              <button 
+                type="button"
+                onClick={() => setTemaClaro(prev => !prev)} 
+                className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition"
+                title={temaClaro ? "Modo Claro activo (Clic para Modo Oscuro)" : "Modo Oscuro activo (Clic para Modo Claro)"}
+              >
+                <span>{temaClaro ? '☀️' : '🌙'}</span>
+                <span>{temaClaro ? 'Modo Claro' : 'Modo Oscuro'}</span>
+              </button>
+              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
               <div className="mt-3 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1414,6 +1670,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer"
               >
                 🔄
+              </button>
+              <button 
+                type="button"
+                onClick={() => setTemaClaro(prev => !prev)} 
+                title={temaClaro ? "Modo Claro activo (Clic para Modo Oscuro)" : "Modo Oscuro activo (Clic para Modo Claro)"}
+                className="text-[#B3B3B3] hover:text-amber-400 text-base cursor-pointer transition flex items-center justify-center min-h-[32px]"
+              >
+                {temaClaro ? '☀️' : '🌙'}
               </button>
               <button 
                 onClick={() => setMostrarModalCreds(true)} 
@@ -1460,6 +1724,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               onSeleccionarCaso={setCasoSeleccionadoModal}
               onActualizarCaso={actualizarCasoExistente}
               onEliminarCaso={manejarEliminarCaso}
+              onActualizarCasosMasivo={actualizarCasosMasivo}
+              onEliminarCasosMasivo={eliminarCasosMasivo}
+              onAgregarCasosMasivo={agregarCasosMasivo}
+              nombreUsuarioAutenticado={nombreUsuarioAutenticado}
+              temaClaro={temaClaro}
               onForzarSyncCasos={cargarCasosGoogleSheets}
               sincronizando={cargandoSheets}
               setCargandoOperacion={setCargandoOperacion}
@@ -1543,7 +1812,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     <span>➕</span>
                     <span>Agregar Caso (Nuevo Registro)</span>
                     {formulario.vendorId && (
-                      <span className="text-[10px] text-[#F46C8E] font-mono hidden sm:inline">
+                      <span className={`text-[10px] font-mono hidden sm:inline ${subTabNuevo === 'registro' ? 'text-white' : 'text-[#F46C8E]'}`}>
                         ({formulario.tienda ? formulario.tienda.slice(0, 18) + '...' : formulario.vendorId})
                       </span>
                     )}
@@ -1614,8 +1883,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     disabled={cargandoSheets}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
                       cargandoSheets
-                        ? 'bg-[#2C2C32] text-[#9CA3AF] border-[#3A3A3E] cursor-not-allowed'
-                        : 'bg-[#2C2C32]/90 hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border-[#E85A80]/40 hover:border-[#E85A80] shadow-sm cursor-pointer'
+                        ? 'bg-slate-100 dark:bg-[#2C2C32] text-slate-400 dark:text-[#9CA3AF] border-slate-200 dark:border-[#3A3A3E] cursor-not-allowed'
+                        : 'bg-white hover:bg-pink-50 text-[#DB2777] dark:text-[#F46C8E] hover:dark:text-pink-300 border-pink-300 dark:border-[#E85A80]/40 hover:border-[#E85A80] dark:bg-[#2C2C32]/90 dark:hover:bg-[#3A3A3E] shadow-sm cursor-pointer'
                     }`}
                     title="Actualizar datos desde Google Sheets"
                   >
@@ -1746,7 +2015,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>OP</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'op' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('op', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('op', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1761,7 +2030,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Tienda</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'tienda' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1776,7 +2045,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>País/KAM</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pais' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pais', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pais', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1791,7 +2060,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Integración</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'integracion' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('integracion', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('integracion', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1806,7 +2075,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Asset</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asset' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asset', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asset', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1821,7 +2090,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Estado / Etapa</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'estado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('estado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('estado', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1836,7 +2105,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Push POS</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushPos' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushPos', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushPos', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1851,7 +2120,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Push Catálogo</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushCat' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushCat', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushCat', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1866,7 +2135,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>SLA</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'sla' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('sla', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('sla', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1881,7 +2150,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Asignado</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asignado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asignado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asignado', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1896,11 +2165,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Seguimiento</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'seguimiento' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('seguimiento', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('seguimiento', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.accion, minWidth: colWidthsMisCasos.accion }}>
                           <span>Acción</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                       </tr>
                     </thead>
@@ -2016,6 +2285,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           paises={catalogosDinamicos.paises}
           assets={catalogosDinamicos.assets}
           integraciones={listaIntegracionesNombres}
+          integracionesDetalle={catalogosDinamicos.integraciones}
         />
       )}
 

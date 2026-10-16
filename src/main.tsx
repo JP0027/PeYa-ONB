@@ -97,10 +97,16 @@ class GlobalErrorBoundary extends Component<Props, State> {
   }
 }
 
+import { ThemeProvider } from './context/ThemeContext'
+
+// ... GlobalErrorBoundary definition ...
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <GlobalErrorBoundary>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </GlobalErrorBoundary>
   </StrictMode>,
 )

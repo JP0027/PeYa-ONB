@@ -385,7 +385,7 @@ export default function CasoForm({
 
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-[#B3B3B3] font-medium">r. Inicio de seguimiento OP (Fecha y Hora) *</label>
+            <label className="text-[#B3B3B3] font-medium">r. Fecha de inicio de seguimiento de OP *</label>
             <div className="flex items-center gap-1">
               {formulario.sla_inicio && (
                 <button

@@ -19,9 +19,8 @@ export interface PushAlertItemProps {
 
 /**
  * Toast individual de alerta Push
+ * Fondo: #E8E8E8 con letras negras
  * Duración total: 30 segundos en pantalla
- * Desvanecimiento: A los 25 segundos se va desvaneciendo poco a poco por el lado derecho durante 5 segundos
- * Diseño: Idéntico a la captura del usuario con colores oficiales de PeYa
  */
 export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) {
   const [tiempoMs, setTiempoMs] = useState(0);
@@ -47,17 +46,14 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
     return () => clearInterval(timer);
   }, [hovered, duracionTotal]);
 
-  // Cerrar limpiamente cuando se alcancen los 30 segundos fuera del reducer de estado
   useEffect(() => {
     if (tiempoMs >= duracionTotal) {
       onCerrar(alerta.id);
     }
   }, [tiempoMs, duracionTotal, onCerrar, alerta.id]);
 
-  // Barra de progreso de 30 segundos (de 100% a 0%)
   const progreso = Math.max(0, 100 - (tiempoMs / duracionTotal) * 100);
 
-  // A los 25 segundos se desvanece suavemente (opacity 1 -> 0) con ligero desplazamiento
   let opacidad = 1;
   let desplazamientoX = 0;
   if (!hovered && tiempoMs >= inicioDesvanecer) {
@@ -71,7 +67,7 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
       onClick={() => onClic(alerta)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="bg-[#202024]/95 backdrop-blur-md border border-amber-500/70 hover:border-amber-400 rounded-xl p-3.5 shadow-2xl shadow-black/80 cursor-pointer relative overflow-hidden group select-none shrink-0"
+      className="bg-[#FFFBEB] dark:bg-[#202024]/95 border-2 border-amber-400 dark:border-amber-500/70 rounded-xl p-3.5 shadow-xl shadow-amber-900/10 dark:shadow-black/80 cursor-pointer relative overflow-hidden group select-none shrink-0 text-slate-900 dark:text-white"
       style={{
         minWidth: '320px',
         maxWidth: '380px',
@@ -84,28 +80,28 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
     >
       {/* Barra de progreso de 30 segundos */}
       <div
-        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-amber-500 via-amber-400 to-pink-500 transition-all duration-75"
+        className="absolute bottom-0 left-0 h-1.5 bg-gradient-to-r from-amber-500 via-amber-400 to-pink-500 transition-all duration-75"
         style={{ width: `${progreso}%` }}
       />
 
       <div className="flex items-start justify-between gap-3">
         {/* Ícono circular amarillo con signo de exclamación */}
-        <div className="w-5 h-5 rounded-full bg-amber-400 text-gray-950 flex items-center justify-center font-black text-xs shrink-0 mt-0.5 shadow-sm shadow-amber-500/40">
+        <div className="w-5.5 h-5.5 rounded-full bg-amber-400 text-black flex items-center justify-center font-black text-xs shrink-0 mt-0.5 shadow-sm border border-amber-500">
           !
         </div>
 
         {/* Textos del toast */}
         <div className="flex-1 min-w-0 pr-1">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition tracking-wide flex items-center gap-1.5">
+            <h4 className="text-xs font-black text-amber-900 dark:text-amber-300 transition tracking-wide flex items-center gap-1.5">
               <span>{alerta.titulo}</span>
             </h4>
           </div>
-          <p className="text-[11px] text-[#D1D5DB] mt-1 leading-snug">
-            <span className="font-mono text-amber-400 font-semibold">{alerta.hora}</span> - {alerta.mensaje}
+          <p className="text-[11px] text-slate-800 dark:text-white font-extrabold mt-1 leading-snug">
+            <span className="font-mono text-amber-800 dark:text-amber-300 font-black">{alerta.hora}</span> - <span className="text-slate-800 dark:text-gray-100 font-bold">{alerta.mensaje}</span>
           </p>
-          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-400/90 font-medium">
-            <span>👆 Clic para ubicar y sombrear en la lista</span>
+          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-800 dark:text-amber-300 font-black">
+            <span>👇 Clic para ubicar y sombrear en la lista</span>
           </div>
         </div>
 
@@ -115,7 +111,7 @@ export function PushAlertItem({ alerta, onCerrar, onClic }: PushAlertItemProps) 
             e.stopPropagation();
             onCerrar(alerta.id);
           }}
-          className="text-[#B3B3B3] hover:text-white p-1 rounded transition text-xs shrink-0 cursor-pointer"
+          className="text-slate-500 hover:text-black dark:text-[#B3B3B3] dark:hover:text-white hover:bg-amber-200/80 dark:hover:bg-[#2C2C32] p-1 rounded transition text-xs shrink-0 cursor-pointer font-bold"
           title="Cerrar notificación"
         >
           ✕
@@ -150,15 +146,15 @@ export default function PushAlertContainer({ alertas, onCerrarAlerta, onCerrarTo
       }}
     >
       {alertas.length > 2 && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-[#202024]/95 border border-amber-500/50 rounded-xl text-xs text-amber-300 backdrop-blur-md shadow-lg shrink-0">
-          <div className="flex items-center gap-1.5 font-bold">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+        <div className="flex items-center justify-between px-3 py-1.5 bg-[#FEF3C7] dark:bg-[#202024]/95 border-2 border-amber-400 dark:border-amber-500/70 rounded-xl text-xs text-amber-900 dark:text-amber-300 shadow-xl shrink-0 font-bold">
+          <div className="flex items-center gap-1.5 font-black text-slate-900 dark:text-amber-300">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
             <span>{alertas.length} alertas push pendientes</span>
           </div>
           {onCerrarTodas && (
             <button
               onClick={onCerrarTodas}
-              className="text-[11px] text-[#B3B3B3] hover:text-white bg-[#2C2C32]/80 hover:bg-[#3A3A3E] px-2 py-0.5 rounded transition cursor-pointer font-medium"
+              className="text-[11px] text-slate-800 hover:text-black dark:text-[#B3B3B3] dark:hover:text-white bg-amber-200/80 hover:bg-amber-300 dark:bg-[#2C2C32] dark:hover:bg-[#3A3A3E] px-2 py-0.5 rounded transition cursor-pointer font-bold"
             >
               Cerrar todas
             </button>

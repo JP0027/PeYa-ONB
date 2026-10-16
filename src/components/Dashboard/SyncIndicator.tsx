@@ -52,7 +52,7 @@ export default function SyncIndicator({
         <button
           onClick={onForzarSync}
           disabled={sincronizando}
-          className="w-full bg-[#2C2C32]/80 hover:bg-[#3A3A3E] text-gray-200 text-[11px] font-medium py-1.5 rounded-lg transition border border-[#3A3A3E]/80 flex justify-center items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          className="w-full bg-[#E8E8E8] dark:bg-[#2C2C32]/80 hover:bg-slate-300 dark:hover:bg-[#3A3A3E] text-white text-[11px] font-bold py-1.5 rounded-lg transition border border-slate-300 dark:border-[#3A3A3E]/80 flex justify-center items-center gap-1.5 disabled:opacity-50 cursor-pointer"
           title="Actualizar datos con Google Sheets"
         >
           {sincronizando ? (

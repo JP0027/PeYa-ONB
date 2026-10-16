@@ -119,26 +119,28 @@ export default function SearchableSelect({
         onClick={() => {
           if (!disabled) setAbierto(!abierto);
         }}
-        className={`w-full bg-[#121212] border ${
-          abierto ? 'border-[#E85A80] ring-1 ring-pink-500/50' : 'border-[#3A3A3E] hover:border-gray-600'
+        className={`w-full bg-slate-100 dark:bg-[#121212] border ${
+          abierto 
+            ? 'border-[#E85A80] ring-1 ring-pink-500/50 bg-white dark:bg-[#1A1A1E]' 
+            : 'border-slate-300 dark:border-[#3A3A3E] hover:border-slate-400 dark:hover:border-slate-500'
         } rounded-lg p-2.5 text-left text-sm flex items-center justify-between transition-all focus:outline-none ${
           disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
         }`}
       >
-        <span className={`truncate ${value ? 'text-white font-medium' : 'text-[#9CA3AF]'}`}>
+        <span className={`truncate ${value ? 'text-slate-900 dark:text-white font-semibold' : 'text-slate-500 dark:text-gray-400'}`}>
           {etiquetaSeleccionada || placeholder}
         </span>
-        <span className="ml-2 text-[#B3B3B3] text-xs shrink-0 transition-transform duration-200">
+        <span className="ml-2 text-slate-600 dark:text-gray-400 text-xs shrink-0 transition-transform duration-200">
           {abierto ? '▲' : '▼'}
         </span>
       </button>
 
       {/* Menú desplegable flotante con buscador */}
       {abierto && (
-        <div className="absolute z-50 mt-1 w-full bg-[#202024] border border-[#3A3A3E] rounded-xl shadow-2xl overflow-hidden animate-fadeIn">
+        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-[#1A1A1E] border border-slate-300 dark:border-[#3A3A3E] rounded-xl shadow-2xl overflow-hidden animate-fadeIn text-slate-900 dark:text-white">
           {/* Campo buscador */}
-          <div className="p-2 border-b border-[#3A3A3E] bg-[#161618] flex items-center gap-2">
-            <span className="text-[#B3B3B3] text-xs">🔍</span>
+          <div className="p-2 border-b border-slate-200 dark:border-[#3A3A3E] bg-slate-100 dark:bg-[#121212] flex items-center gap-2">
+            <span className="text-slate-600 dark:text-gray-400 text-xs">🔍</span>
             <input
               ref={inputBusquedaRef}
               type="text"
@@ -148,7 +150,7 @@ export default function SearchableSelect({
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full bg-transparent text-white text-xs placeholder-gray-500 focus:outline-none"
+              className="w-full bg-transparent text-slate-900 dark:text-white font-semibold text-xs placeholder-slate-500 dark:placeholder-gray-400 focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   setAbierto(false);
@@ -163,7 +165,7 @@ export default function SearchableSelect({
               <button
                 type="button"
                 onClick={() => setBusqueda('')}
-                className="text-[#9CA3AF] hover:text-[#D1D5DB] text-xs px-1"
+                className="text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white text-xs px-1 font-bold"
                 title="Limpiar búsqueda"
               >
                 ✕
@@ -172,9 +174,9 @@ export default function SearchableSelect({
           </div>
 
           {/* Lista de opciones filtradas */}
-          <div className="max-h-56 overflow-y-auto divide-y divide-gray-800/40 text-xs custom-scrollbar">
+          <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-gray-800 text-xs custom-scrollbar">
             {opcionesFiltradas.length === 0 ? (
-              <div className="p-3 text-center text-[#9CA3AF] italic">
+              <div className="p-3 text-center text-slate-500 dark:text-gray-400 italic">
                 No se encontraron coincidencias para &quot;{busqueda}&quot;
               </div>
             ) : (
@@ -186,15 +188,17 @@ export default function SearchableSelect({
                     onClick={() => seleccionarOpcion(op.value)}
                     className={`w-full px-3 py-2 text-left flex items-center justify-between transition-colors cursor-pointer ${
                       esSeleccionado
-                        ? 'bg-[#E85A80]/20 text-pink-300 font-semibold'
-                        : 'text-[#D1D5DB] hover:bg-[#2C2C32]/70 hover:text-white'
+                        ? 'bg-pink-100 dark:bg-pink-950/80 text-[#db2777] dark:text-[#E85A80] font-bold'
+                        : 'text-slate-800 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#2C2C32] hover:text-slate-900 dark:hover:text-white font-medium'
                     }`}
                   >
                     <span className="truncate">{op.label}</span>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       {op.badge && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                          op.badge === 'SI' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-[#2C2C32] text-[#B3B3B3]'
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                          op.badge === 'SI' 
+                            ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700' 
+                            : 'bg-slate-200 dark:bg-[#2C2C32] text-slate-700 dark:text-gray-300'
                         }`}>
                           {op.badge}
                         </span>
@@ -207,7 +211,7 @@ export default function SearchableSelect({
                             e.stopPropagation();
                             onVerContactos(op);
                           }}
-                          className="p-1 hover:bg-[#E85A80]/40 text-[#F46C8E] hover:text-white rounded transition cursor-pointer text-xs flex items-center justify-center border border-[#E85A80]/30 hover:border-[#E85A80]"
+                          className="p-1 hover:bg-pink-100 dark:hover:bg-pink-900/60 text-[#db2777] dark:text-[#F46C8E] rounded transition cursor-pointer text-xs flex items-center justify-center border border-pink-200 dark:border-pink-800"
                           title={`Ver contactos de ${op.label}`}
                         >
                           ↗️
@@ -221,7 +225,7 @@ export default function SearchableSelect({
           </div>
 
           {/* Footer de ayuda rápida */}
-          <div className="px-3 py-1.5 bg-[#0e1017] border-t border-[#3A3A3E] text-[10px] text-[#9CA3AF] flex justify-between items-center">
+          <div className="px-3 py-1.5 bg-slate-100 dark:bg-[#121212] border-t border-slate-200 dark:border-[#3A3A3E] text-[10px] text-slate-600 dark:text-[#B3B3B3] flex justify-between items-center font-medium">
             <span>{opcionesFiltradas.length} opciones disponibles</span>
             <span>Esc para cerrar</span>
           </div>
@@ -230,4 +234,3 @@ export default function SearchableSelect({
     </div>
   );
 }
-

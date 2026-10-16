@@ -82,15 +82,20 @@ export const LISTA_PESTANAS_SISTEMA: PestanaInfo[] = [
 ];
 
 /**
- * Pestañas permitidas por defecto según el rol del usuario
- * Nota: Los Agentes NUNCA tienen acceso a 'Gestionar usuarios' ni a 'Casos en progreso global'
+ * Pestañas permitidas por defecto según el rol del usuario.
+ * Admite configuración personalizada por rol cargada desde Firestore.
  */
-export function obtenerPestanasPorDefecto(rol?: string | null): string[] {
+export function obtenerPestanasPorDefecto(
+  rol?: string | null,
+  pestanasPorRol?: Record<string, string[]> | null
+): string[] {
+  if (rol && pestanasPorRol && Array.isArray(pestanasPorRol[rol]) && pestanasPorRol[rol].length > 0) {
+    return pestanasPorRol[rol];
+  }
   const r = (rol || '').toLowerCase();
   if (r.includes('supervisor')) {
     return ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
   }
-  // Rol Agente: NUNCA incluye 'usuarios' ni 'tl'
+  // Rol Agente o general: Por defecto datos, mis casos, búsqueda
   return ['admin', 'inicio', 'nuevo'];
 }
-

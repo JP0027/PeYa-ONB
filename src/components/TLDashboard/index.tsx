@@ -397,10 +397,10 @@ export default function TLDashboard({
             <button
               onClick={onForzarSync}
               disabled={sincronizando}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition shadow-lg ${
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition shadow-sm ${
                 sincronizando
-                  ? 'bg-[#2C2C32] text-[#9CA3AF] border-[#3A3A3E] cursor-not-allowed'
-                  : 'bg-[#2C2C32]/90 hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border-[#E85A80]/40 hover:border-[#E85A80] shadow-pink-950/20 cursor-pointer'
+                  ? 'bg-rose-100 text-rose-400 border-rose-200 cursor-not-allowed'
+                  : 'bg-[#fff1f2] dark:bg-[#38242a] text-[#be123c] dark:text-[#f472b6] border-[#fecdd3] dark:border-[#e85a80]/50 hover:bg-[#ffe4e6] dark:hover:bg-[#462d35] cursor-pointer'
               }`}
               title="Actualizar datos desde Google Sheets"
             >
@@ -416,63 +416,63 @@ export default function TLDashboard({
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards: Solo borde, sin fondo (Imagen 3) */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-[#3A3A3E] text-center">
+        <div className="p-3.5 rounded-xl border-2 border-slate-300 dark:border-[#3A3A3E] text-center bg-transparent">
           <div className="text-[#B3B3B3] text-xs mb-1">Total Casos</div>
           <div className="text-2xl font-bold text-white">{totalCasos}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'en_progreso' ? 'todos' : 'en_progreso')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'en_progreso' ? 'bg-cyan-950/70 border-cyan-500 ring-2 ring-cyan-500' : 'bg-[#1A1A1C] border-cyan-800 hover:border-cyan-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'en_progreso' ? 'border-cyan-500 ring-2 ring-cyan-400' : 'border-cyan-500/80 hover:border-cyan-400'
           }`}
         >
-          <div className="text-cyan-400 text-xs mb-1 flex items-center justify-center gap-1"><span>💼</span> En Progreso</div>
-          <div className="text-2xl font-bold text-cyan-400">{inProgressNormal}</div>
+          <div className="text-cyan-500 dark:text-cyan-400 text-xs mb-1 flex items-center justify-center gap-1 font-bold"><span>💼</span> En Progreso</div>
+          <div className="text-2xl font-black text-cyan-500 dark:text-cyan-400">{inProgressNormal}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'sin_op' ? 'todos' : 'sin_op')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'sin_op' ? 'bg-purple-950/70 border-purple-500 ring-2 ring-purple-500' : 'bg-[#1A1A1C] border-purple-800 hover:border-purple-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'sin_op' ? 'border-purple-500 ring-2 ring-purple-400' : 'border-purple-500/80 hover:border-purple-400'
           }`}
         >
-          <div className="text-purple-400 text-xs mb-1 flex items-center justify-center gap-1"><span>⚡</span> Sin OP</div>
-          <div className="text-2xl font-bold text-purple-400">{inProgressSinOp}</div>
+          <div className="text-purple-500 dark:text-purple-400 text-xs mb-1 flex items-center justify-center gap-1 font-bold"><span>⚡</span> Sin OP</div>
+          <div className="text-2xl font-black text-purple-500 dark:text-purple-400">{inProgressSinOp}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'fuera_sla' ? 'todos' : 'fuera_sla')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'fuera_sla' ? 'bg-rose-950/70 border-rose-500 ring-2 ring-rose-500' : 'bg-rose-950/20 border-rose-800/80 hover:border-rose-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'fuera_sla' ? 'border-rose-500 ring-2 ring-rose-400' : 'border-rose-500/80 hover:border-rose-400'
           }`}
         >
-          <div className="text-rose-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA</div>
-          <div className="text-2xl font-black text-rose-400">{fueraDeSla}</div>
+          <div className="text-rose-500 dark:text-rose-400 text-xs mb-1 font-bold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA</div>
+          <div className="text-2xl font-black text-rose-500 dark:text-rose-400">{fueraDeSla}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'proximos' ? 'todos' : 'proximos')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'proximos' ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500' : 'bg-amber-950/20 border-amber-800/80 hover:border-amber-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'proximos' ? 'border-amber-500 ring-2 ring-amber-400' : 'border-amber-500/80 hover:border-amber-400'
           }`}
         >
-          <div className="text-amber-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>⚠️</span> Próximos</div>
-          <div className="text-2xl font-black text-amber-400">{proximosVencer}</div>
+          <div className="text-amber-600 dark:text-amber-400 text-xs mb-1 font-bold flex items-center justify-center gap-1"><span>⚠️</span> Próximos</div>
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{proximosVencer}</div>
         </div>
         
-        {/* Card Req. KAM Push con filtro interactivo */}
+        {/* Card Req. KAM Push con filtro interactivo - Solo Borde */}
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'req_kam_push' ? 'todos' : 'req_kam_push')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
             filtroKpi === 'req_kam_push' 
-              ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500 shadow-lg shadow-amber-950/50' 
-              : 'bg-[#1A1A1C] border-amber-900 hover:border-amber-700'
+              ? 'border-amber-500 ring-2 ring-amber-400' 
+              : 'border-amber-500/80 hover:border-amber-400'
           }`}
           title="Clic para filtrar la tabla por casos que requieren KAM Push"
         >
-          <div className="text-amber-300 text-xs mb-1 font-bold flex items-center justify-center gap-1">
+          <div className="text-amber-600 dark:text-amber-400 text-xs mb-1 font-bold flex items-center justify-center gap-1">
             <span>⚡</span> Req. KAM Push
           </div>
-          <div className="text-2xl font-black text-amber-300">{kamPushTotal}</div>
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{kamPushTotal}</div>
         </div>
       </div>
 
@@ -606,7 +606,7 @@ export default function TLDashboard({
             )}
             <div className="overflow-x-auto max-h-[560px]">
               <table className="w-full text-left text-xs text-[#D1D5DB] min-w-max">
-                <thead className="bg-[#121212] text-[#B3B3B3] uppercase sticky top-0 z-10 shadow select-none">
+                <thead className="bg-[#f8fafc] dark:bg-[#202024] text-slate-700 dark:text-[#B3B3B3] uppercase sticky top-0 z-10 shadow select-none border-b border-slate-200 dark:border-[#3A3A3E]">
                   <tr>
                     {[
                       { key: 'op', label: 'Caso OP' },
