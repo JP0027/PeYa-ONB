@@ -661,7 +661,21 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, []);
 
-  // 1. Al cargar o actualizar casos: detectar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
+  // Reloj de 1 minuto: fuerza el recálculo de SLA/alertas para que los casos que cruzan las 4h aparezcan sin recargar
+  const [tickReloj, setTickReloj] = useState<number>(0);
+  useEffect(() => {
+    const t = setInterval(() => setTickReloj(x => x + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Solicitar permiso de notificaciones de escritorio al montar
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  // 1. Al cargar o actualizar casos o al avanzar el reloj cada minuto: detectar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
   useEffect(() => {
     if (casosTotales.length === 0) return;
 
@@ -672,13 +686,24 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         const tieneNuevasAlertas = pendientes.some(p => !idsPrevios.has(String(p.id)));
         if (tieneNuevasAlertas) {
           reproducirCampana();
+
+          // Notificación del sistema si la pestaña está en segundo plano
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const topAlerta = pendientes.find(p => !idsPrevios.has(String(p.id))) || pendientes[0];
+            if (topAlerta) {
+              new Notification(topAlerta.titulo, {
+                body: topAlerta.mensaje,
+                icon: '/favicon.ico'
+              });
+            }
+          }
         }
         return pendientes;
       });
     } else {
       setAlertasPushActivas([]);
     }
-  }, [casosTotales, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
+  }, [casosTotales, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana, tickReloj]);
 
   // 2. Recordatorio continuo cada 5 minutos si aún existen casos con SLA >= 4h sin push
   useEffect(() => {
@@ -714,13 +739,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
     return casosTotales;
   }, [casosTotales, activeTab, email, nombreUsuarioAutenticado]);
-
-  // Reloj de 1 minuto: fuerza el recálculo de SLA/alertas para que los casos que cruzan las 4h aparezcan sin recargar
-  const [tickReloj, setTickReloj] = useState<number>(0);
-  useEffect(() => {
-    const t = setInterval(() => setTickReloj(x => x + 1), 60000);
-    return () => clearInterval(t);
-  }, []);
 
   const casosConAlertas = useMemo(() => casosMostrados.map(c => ({ caso: c, alertas: analizarAlertasCaso(c) })), [casosMostrados, tickReloj]);
   

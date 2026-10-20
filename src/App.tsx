@@ -240,42 +240,6 @@ export default function App() {
         </p>
 
         <div className="flex flex-col gap-3.5 w-full max-w-sm">
-          {/* BOTONES DE ACCESO RÁPIDO DEMO */}
-          <div className="bg-white dark:bg-[#1A1A1C] border border-slate-300 dark:border-[#3A3A3E] p-4.5 rounded-2xl shadow-xl flex flex-col gap-2.5">
-            <span className="text-xs font-black text-[#E85A80] uppercase tracking-wider text-center block mb-1">
-              🎮 Acceso Rápido Modo Demo:
-            </span>
-            <button 
-              type="button"
-              onClick={() => {
-                const demoUser: UserSession = {
-                  email: 'jean.palomino_dyn.ext@pedidosya.com',
-                  displayName: 'Jean Palomino (Supervisor)'
-                };
-                guardarSesion(demoUser, 'Supervisor');
-              }}
-              className="w-full bg-[#E85A80] hover:bg-pink-600 text-white px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md cursor-pointer text-sm"
-            >
-              <span>👑 Entrar como Supervisor (Jean Palomino)</span>
-            </button>
-            <button 
-              type="button"
-              onClick={() => {
-                const demoUser: UserSession = {
-                  email: 'joel.tocas_dyn.ext@pedidosya.com',
-                  displayName: 'Joel Tocas (Agente)'
-                };
-                guardarSesion(demoUser, 'Agente');
-              }}
-              className="w-full bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-white px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 border border-slate-300 dark:border-transparent cursor-pointer text-sm"
-            >
-              <span>💼 Entrar como Agente Operativo (Joel Tocas)</span>
-            </button>
-          </div>
-
-          <div className="relative my-1 text-center">
-            <span className="text-xs text-slate-500 dark:text-gray-400 font-medium">o con autenticación oficial</span>
-          </div>
 
           {/* BOTÓN ÚNICO DE GOOGLE AUTH */}
           <button 

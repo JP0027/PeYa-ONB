@@ -683,7 +683,9 @@ export function analizarAlertasCaso(caso: any): any {
   const posSigueActivo = (esEtapaPos || tieneInicioRealPos) && !respPosOk && !esSvPos && !etapaLower.includes('catálogo') && !etapaLower.includes('catalogo');
 
   const horasPosCalculadas = fInicioPosEfectiva ? calcularTiempoLaboralLV(fInicioPosEfectiva, null).totalHoras : 0;
-  const horasPos = tieneInicioRealPos ? (tiempos.totalHorasPos ?? horasPosCalculadas) : horasPosCalculadas;
+  const horasPosBase = tieneInicioRealPos ? (tiempos.totalHorasPos ?? horasPosCalculadas) : horasPosCalculadas;
+  // Considerar el máximo entre horas del seguimiento y horas transcurridas en la etapa activa
+  const horasPos = Math.max(horasPosBase || 0, (posSigueActivo && !tienePushPos ? horasTranscurridas : 0) || 0);
   const rangoSlaPosEfectivo = caso.rangoSlaPos || tiempos.rangoSlaPos || '';
   const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, rangoSlaPosEfectivo);
 
@@ -712,10 +714,11 @@ export function analizarAlertasCaso(caso: any): any {
                      etapaLower.includes('catalogo');
 
   const tieneInicioRealCat = Boolean(caso.fechaInicioCat && caso.fechaInicioCat !== '-' && !esSV(caso.fechaInicioCat));
-  // El seguimiento de catálogo solo tiene fecha efectiva si realmente inició catálogo, nunca hereda la OP de días anteriores
-  const fInicioCatEfectiva = tieneInicioRealCat ? caso.fechaInicioCat : null;
+  const fInicioCatEfectiva = tieneInicioRealCat 
+    ? caso.fechaInicioCat 
+    : (esEtapaCat ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
 
-  const tieneInicioCat = Boolean(fInicioCatEfectiva);
+  const tieneInicioCat = Boolean(fInicioCatEfectiva && !esSV(fInicioCatEfectiva));
   const tienePushCat = esPushValido(caso.fechaPushCat);
   const respCatNorm = normalizarRespuesta(caso.respuestaCat);
   const esSvCat = esSV(caso.fechaPushCat) || esSV(caso.fechaInicioCat) || respCatNorm === 'S/V';
@@ -724,7 +727,8 @@ export function analizarAlertasCaso(caso: any): any {
   const catSigueActivo = (esEtapaCat || tieneInicioRealCat) && !respCatOk && !esSvCat;
 
   const horasCatCalculadas = fInicioCatEfectiva ? calcularTiempoLaboralLV(fInicioCatEfectiva, null).totalHoras : 0;
-  const horasCat = tieneInicioRealCat ? (tiempos.totalHorasCat ?? horasCatCalculadas) : horasCatCalculadas;
+  const horasCatBase = tieneInicioRealCat ? (tiempos.totalHorasCat ?? horasCatCalculadas) : horasCatCalculadas;
+  const horasCat = Math.max(horasCatBase || 0, (catSigueActivo && !tienePushCat && esEtapaCat ? horasTranscurridas : 0) || 0);
   const rangoSlaCatEfectivo = caso.rangoSlaCat || tiempos.rangoSlaCat || '';
   const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, rangoSlaCatEfectivo);
 
@@ -761,7 +765,7 @@ export function analizarAlertasCaso(caso: any): any {
   const esRangoCritico = rangoStr.includes('≥96') || rangoStr.includes('>=96') || (rangoStr.includes('96') && !rangoStr.includes('<96'));
   const esRangoKam = !esRangoCritico && (rangoStr.includes('24h') || rangoStr.includes('>72') || (rangoStr.includes('72') && !rangoStr.includes('<72')));
 
-  const esSlaMayorA4 = esActivo && !estaCongelado && esSlaMayorOIgualA4(horasTranscurridas, rangoSla);
+  const esSlaMayorA4 = esActivo && !estaCongelado && (horasTranscurridas >= 4 || esSlaMayorOIgualA4(horasTranscurridas, rangoSla));
   const esCritico = esActivo && (horasTranscurridas >= 96 || esRangoCritico);
   const esProximoVencer = esActivo && !esCritico && (horasTranscurridas >= 24 || esRangoKam);
   const esAtencion = esActivo && !esCritico && !esProximoVencer && esSlaMayorA4;

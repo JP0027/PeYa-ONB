@@ -110,12 +110,15 @@ export function identificarMiembro(queryStr?: string): MiembroEquipo | null {
   if (!queryStr) return null;
   const qNorm = normalizarTexto(queryStr);
   const qEmail = normalizarCorreo(queryStr);
+  const qPrefix = qEmail.includes('@') ? normalizarTexto(qEmail.split('@')[0]) : '';
 
   for (const m of AGENTES_CONOCIDOS) {
     if (m.correos.some(c => normalizarCorreo(c) === qEmail)) return m;
     if (normalizarTexto(m.nombre) === qNorm) return m;
-    // Si la query coincide con un slug distintivo (ej. changanaqui, palomino)
+    // Si la query coincide con un slug distintivo (ej. changanaqui, palomino, yadirayajaida)
     if (m.slugs.some(s => qNorm === normalizarTexto(s))) return m;
+    // Si el prefijo del correo coincide con algún slug
+    if (qPrefix && m.slugs.some(s => qPrefix === normalizarTexto(s) || qPrefix.includes(normalizarTexto(s)))) return m;
   }
   return null;
 }
