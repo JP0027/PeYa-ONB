@@ -16,14 +16,6 @@ const USUARIOS_INICIALES = [
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
   {
-    id: 'yadirayajaida@gmail.com',
-    correo: 'yadirayajaida@gmail.com',
-    nombre: 'Yadira Flores',
-    rol: 'Supervisor',
-    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-    actualizadoEn: '2026-10-21T00:00:00.000Z'
-  },
-  {
     id: 'henry.serrato_dyn.ext@pedidosya.com',
     correo: 'henry.serrato_dyn.ext@pedidosya.com',
     nombre: 'Henry Serrato',
@@ -55,22 +47,6 @@ const USUARIOS_INICIALES = [
     pestanas: ['admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
-  {
-    id: 'guillermo.gonzales_dyn.ext@pedidosya.com',
-    correo: 'guillermo.gonzales_dyn.ext@pedidosya.com',
-    nombre: 'Guillermo Gonzales',
-    rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
-    actualizadoEn: '2026-10-21T00:00:00.000Z'
-  },
-  {
-    id: 'jean.changanaqui_dyn.ext@pedidosya.com',
-    correo: 'jean.changanaqui_dyn.ext@pedidosya.com',
-    nombre: 'Jean Changanaqui',
-    rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
-    actualizadoEn: '2026-10-21T00:00:00.000Z'
-  }
 ];
 
 export default function handler(req: any, res: any) {
