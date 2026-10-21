@@ -10,24 +10,53 @@ export interface MiembroEquipo {
   correos: string[];
 }
 
-// Diccionario de miembros del equipo con roles asignados
+// Diccionario de miembros oficiales del equipo con roles asignados (4 TLs / Supervisores, 3 Agentes)
 export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
+  // SUPERVISORES / TEAM LEADERS (4)
   {
-    nombre: 'Jean Palomino',
-    rol: 'Agente / Supervisor',
-    slugs: ['palomino', 'jppd', 'jean palomino', 'jean.palomino'],
+    nombre: 'Kimberly Silvera',
+    rol: 'Supervisor',
+    slugs: ['kimberly', 'silvera', 'kimberly silvera', 'kimberly.silvera'],
     correos: [
-      'jean.palomino_dyn.ext@pedidosya.com',
-      'jean.palomino@pedidosya.com'
+      'kimberly.silvera_dyn.ext@pedidosya.com',
+      'kimberly.silvera@pedidosya.com'
+    ]
+  },
+  {
+    nombre: 'Henry Serrato',
+    rol: 'Supervisor',
+    slugs: ['serrato', 'henry serrato', 'henry.serrato'],
+    correos: [
+      'henry.serrato_dyn.ext@pedidosya.com',
+      'henry.serrato@pedidosya.com'
+    ]
+  },
+  {
+    nombre: 'Joseline Yactayo',
+    rol: 'Supervisor',
+    slugs: ['yactayo', 'joseline yactayo', 'joseline.yactayo'],
+    correos: [
+      'joseline.yactayo_dyn.ext@pedidosya.com',
+      'joseline.yactayo@pedidosya.com'
     ]
   },
   {
     nombre: 'Yadira Flores',
-    rol: 'Agente / Supervisor',
-    slugs: ['flores', 'yadirayajaida', 'yadira flores', 'yadira.flores'],
+    rol: 'Supervisor',
+    slugs: ['flores', 'yadira flores', 'yadira.flores'],
     correos: [
       'yadira.flores_dyn.ext@pedidosya.com',
       'yadira.flores@pedidosya.com'
+    ]
+  },
+  // AGENTES (3)
+  {
+    nombre: 'Joel Tocas',
+    rol: 'Agente',
+    slugs: ['tocas', 'joel tocas', 'joel.tocas'],
+    correos: [
+      'joel.tocas_dyn.ext@pedidosya.com',
+      'joel.tocas@pedidosya.com'
     ]
   },
   {
@@ -40,46 +69,12 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
     ]
   },
   {
-    nombre: 'Joel Tocas',
+    nombre: 'Jean Palomino',
     rol: 'Agente',
-    slugs: ['tocas', 'joel tocas', 'joel.tocas'],
+    slugs: ['palomino', 'jppd', 'jean palomino', 'jean.palomino'],
     correos: [
-      'joel.tocas_dyn.ext@pedidosya.com',
-      'joel.tocas@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Henry Serrato',
-    rol: 'Supervisor',
-    slugs: ['serrato', 'henry serrato', 'henry.serrato'],
-    correos: [
-      'henry.serrato_dyn.ext@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Joseline Yactayo',
-    rol: 'Supervisor',
-    slugs: ['yactayo', 'joseline yactayo', 'joseline.yactayo'],
-    correos: [
-      'joseline.yactayo_dyn.ext@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Guillermo Gonzales',
-    rol: 'Agente',
-    slugs: ['gonzales', 'guillermo gonzales', 'guillermo.gonzales'],
-    correos: [
-      'guillermo.gonzales_dyn.ext@pedidosya.com',
-      'guillermo.gonzales@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Jean Changanaqui',
-    rol: 'Agente',
-    slugs: ['changanaqui', 'jean changanaqui', 'jean.changanaqui'],
-    correos: [
-      'jean.changanaqui_dyn.ext@pedidosya.com',
-      'jean.changanaqui@pedidosya.com'
+      'jean.palomino_dyn.ext@pedidosya.com',
+      'jean.palomino@pedidosya.com'
     ]
   }
 ];

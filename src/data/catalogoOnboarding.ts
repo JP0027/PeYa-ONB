@@ -75,12 +75,13 @@ export const LISTA_ETAPAS: string[] = [
 export const LISTA_AGENTES: string[] = [
   'Prisila Leon',
   'Joel Tocas',
-  'Yadira Flores',
-  'Comercial',
-  'Sin asignación',
   'Jean Palomino',
-  'Jean Changanaqui',
-  'Guillermo Gonzales'
+  'Yadira Flores',
+  'Henry Serrato',
+  'Joseline Yactayo',
+  'Kimberly Silvera',
+  'Comercial',
+  'Sin asignación'
 ];
 
 // 8. Mapa de Integraciones y descuentos bajo estructura sponsorship (SI / NO)

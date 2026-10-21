@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { isAgentMatch, identificarMiembro, isHeroCareOwnerMatch } from '../../utils/agentMatching';
-import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL } from '../../utils/userPermissions';
+import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL, CORREOS_ONBOARDING_OFICIALES, obtenerCorreosOnboardingDinamicos } from '../../utils/userPermissions';
 import { 
   procesarActualizacionCaso, 
   analizarAlertasCaso, 
@@ -512,19 +512,38 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   // Lista de correos oficiales del equipo de Onboarding para tickets de seguimiento
   const [correosOnboarding, setCorreosOnboarding] = useState<string[]>(() => {
-    return Object.keys(LISTA_BLANCA_OFICIAL).filter(c => !c.includes('demo'));
+    return obtenerCorreosOnboardingDinamicos();
   });
   const [correoCopiado, setCorreoCopiado] = useState<string | null>(null);
   const [todosCorreosCopiados, setTodosCorreosCopiados] = useState<boolean>(false);
 
   useEffect(() => {
+    const correosExcluidos = new Set([
+      'yadirayajaida@gmail.com',
+      'guillermo.gonzales_dyn.ext@pedidosya.com',
+      'jean.changanaqui_dyn.ext@pedidosya.com'
+    ]);
+
+    const refrescarCorreosLocales = () => {
+      setCorreosOnboarding(obtenerCorreosOnboardingDinamicos());
+    };
+
+    window.addEventListener('peya_usuarios_actualizados', refrescarCorreosLocales);
+
     const usuariosRef = collection(db, 'usuarios_permitidos');
     const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
-      const correosSet = new Set<string>(Object.keys(LISTA_BLANCA_OFICIAL).filter(c => !c.includes('demo')));
+      const correosSet = new Set<string>(obtenerCorreosOnboardingDinamicos());
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         const correo = (data.correo || docSnap.id || '').toLowerCase().trim();
-        if (correo && correo.includes('@') && !correo.includes('demo')) {
+        // Solo correos corporativos válidos de pedidosya.com (nunca personales ni obsoletos)
+        if (
+          correo && 
+          correo.endsWith('@pedidosya.com') && 
+          !correo.includes('demo') && 
+          !correo.includes('gmail.com') &&
+          !correosExcluidos.has(correo)
+        ) {
           correosSet.add(correo);
         }
       });
@@ -532,7 +551,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }, (err) => {
       console.warn('Error suscribiendo correos onboarding:', err);
     });
-    return () => unsubscribe();
+
+    return () => {
+      window.removeEventListener('peya_usuarios_actualizados', refrescarCorreosLocales);
+      unsubscribe();
+    };
   }, []);
 
   const copiarCorreoIndividual = (correo: string) => {
@@ -2354,7 +2377,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         </div>
       )}
 
-      <ConfigModal visible={mostrarModalCreds} onCerrar={() => setMostrarModalCreds(false)} onSincronizar={() => cargarCasosGoogleSheets()} casosCount={casosSheets.length} />
+      <ConfigModal 
+        visible={mostrarModalCreds} 
+        onCerrar={() => setMostrarModalCreds(false)} 
+        onSincronizar={() => cargarCasosGoogleSheets()} 
+        casosCount={casosSheets.length || casosTotales.length} 
+        temaClaro={temaClaro}
+      />
       
       {casoSeleccionadoModal && (
         <ModalDetalleCaso 
@@ -2371,17 +2400,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           assets={catalogosDinamicos.assets}
           integraciones={listaIntegracionesNombres}
           integracionesDetalle={catalogosDinamicos.integraciones}
+          correosOnboarding={correosOnboarding}
         />
       )}
 
-      {/* Notificación de confirmación: capa superior, visible incluso con modales abiertos */}
+      {/* Notificación de confirmación: adapta perfectamente tanto al Modo Claro como al Modo Oscuro */}
       {notificacion && (
-        <div className={`fixed top-5 right-5 z-[999999] px-5 py-3.5 rounded-2xl text-sm font-bold shadow-2xl transition-all duration-300 backdrop-blur-md flex items-center gap-3 border ${
+        <div className={`fixed top-5 right-5 z-[999999] px-5 py-3.5 rounded-2xl text-sm font-bold shadow-2xl transition-all duration-300 backdrop-blur-md flex items-center gap-3 border animate-fadeIn ${
           notificacion.tipo === 'error' 
-            ? 'bg-rose-950/95 border-rose-500 text-rose-200 shadow-rose-950/50' 
+            ? 'bg-rose-50 dark:bg-rose-950/95 border-rose-300 dark:border-rose-500 text-rose-900 dark:text-rose-200 shadow-rose-900/10 dark:shadow-rose-950/50' 
             : notificacion.tipo === 'info' 
-            ? 'bg-sky-950/95 border-sky-500 text-sky-200 shadow-sky-950/50' 
-            : 'bg-emerald-950/95 border-emerald-500 text-emerald-200 shadow-emerald-950/50'
+            ? 'bg-sky-50 dark:bg-sky-950/95 border-sky-300 dark:border-sky-500 text-sky-900 dark:text-sky-200 shadow-sky-900/10 dark:shadow-sky-950/50' 
+            : 'bg-emerald-50 dark:bg-emerald-950/95 border-emerald-300 dark:border-emerald-500 text-emerald-900 dark:text-emerald-200 shadow-emerald-900/10 dark:shadow-emerald-950/50'
         }`}>
           <span className="text-xl shrink-0">
             {notificacion.tipo === 'error' ? '🚨' : notificacion.tipo === 'info' ? 'ℹ️' : '✅'}

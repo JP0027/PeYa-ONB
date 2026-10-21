@@ -456,11 +456,35 @@ async function startServer() {
   const ROLES_FILE = path.resolve(process.cwd(), 'data_cached_roles.json');
 
   const USUARIOS_INICIALES_LISTA: Record<string, any> = {
-    'jean.palomino_dyn.ext@pedidosya.com': {
-      id: 'jean.palomino_dyn.ext@pedidosya.com',
-      correo: 'jean.palomino_dyn.ext@pedidosya.com',
-      nombre: 'Jean Palomino',
-      rol: 'Supervisor',
+    'kimberly.silvera_dyn.ext@pedidosya.com': {
+      id: 'kimberly.silvera_dyn.ext@pedidosya.com',
+      correo: 'kimberly.silvera_dyn.ext@pedidosya.com',
+      nombre: 'Kimberly Silvera',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'henry.serrato_dyn.ext@pedidosya.com': {
+      id: 'henry.serrato_dyn.ext@pedidosya.com',
+      correo: 'henry.serrato_dyn.ext@pedidosya.com',
+      nombre: 'Henry Serrato',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'joseline.yactayo_dyn.ext@pedidosya.com': {
+      id: 'joseline.yactayo_dyn.ext@pedidosya.com',
+      correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
+      nombre: 'Joseline Yactayo',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'yadira.flores_dyn.ext@pedidosya.com': {
+      id: 'yadira.flores_dyn.ext@pedidosya.com',
+      correo: 'yadira.flores_dyn.ext@pedidosya.com',
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor / TL',
       pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
       actualizadoEn: new Date().toISOString()
     },
@@ -480,28 +504,12 @@ async function startServer() {
       pestanas: ['admin', 'inicio', 'nuevo'],
       actualizadoEn: new Date().toISOString()
     },
-    'yadira.flores_dyn.ext@pedidosya.com': {
-      id: 'yadira.flores_dyn.ext@pedidosya.com',
-      correo: 'yadira.flores_dyn.ext@pedidosya.com',
-      nombre: 'Yadira Flores',
-      rol: 'Supervisor',
-      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-      actualizadoEn: new Date().toISOString()
-    },
-    'henry.serrato_dyn.ext@pedidosya.com': {
-      id: 'henry.serrato_dyn.ext@pedidosya.com',
-      correo: 'henry.serrato_dyn.ext@pedidosya.com',
-      nombre: 'Henry Serrato',
-      rol: 'Supervisor',
-      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-      actualizadoEn: new Date().toISOString()
-    },
-    'joseline.yactayo_dyn.ext@pedidosya.com': {
-      id: 'joseline.yactayo_dyn.ext@pedidosya.com',
-      correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
-      nombre: 'Joseline Yactayo',
-      rol: 'Supervisor',
-      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    'jean.palomino_dyn.ext@pedidosya.com': {
+      id: 'jean.palomino_dyn.ext@pedidosya.com',
+      correo: 'jean.palomino_dyn.ext@pedidosya.com',
+      nombre: 'Jean Palomino',
+      rol: 'Agente',
+      pestanas: ['admin', 'inicio', 'nuevo'],
       actualizadoEn: new Date().toISOString()
     }
   };
@@ -512,7 +520,19 @@ async function startServer() {
         const raw = fs.readFileSync(USUARIOS_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
-          return { ...USUARIOS_INICIALES_LISTA, ...parsed };
+          const correosExcluidos = new Set([
+            'yadirayajaida@gmail.com',
+            'guillermo.gonzales_dyn.ext@pedidosya.com',
+            'jean.changanaqui_dyn.ext@pedidosya.com'
+          ]);
+          const resultado: Record<string, any> = { ...USUARIOS_INICIALES_LISTA };
+          for (const [k, v] of Object.entries(parsed)) {
+            const keyLower = k.toLowerCase().trim();
+            if (!correosExcluidos.has(keyLower) && keyLower.endsWith('@pedidosya.com') && !keyLower.includes('gmail.com')) {
+              resultado[keyLower] = v;
+            }
+          }
+          return resultado;
         }
       }
     } catch (e) {

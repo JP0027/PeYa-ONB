@@ -22,27 +22,12 @@ export interface UsuarioSistema {
  * pueden autenticarse e interactuar con la plataforma de Onboarding.
  */
 export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
+  // LÍDERES / SUPERVISORES / TEAM LEADERS (4)
   {
-    id: 'jean.palomino_dyn.ext@pedidosya.com',
-    correo: 'jean.palomino_dyn.ext@pedidosya.com',
-    nombre: 'Jean Palomino',
-    rol: 'Supervisor',
-    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-    actualizadoEn: '2026-10-21T00:00:00.000Z'
-  },
-  {
-    id: 'yadira.flores_dyn.ext@pedidosya.com',
-    correo: 'yadira.flores_dyn.ext@pedidosya.com',
-    nombre: 'Yadira Flores',
-    rol: 'Supervisor',
-    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-    actualizadoEn: '2026-10-21T00:00:00.000Z'
-  },
-  {
-    id: 'yadirayajaida@gmail.com',
-    correo: 'yadirayajaida@gmail.com',
-    nombre: 'Yadira Flores',
-    rol: 'Supervisor',
+    id: 'kimberly.silvera_dyn.ext@pedidosya.com',
+    correo: 'kimberly.silvera_dyn.ext@pedidosya.com',
+    nombre: 'Kimberly Silvera',
+    rol: 'Supervisor / TL',
     pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
@@ -50,7 +35,7 @@ export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
     id: 'henry.serrato_dyn.ext@pedidosya.com',
     correo: 'henry.serrato_dyn.ext@pedidosya.com',
     nombre: 'Henry Serrato',
-    rol: 'Supervisor',
+    rol: 'Supervisor / TL',
     pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
@@ -58,10 +43,19 @@ export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
     id: 'joseline.yactayo_dyn.ext@pedidosya.com',
     correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
     nombre: 'Joseline Yactayo',
-    rol: 'Supervisor',
+    rol: 'Supervisor / TL',
     pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
+  {
+    id: 'yadira.flores_dyn.ext@pedidosya.com',
+    correo: 'yadira.flores_dyn.ext@pedidosya.com',
+    nombre: 'Yadira Flores',
+    rol: 'Supervisor / TL',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  // AGENTES DE ONBOARDING (3)
   {
     id: 'joel.tocas_dyn.ext@pedidosya.com',
     correo: 'joel.tocas_dyn.ext@pedidosya.com',
@@ -79,21 +73,23 @@ export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
   {
-    id: 'guillermo.gonzales_dyn.ext@pedidosya.com',
-    correo: 'guillermo.gonzales_dyn.ext@pedidosya.com',
-    nombre: 'Guillermo Gonzales',
-    rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
-    actualizadoEn: '2026-10-21T00:00:00.000Z'
-  },
-  {
-    id: 'jean.changanaqui_dyn.ext@pedidosya.com',
-    correo: 'jean.changanaqui_dyn.ext@pedidosya.com',
-    nombre: 'Jean Changanaqui',
+    id: 'jean.palomino_dyn.ext@pedidosya.com',
+    correo: 'jean.palomino_dyn.ext@pedidosya.com',
+    nombre: 'Jean Palomino',
     rol: 'Agente',
     pestanas: ['admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   }
+];
+
+export const CORREOS_ONBOARDING_OFICIALES: string[] = [
+  'kimberly.silvera_dyn.ext@pedidosya.com',
+  'henry.serrato_dyn.ext@pedidosya.com',
+  'joseline.yactayo_dyn.ext@pedidosya.com',
+  'yadira.flores_dyn.ext@pedidosya.com',
+  'joel.tocas_dyn.ext@pedidosya.com',
+  'prisila.leon_dyn.ext@pedidosya.com',
+  'jean.palomino_dyn.ext@pedidosya.com'
 ];
 
 export const LISTA_BLANCA_OFICIAL: Record<string, PerfilUsuario> = USUARIOS_CODIGO_BASE.reduce((acc, u) => {
@@ -164,6 +160,19 @@ export function obtenerUsuariosCompletos(): UsuarioSistema[] {
     }
   } catch {}
 
+  // 4. Excluir estrictamente correos personales (ej. @gmail.com) y usuarios legacy no autorizados
+  const correosExcluidos = new Set([
+    'yadirayajaida@gmail.com',
+    'guillermo.gonzales_dyn.ext@pedidosya.com',
+    'jean.changanaqui_dyn.ext@pedidosya.com'
+  ]);
+
+  for (const [key] of Array.from(mapa.entries())) {
+    if (correosExcluidos.has(key) || !key.endsWith('@pedidosya.com') || key.includes('gmail.com')) {
+      mapa.delete(key);
+    }
+  }
+
   return Array.from(mapa.values());
 }
 
@@ -228,6 +237,11 @@ export function guardarUsuarioEnSistema(usuario: {
     }).catch(() => {});
   }
 
+  // Notificar a toda la interfaz (barra superior, modal de contactos, etc.)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('peya_usuarios_actualizados'));
+  }
+
   return obtenerUsuariosCompletos();
 }
 
@@ -264,7 +278,44 @@ export function eliminarUsuarioDelSistema(correo: string): UsuarioSistema[] {
     fetch(`/api/admin/usuarios/${encodeURIComponent(correoLimpio)}`, { method: 'DELETE' }).catch(() => {});
   }
 
+  // Notificar a toda la interfaz (barra superior, modal de contactos, etc.)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('peya_usuarios_actualizados'));
+  }
+
   return obtenerUsuariosCompletos();
+}
+
+/**
+ * Retorna todos los correos corporativos válidos de Onboarding del sistema
+ * (combinando la base oficial con los nuevos usuarios registrados por supervisores).
+ */
+export function obtenerCorreosOnboardingDinamicos(): string[] {
+  const correosExcluidos = new Set([
+    'yadirayajaida@gmail.com',
+    'guillermo.gonzales_dyn.ext@pedidosya.com',
+    'jean.changanaqui_dyn.ext@pedidosya.com'
+  ]);
+  const todos = obtenerUsuariosCompletos();
+  const set = new Set<string>();
+
+  // Base oficial de 7 miembros
+  CORREOS_ONBOARDING_OFICIALES.forEach(c => {
+    const lim = c.toLowerCase().trim();
+    if (lim.endsWith('@pedidosya.com') && !lim.includes('gmail.com') && !correosExcluidos.has(lim)) {
+      set.add(lim);
+    }
+  });
+
+  // Usuarios adicionales o actualizados en el sistema
+  todos.forEach(u => {
+    const c = (u.correo || '').toLowerCase().trim();
+    if (c.endsWith('@pedidosya.com') && !c.includes('gmail.com') && !correosExcluidos.has(c)) {
+      set.add(c);
+    }
+  });
+
+  return Array.from(set);
 }
 
 /**
@@ -273,6 +324,13 @@ export function eliminarUsuarioDelSistema(correo: string): UsuarioSistema[] {
 export function validarAccesoUsuario(correo?: string | null): UsuarioSistema | null {
   if (!correo) return null;
   const c = correo.trim().toLowerCase();
+
+  // Mapeo transparente para la cuenta Google de autenticación hacia su usuario oficial de PedidosYa
+  if (c === 'yadirayajaida@gmail.com') {
+    const yadira = USUARIOS_CODIGO_BASE.find(u => u.correo === 'yadira.flores_dyn.ext@pedidosya.com');
+    if (yadira) return { ...yadira };
+  }
+
   const todos = obtenerUsuariosCompletos();
   const encontrado = todos.find(u => {
     const uCorreo = (u.correo || '').toLowerCase().trim();

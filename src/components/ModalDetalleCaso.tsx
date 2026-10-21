@@ -36,6 +36,7 @@ export interface ModalDetalleCasoProps {
   assets?: string[];
   integraciones?: string[];
   integracionesDetalle?: Array<{ nombre: string; sponsorship: string; contactos?: string }>;
+  correosOnboarding?: string[];
 }
 
 /** Formatea la fecha si existe; si está vacía la mantiene vacía (formatearFechaHora('') devolvería la fecha actual) */
@@ -59,7 +60,8 @@ export default function ModalDetalleCaso({
   paises = LISTA_PAISES,
   assets = LISTA_ASSETS,
   integraciones = [],
-  integracionesDetalle = []
+  integracionesDetalle = [],
+  correosOnboarding = []
 }: ModalDetalleCasoProps) {
   const [modalContactosAbierto, setModalContactosAbierto] = useState<boolean>(false);
   const [integracionParaContactos, setIntegracionParaContactos] = useState<string>('');
@@ -935,6 +937,8 @@ export default function ModalDetalleCaso({
             contactosRaw={integracionEncontrada?.contactos || ''}
             sponsorship={form.sponsorship || 'NO'}
             onCerrar={() => setModalContactosAbierto(false)}
+            correosOnboarding={correosOnboarding}
+            kamEmail={form.kam || ''}
           />
         )}
 

@@ -60,7 +60,7 @@ export default function App() {
         const autorizado = validarAccesoUsuario(emailLower);
         if (autorizado) {
           const userData: UserSession = {
-            email: currentUser.email,
+            email: autorizado.correo,
             displayName: autorizado.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
           };
           guardarSesion(userData, autorizado.rol || 'Agente');

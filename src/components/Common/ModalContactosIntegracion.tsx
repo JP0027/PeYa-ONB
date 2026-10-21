@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { CORREOS_ONBOARDING_OFICIALES, obtenerCorreosOnboardingDinamicos } from '../../utils/userPermissions';
 
 export interface ContactoParsed {
   original: string;
@@ -86,7 +87,34 @@ export default function ModalContactosIntegracion({
   }, [kamEmail]);
 
   const listaOnboarding = useMemo(() => {
-    return correosOnboarding.map(parsearContacto);
+    const dinamicos = obtenerCorreosOnboardingDinamicos();
+    const fuente = (correosOnboarding && correosOnboarding.length > 0)
+      ? correosOnboarding
+      : dinamicos;
+
+    // Solo correos oficiales corporativos de PedidosYa, nunca cuentas personales ni correos obsoletos
+    const correosExcluidos = new Set([
+      'yadirayajaida@gmail.com',
+      'guillermo.gonzales_dyn.ext@pedidosya.com',
+      'jean.changanaqui_dyn.ext@pedidosya.com'
+    ]);
+
+    const combinados = new Set<string>();
+    dinamicos.forEach(c => {
+      const email = String(c || '').toLowerCase().trim();
+      if (email.endsWith('@pedidosya.com') && !email.includes('gmail.com') && !correosExcluidos.has(email)) {
+        combinados.add(email);
+      }
+    });
+    fuente.forEach(c => {
+      const email = String(c || '').toLowerCase().trim();
+      if (email.endsWith('@pedidosya.com') && !email.includes('gmail.com') && !correosExcluidos.has(email)) {
+        combinados.add(email);
+      }
+    });
+
+    const listaFinal = Array.from(combinados);
+    return (listaFinal.length > 0 ? listaFinal : CORREOS_ONBOARDING_OFICIALES).map(parsearContacto);
   }, [correosOnboarding]);
 
   const copiar = (texto: string, id: string, msg: string = 'Copiado al portapapeles') => {

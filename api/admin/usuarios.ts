@@ -1,17 +1,10 @@
 const USUARIOS_INICIALES = [
+  // LÍDERES / SUPERVISORES / TEAM LEADERS (4)
   {
-    id: 'jean.palomino_dyn.ext@pedidosya.com',
-    correo: 'jean.palomino_dyn.ext@pedidosya.com',
-    nombre: 'Jean Palomino',
-    rol: 'Supervisor',
-    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-    actualizadoEn: '2026-10-21T00:00:00.000Z'
-  },
-  {
-    id: 'yadira.flores_dyn.ext@pedidosya.com',
-    correo: 'yadira.flores_dyn.ext@pedidosya.com',
-    nombre: 'Yadira Flores',
-    rol: 'Supervisor',
+    id: 'kimberly.silvera_dyn.ext@pedidosya.com',
+    correo: 'kimberly.silvera_dyn.ext@pedidosya.com',
+    nombre: 'Kimberly Silvera',
+    rol: 'Supervisor / TL',
     pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
@@ -19,7 +12,7 @@ const USUARIOS_INICIALES = [
     id: 'henry.serrato_dyn.ext@pedidosya.com',
     correo: 'henry.serrato_dyn.ext@pedidosya.com',
     nombre: 'Henry Serrato',
-    rol: 'Supervisor',
+    rol: 'Supervisor / TL',
     pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
@@ -27,10 +20,19 @@ const USUARIOS_INICIALES = [
     id: 'joseline.yactayo_dyn.ext@pedidosya.com',
     correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
     nombre: 'Joseline Yactayo',
-    rol: 'Supervisor',
+    rol: 'Supervisor / TL',
     pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
+  {
+    id: 'yadira.flores_dyn.ext@pedidosya.com',
+    correo: 'yadira.flores_dyn.ext@pedidosya.com',
+    nombre: 'Yadira Flores',
+    rol: 'Supervisor / TL',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  // AGENTES DE ONBOARDING (3)
   {
     id: 'joel.tocas_dyn.ext@pedidosya.com',
     correo: 'joel.tocas_dyn.ext@pedidosya.com',
@@ -47,6 +49,14 @@ const USUARIOS_INICIALES = [
     pestanas: ['admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
+  {
+    id: 'jean.palomino_dyn.ext@pedidosya.com',
+    correo: 'jean.palomino_dyn.ext@pedidosya.com',
+    nombre: 'Jean Palomino',
+    rol: 'Agente',
+    pestanas: ['admin', 'inicio', 'nuevo'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  }
 ];
 
 export default function handler(req: any, res: any) {

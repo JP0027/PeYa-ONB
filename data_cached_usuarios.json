@@ -1,9 +1,9 @@
 {
-  "jean.palomino_dyn.ext@pedidosya.com": {
-    "id": "jean.palomino_dyn.ext@pedidosya.com",
-    "correo": "jean.palomino_dyn.ext@pedidosya.com",
-    "nombre": "Jean Palomino",
-    "rol": "Supervisor",
+  "kimberly.silvera_dyn.ext@pedidosya.com": {
+    "id": "kimberly.silvera_dyn.ext@pedidosya.com",
+    "correo": "kimberly.silvera_dyn.ext@pedidosya.com",
+    "nombre": "Kimberly Silvera",
+    "rol": "Supervisor / TL",
     "pestanas": [
       "tl",
       "admin",
@@ -11,7 +11,49 @@
       "nuevo",
       "usuarios"
     ],
-    "actualizadoEn": "2026-10-21T11:58:16.702Z"
+    "actualizadoEn": "2026-10-21T00:00:00.000Z"
+  },
+  "henry.serrato_dyn.ext@pedidosya.com": {
+    "id": "henry.serrato_dyn.ext@pedidosya.com",
+    "correo": "henry.serrato_dyn.ext@pedidosya.com",
+    "nombre": "Henry Serrato",
+    "rol": "Supervisor / TL",
+    "pestanas": [
+      "tl",
+      "admin",
+      "inicio",
+      "nuevo",
+      "usuarios"
+    ],
+    "actualizadoEn": "2026-10-21T00:00:00.000Z"
+  },
+  "joseline.yactayo_dyn.ext@pedidosya.com": {
+    "id": "joseline.yactayo_dyn.ext@pedidosya.com",
+    "correo": "joseline.yactayo_dyn.ext@pedidosya.com",
+    "nombre": "Joseline Yactayo",
+    "rol": "Supervisor / TL",
+    "pestanas": [
+      "tl",
+      "admin",
+      "inicio",
+      "nuevo",
+      "usuarios"
+    ],
+    "actualizadoEn": "2026-10-21T00:00:00.000Z"
+  },
+  "yadira.flores_dyn.ext@pedidosya.com": {
+    "id": "yadira.flores_dyn.ext@pedidosya.com",
+    "correo": "yadira.flores_dyn.ext@pedidosya.com",
+    "nombre": "Yadira Flores",
+    "rol": "Supervisor / TL",
+    "pestanas": [
+      "tl",
+      "admin",
+      "inicio",
+      "nuevo",
+      "usuarios"
+    ],
+    "actualizadoEn": "2026-10-21T00:00:00.000Z"
   },
   "joel.tocas_dyn.ext@pedidosya.com": {
     "id": "joel.tocas_dyn.ext@pedidosya.com",
@@ -23,7 +65,7 @@
       "inicio",
       "nuevo"
     ],
-    "actualizadoEn": "2026-10-21T11:58:16.703Z"
+    "actualizadoEn": "2026-10-21T00:00:00.000Z"
   },
   "prisila.leon_dyn.ext@pedidosya.com": {
     "id": "prisila.leon_dyn.ext@pedidosya.com",
@@ -35,48 +77,18 @@
       "inicio",
       "nuevo"
     ],
-    "actualizadoEn": "2026-10-21T11:58:16.703Z"
+    "actualizadoEn": "2026-10-21T00:00:00.000Z"
   },
-  "yadira.flores_dyn.ext@pedidosya.com": {
-    "id": "yadira.flores_dyn.ext@pedidosya.com",
-    "correo": "yadira.flores_dyn.ext@pedidosya.com",
-    "nombre": "Yadira Flores",
-    "rol": "Supervisor",
+  "jean.palomino_dyn.ext@pedidosya.com": {
+    "id": "jean.palomino_dyn.ext@pedidosya.com",
+    "correo": "jean.palomino_dyn.ext@pedidosya.com",
+    "nombre": "Jean Palomino",
+    "rol": "Agente",
     "pestanas": [
-      "tl",
       "admin",
       "inicio",
-      "nuevo",
-      "usuarios"
+      "nuevo"
     ],
-    "actualizadoEn": "2026-10-21T11:58:26.002Z"
-  },
-  "henry.serrato_dyn.ext@pedidosya.com": {
-    "id": "henry.serrato_dyn.ext@pedidosya.com",
-    "correo": "henry.serrato_dyn.ext@pedidosya.com",
-    "nombre": "Henry Serrato",
-    "rol": "Supervisor",
-    "pestanas": [
-      "tl",
-      "admin",
-      "inicio",
-      "nuevo",
-      "usuarios"
-    ],
-    "actualizadoEn": "2026-10-21T11:58:16.703Z"
-  },
-  "joseline.yactayo_dyn.ext@pedidosya.com": {
-    "id": "joseline.yactayo_dyn.ext@pedidosya.com",
-    "correo": "joseline.yactayo_dyn.ext@pedidosya.com",
-    "nombre": "Joseline Yactayo",
-    "rol": "Supervisor",
-    "pestanas": [
-      "tl",
-      "admin",
-      "inicio",
-      "nuevo",
-      "usuarios"
-    ],
-    "actualizadoEn": "2026-10-21T11:58:16.703Z"
+    "actualizadoEn": "2026-10-21T00:00:00.000Z"
   }
 }

@@ -140,10 +140,20 @@ export default function GestionUsuariosView({
         if (resp.ok) {
           const data = await resp.json();
           if (data.success && Array.isArray(data.usuarios) && data.usuarios.length > 0) {
+            const correosExcluidos = new Set([
+              'yadirayajaida@gmail.com',
+              'guillermo.gonzales_dyn.ext@pedidosya.com',
+              'jean.changanaqui_dyn.ext@pedidosya.com'
+            ]);
             const mapa = new Map<string, UsuarioFirestore>();
             obtenerUsuariosCompletos().forEach(u => mapa.set(u.correo.toLowerCase().trim(), u));
             data.usuarios.forEach((u: any) => {
-              if (u && u.correo) mapa.set(u.correo.toLowerCase().trim(), u);
+              if (u && u.correo) {
+                const c = u.correo.toLowerCase().trim();
+                if (!correosExcluidos.has(c) && c.endsWith('@pedidosya.com') && !c.includes('gmail.com')) {
+                  mapa.set(c, u);
+                }
+              }
             });
             setUsuarios(Array.from(mapa.values()));
           }
@@ -158,6 +168,11 @@ export default function GestionUsuariosView({
     const usuariosRef = collection(db, 'usuarios_permitidos');
     const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
       if (!snapshot.empty) {
+        const correosExcluidos = new Set([
+          'yadirayajaida@gmail.com',
+          'guillermo.gonzales_dyn.ext@pedidosya.com',
+          'jean.changanaqui_dyn.ext@pedidosya.com'
+        ]);
         const mapaPorCorreo = new Map<string, UsuarioFirestore>();
         // Base oficial primero
         obtenerUsuariosCompletos().forEach(u => mapaPorCorreo.set(u.correo.toLowerCase().trim(), u));
@@ -165,6 +180,9 @@ export default function GestionUsuariosView({
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const correo = (data.correo || docSnap.id).toLowerCase().trim();
+          if (correosExcluidos.has(correo) || !correo.endsWith('@pedidosya.com') || correo.includes('gmail.com')) {
+            return;
+          }
           const nombre = data.nombre || obtenerNombreSugerido(correo);
           const rol: RolUsuario = data.rol || 'Agente';
           const pestanas = Array.isArray(data.pestanas) && data.pestanas.length > 0
@@ -294,6 +312,9 @@ export default function GestionUsuariosView({
 
       setModoModalAbierto(false);
       setUsuarioEditando(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('peya_usuarios_actualizados'));
+      }
       mostrarNotificacion && mostrarNotificacion(
         esEdicion 
           ? `✅ Usuario "${nombreLimpio}" actualizado con éxito.` 
@@ -337,6 +358,9 @@ export default function GestionUsuariosView({
         console.warn('Error eliminando en Firestore (eliminado en local):', errFirestore);
       }
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('peya_usuarios_actualizados'));
+      }
       mostrarNotificacion && mostrarNotificacion(`Usuario "${nombreMostrar}" eliminado de los permisos.`, 'success');
     } catch (err: any) {
       console.error('Error eliminando usuario:', err);
@@ -975,16 +999,17 @@ export default function GestionUsuariosView({
 
       {/* Modal para Agregar / Editar Usuario */}
       {modalAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-[#202024] border border-[#3A3A3E] rounded-2xl w-full max-w-md shadow-2xl p-6 relative max-h-[95vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#3A3A3E]">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#202024] border border-slate-200 dark:border-[#3A3A3E] rounded-2xl w-full max-w-md shadow-2xl p-6 relative max-h-[95vh] overflow-y-auto text-slate-800 dark:text-gray-200 transition-colors">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-[#3A3A3E]">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>{esEdicion ? '✏️' : '➕'}</span>
                 <span>{esEdicion ? 'Modificar Usuario' : 'Añadir Nuevo Usuario'}</span>
               </h3>
               <button
+                type="button"
                 onClick={() => setModoModalAbierto(false)}
-                className="text-[#B3B3B3] hover:text-white p-1 rounded-lg text-lg cursor-pointer"
+                className="text-slate-400 hover:text-slate-800 dark:text-[#B3B3B3] dark:hover:text-white p-1 rounded-lg text-lg cursor-pointer transition hover:bg-slate-100 dark:hover:bg-[#2C2C32]"
               >
                 ✕
               </button>
@@ -992,35 +1017,35 @@ export default function GestionUsuariosView({
 
             <form onSubmit={guardarUsuario} className="space-y-4 text-xs">
               <div>
-                <label className="text-[#D1D5DB] block mb-1 font-semibold">Correo Electrónico *</label>
+                <label className="text-slate-700 dark:text-[#D1D5DB] block mb-1 font-semibold">Correo Electrónico *</label>
                 <input
                   type="email"
                   value={formulario.correo}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormulario({ ...formulario, correo: e.target.value })}
                   disabled={esEdicion}
                   placeholder="ejemplo@pedidosya.com"
-                  className={`w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white font-mono focus:border-[#E85A80] ${esEdicion ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  className={`w-full bg-slate-50 dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] rounded-lg p-2.5 text-slate-900 dark:text-white font-mono focus:border-[#E85A80] focus:outline-none transition ${esEdicion ? 'opacity-60 cursor-not-allowed' : ''}`}
                   required
                 />
                 {esEdicion && (
-                  <p className="text-[10px] text-[#9CA3AF] mt-1">El correo actúa como identificador único en Firebase.</p>
+                  <p className="text-[10px] text-slate-500 dark:text-[#9CA3AF] mt-1">El correo actúa como identificador único en Firebase.</p>
                 )}
               </div>
 
               <div>
-                <label className="text-[#D1D5DB] block mb-1 font-semibold">Nombre Completo *</label>
+                <label className="text-slate-700 dark:text-[#D1D5DB] block mb-1 font-semibold">Nombre Completo *</label>
                 <input
                   type="text"
                   value={formulario.nombre}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormulario({ ...formulario, nombre: e.target.value })}
                   placeholder="Ej: Jean Palomino"
-                  className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] font-medium"
+                  className="w-full bg-slate-50 dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] rounded-lg p-2.5 text-slate-900 dark:text-white focus:border-[#E85A80] focus:outline-none font-medium transition"
                   required
                 />
               </div>
 
               <div>
-                <label className="text-[#D1D5DB] block mb-1 font-semibold">Rol Asignado *</label>
+                <label className="text-slate-700 dark:text-[#D1D5DB] block mb-1 font-semibold">Rol Asignado *</label>
                 {esSupervisor ? (
                   <select
                     value={formulario.rol}
@@ -1036,7 +1061,7 @@ export default function GestionUsuariosView({
                         pestanas: tabsDef
                       });
                     }}
-                    className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] font-semibold cursor-pointer"
+                    className="w-full bg-slate-50 dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] rounded-lg p-2.5 text-slate-900 dark:text-white focus:border-[#E85A80] focus:outline-none font-semibold cursor-pointer transition"
                   >
                     {listaRoles.map(r => (
                       <option key={r} value={r}>
@@ -1045,9 +1070,9 @@ export default function GestionUsuariosView({
                     ))}
                   </select>
                 ) : (
-                  <div className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-[#D1D5DB] font-medium flex items-center justify-between">
+                  <div className="w-full bg-slate-50 dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] rounded-lg p-2.5 text-slate-700 dark:text-[#D1D5DB] font-medium flex items-center justify-between">
                     <span>{formulario.rol}</span>
-                    <span className="text-[10px] text-[#9CA3AF] italic">Solo modificable por Supervisor</span>
+                    <span className="text-[10px] text-slate-500 dark:text-[#9CA3AF] italic">Solo modificable por Supervisor</span>
                   </div>
                 )}
               </div>
@@ -1055,7 +1080,7 @@ export default function GestionUsuariosView({
               {/* Lista de Checkboxes de Pestañas Permitidas */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[#D1D5DB] font-semibold block text-xs">
+                  <label className="text-slate-700 dark:text-[#D1D5DB] font-semibold block text-xs">
                     Pestañas Visibles y Permitidas *
                   </label>
                   <button
@@ -1067,14 +1092,14 @@ export default function GestionUsuariosView({
                       }
                       setFormulario(prev => ({ ...prev, pestanas: tabsDef }));
                     }}
-                    className="text-[11px] text-[#F46C8E] hover:text-pink-300 hover:underline cursor-pointer"
+                    className="text-[11px] text-[#DB2777] dark:text-[#F46C8E] hover:underline cursor-pointer font-semibold"
                     title="Restablecer a las pestañas recomendadas según el rol seleccionado"
                   >
                     Restablecer por rol
                   </button>
                 </div>
 
-                <div className="space-y-1.5 bg-[#121212] border border-[#3A3A3E] rounded-xl p-2.5">
+                <div className="space-y-1.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#3A3A3E] rounded-xl p-2.5">
                   {LISTA_PESTANAS_SISTEMA.filter(tab => {
                     // A los de agentes NUNCA les debe aparecer la opción de Gestionar usuario
                     if (formulario.rol === 'Agente' && tab.id === 'usuarios') return false;
@@ -1086,8 +1111,8 @@ export default function GestionUsuariosView({
                         key={tab.id}
                         className={`flex items-start gap-2.5 p-2 rounded-lg cursor-pointer transition border ${
                           estaMarcada 
-                            ? 'bg-[#2C2C32]/80 border-[#E85A80]/50 text-white' 
-                            : 'border-gray-900/60 text-[#B3B3B3] hover:bg-[#2C2C32]/40 hover:text-[#D1D5DB]'
+                            ? 'bg-pink-50 dark:bg-[#2C2C32]/80 border-pink-300 dark:border-[#E85A80]/50 text-slate-900 dark:text-white shadow-xs' 
+                            : 'bg-white dark:bg-transparent border-slate-200 dark:border-gray-900/60 text-slate-600 dark:text-[#B3B3B3] hover:bg-slate-100 dark:hover:bg-[#2C2C32]/40 hover:text-slate-900 dark:hover:text-[#D1D5DB]'
                         }`}
                       >
                         <input
@@ -1108,14 +1133,14 @@ export default function GestionUsuariosView({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 font-bold text-xs">
                             <span>{tab.icono}</span>
-                            <span className={estaMarcada ? 'text-white' : 'text-[#B3B3B3]'}>{tab.label}</span>
+                            <span className={estaMarcada ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-[#B3B3B3]'}>{tab.label}</span>
                             {tab.id === 'usuarios' && (
-                              <span className="text-[10px] bg-rose-950 text-rose-400 border border-rose-800 px-1.5 py-0.2 rounded font-mono ml-auto">
+                              <span className="text-[10px] bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800 px-1.5 py-0.2 rounded font-mono ml-auto">
                                 Admin
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-[#9CA3AF] mt-0.5 leading-tight">{tab.desc}</p>
+                          <p className="text-[11px] text-slate-500 dark:text-[#9CA3AF] mt-0.5 leading-tight">{tab.desc}</p>
                         </div>
                       </label>
                     );
@@ -1123,24 +1148,24 @@ export default function GestionUsuariosView({
                 </div>
 
                 {(!formulario.pestanas || formulario.pestanas.length === 0) && (
-                  <p className="text-rose-400 text-[11px] mt-1.5 font-medium">
+                  <p className="text-rose-600 dark:text-rose-400 text-[11px] mt-1.5 font-medium">
                     ⚠️ Debes seleccionar al menos una pestaña permitida para este usuario.
                   </p>
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#3A3A3E]">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-[#3A3A3E]">
                 <button
                   type="button"
                   onClick={() => setModoModalAbierto(false)}
-                  className="px-4 py-2 rounded-lg bg-[#2C2C32] text-[#D1D5DB] hover:bg-[#3A3A3E] transition cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#2C2C32] dark:hover:bg-[#3A3A3E] text-slate-700 dark:text-[#D1D5DB] border border-slate-300 dark:border-transparent transition cursor-pointer font-semibold"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={guardando}
-                  className="px-5 py-2 rounded-lg bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-md shadow-pink-900/30"
                 >
                   {guardando && <span className="animate-spin">⏳</span>}
                   <span>{esEdicion ? 'Actualizar Usuario' : 'Crear Usuario'}</span>
