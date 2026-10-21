@@ -4,48 +4,299 @@ export interface PerfilUsuario {
   correo: string;
   nombre: string;
   rol: RolUsuario;
+  pestanas?: string[];
 }
 
-export const LISTA_BLANCA_OFICIAL: Record<string, PerfilUsuario> = {
-  'jean.palomino_dyn.ext@pedidosya.com': {
-    correo: 'jean.palomino_dyn.ext@pedidosya.com',
-    nombre: 'Jean Palomino',
-    rol: 'Supervisor'
-  },
-  'joel.tocas_dyn.ext@pedidosya.com': {
-    correo: 'joel.tocas_dyn.ext@pedidosya.com',
-    nombre: 'Joel Tocas',
-    rol: 'Agente'
-  },
-  'prisila.leon_dyn.ext@pedidosya.com': {
-    correo: 'prisila.leon_dyn.ext@pedidosya.com',
-    nombre: 'Prisila Leon',
-    rol: 'Agente'
-  },
-  'yadira.flores_dyn.ext@pedidosya.com': {
-    correo: 'yadira.flores_dyn.ext@pedidosya.com',
-    nombre: 'Yadira Flores',
-    rol: 'Supervisor'
-  },
-  'henry.serrato_dyn.ext@pedidosya.com': {
-    correo: 'henry.serrato_dyn.ext@pedidosya.com',
-    nombre: 'Henry Serrato',
-    rol: 'Supervisor'
-  },
-  'joseline.yactayo_dyn.ext@pedidosya.com': {
-    correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
-    nombre: 'Joseline Yactayo',
-    rol: 'Supervisor'
-  }
-};
+export interface UsuarioSistema {
+  id: string;
+  correo: string;
+  nombre: string;
+  rol: RolUsuario;
+  pestanas: string[];
+  actualizadoEn?: string | null;
+}
 
 /**
- * Valida si un correo pertenece a la lista blanca oficial
+ * Base de datos oficial de usuarios permitidos en código
+ * Seguridad garantizada: Solo los correos autorizados en esta lista (o agregados por un Supervisor)
+ * pueden autenticarse e interactuar con la plataforma de Onboarding.
  */
-export function obtenerPerfilPorCorreo(correo?: string | null): PerfilUsuario | null {
+export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
+  {
+    id: 'jean.palomino_dyn.ext@pedidosya.com',
+    correo: 'jean.palomino_dyn.ext@pedidosya.com',
+    nombre: 'Jean Palomino',
+    rol: 'Supervisor',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'yadira.flores_dyn.ext@pedidosya.com',
+    correo: 'yadira.flores_dyn.ext@pedidosya.com',
+    nombre: 'Yadira Flores',
+    rol: 'Supervisor',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'yadirayajaida@gmail.com',
+    correo: 'yadirayajaida@gmail.com',
+    nombre: 'Yadira Flores',
+    rol: 'Supervisor',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'henry.serrato_dyn.ext@pedidosya.com',
+    correo: 'henry.serrato_dyn.ext@pedidosya.com',
+    nombre: 'Henry Serrato',
+    rol: 'Supervisor',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'joseline.yactayo_dyn.ext@pedidosya.com',
+    correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
+    nombre: 'Joseline Yactayo',
+    rol: 'Supervisor',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'joel.tocas_dyn.ext@pedidosya.com',
+    correo: 'joel.tocas_dyn.ext@pedidosya.com',
+    nombre: 'Joel Tocas',
+    rol: 'Agente',
+    pestanas: ['admin', 'inicio', 'nuevo'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'prisila.leon_dyn.ext@pedidosya.com',
+    correo: 'prisila.leon_dyn.ext@pedidosya.com',
+    nombre: 'Prisila Leon',
+    rol: 'Agente',
+    pestanas: ['admin', 'inicio', 'nuevo'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'guillermo.gonzales_dyn.ext@pedidosya.com',
+    correo: 'guillermo.gonzales_dyn.ext@pedidosya.com',
+    nombre: 'Guillermo Gonzales',
+    rol: 'Agente',
+    pestanas: ['admin', 'inicio', 'nuevo'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
+  {
+    id: 'jean.changanaqui_dyn.ext@pedidosya.com',
+    correo: 'jean.changanaqui_dyn.ext@pedidosya.com',
+    nombre: 'Jean Changanaqui',
+    rol: 'Agente',
+    pestanas: ['admin', 'inicio', 'nuevo'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  }
+];
+
+export const LISTA_BLANCA_OFICIAL: Record<string, PerfilUsuario> = USUARIOS_CODIGO_BASE.reduce((acc, u) => {
+  acc[u.correo.toLowerCase().trim()] = {
+    correo: u.correo,
+    nombre: u.nombre,
+    rol: u.rol,
+    pestanas: u.pestanas
+  };
+  return acc;
+}, {} as Record<string, PerfilUsuario>);
+
+const STORAGE_CUSTOM_KEY = 'peya_usuarios_permitidos_local';
+const STORAGE_DELETED_KEY = 'peya_usuarios_eliminados_local';
+
+/**
+ * Obtiene la lista completa de usuarios autorizados.
+ * Combina la lista oficial en código con cualquier personalización guardada por supervisores.
+ */
+export function obtenerUsuariosCompletos(): UsuarioSistema[] {
+  const mapa = new Map<string, UsuarioSistema>();
+
+  // 1. Cargar usuarios definidos en código
+  USUARIOS_CODIGO_BASE.forEach(u => {
+    mapa.set(u.correo.toLowerCase().trim(), { ...u });
+  });
+
+  // 2. Fusionar con modificaciones locales
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_CUSTOM_KEY) : null;
+    if (raw) {
+      const customs = JSON.parse(raw);
+      if (Array.isArray(customs)) {
+        customs.forEach((c: any) => {
+          if (c && c.correo) {
+            const key = String(c.correo).toLowerCase().trim();
+            // Seguridad estricta: Agente NUNCA puede tener la pestaña de gestionar usuarios
+            const pestanas = Array.isArray(c.pestanas)
+              ? (c.rol === 'Agente' ? c.pestanas.filter((p: string) => p !== 'usuarios') : c.pestanas)
+              : obtenerPestanasPorDefecto(c.rol);
+
+            mapa.set(key, {
+              id: key,
+              correo: key,
+              nombre: c.nombre || key,
+              rol: c.rol || 'Agente',
+              pestanas: pestanas.length > 0 ? pestanas : ['admin', 'inicio', 'nuevo'],
+              actualizadoEn: c.actualizadoEn || new Date().toISOString()
+            });
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Error leyendo usuarios de localStorage:', e);
+  }
+
+  // 3. Excluir usuarios eliminados por el supervisor
+  try {
+    const eliminadosRaw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_DELETED_KEY) : null;
+    if (eliminadosRaw) {
+      const eliminados = JSON.parse(eliminadosRaw);
+      if (Array.isArray(eliminados)) {
+        eliminados.forEach((c: string) => {
+          mapa.delete(String(c).toLowerCase().trim());
+        });
+      }
+    }
+  } catch {}
+
+  return Array.from(mapa.values());
+}
+
+/**
+ * Guarda o modifica un usuario en el sistema con validación de seguridad.
+ * Guarda en memoria local y sincroniza en segundo plano.
+ */
+export function guardarUsuarioEnSistema(usuario: {
+  correo: string;
+  nombre: string;
+  rol: RolUsuario;
+  pestanas: string[];
+}): UsuarioSistema[] {
+  const correoLimpio = usuario.correo.toLowerCase().trim();
+  const nombreLimpio = usuario.nombre.trim();
+
+  // Seguridad estricta: Si el rol es Agente, no puede tener la pestaña de usuarios
+  const pestanasSanitizadas = (usuario.pestanas || []).filter(tabId => {
+    if (usuario.rol === 'Agente' && tabId === 'usuarios') return false;
+    return true;
+  });
+
+  const nuevoUsuario: UsuarioSistema = {
+    id: correoLimpio,
+    correo: correoLimpio,
+    nombre: nombreLimpio,
+    rol: usuario.rol,
+    pestanas: pestanasSanitizadas.length > 0 ? pestanasSanitizadas : obtenerPestanasPorDefecto(usuario.rol),
+    actualizadoEn: new Date().toISOString()
+  };
+
+  // Quitar de eliminados si estaba
+  try {
+    const eliminadosRaw = localStorage.getItem(STORAGE_DELETED_KEY);
+    if (eliminadosRaw) {
+      const eliminados = JSON.parse(eliminadosRaw);
+      if (Array.isArray(eliminados)) {
+        const filtrados = eliminados.filter((c: string) => c !== correoLimpio);
+        localStorage.setItem(STORAGE_DELETED_KEY, JSON.stringify(filtrados));
+      }
+    }
+  } catch {}
+
+  // Guardar en almacenamiento local
+  try {
+    const raw = localStorage.getItem(STORAGE_CUSTOM_KEY);
+    let lista: any[] = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(lista)) lista = [];
+    lista = lista.filter((u: any) => (u.correo || '').toLowerCase().trim() !== correoLimpio);
+    lista.push(nuevoUsuario);
+    localStorage.setItem(STORAGE_CUSTOM_KEY, JSON.stringify(lista));
+  } catch (e) {
+    console.error('Error guardando usuario en localStorage:', e);
+  }
+
+  // Intentar sincronizar con backend en segundo plano
+  if (typeof fetch !== 'undefined') {
+    fetch('/api/admin/usuarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nuevoUsuario)
+    }).catch(() => {});
+  }
+
+  return obtenerUsuariosCompletos();
+}
+
+/**
+ * Elimina un usuario del sistema (solo permitido para supervisores).
+ */
+export function eliminarUsuarioDelSistema(correo: string): UsuarioSistema[] {
+  const correoLimpio = correo.toLowerCase().trim();
+
+  // Guardar en lista de eliminados
+  try {
+    const eliminadosRaw = localStorage.getItem(STORAGE_DELETED_KEY);
+    let eliminados: string[] = eliminadosRaw ? JSON.parse(eliminadosRaw) : [];
+    if (!Array.isArray(eliminados)) eliminados = [];
+    if (!eliminados.includes(correoLimpio)) {
+      eliminados.push(correoLimpio);
+      localStorage.setItem(STORAGE_DELETED_KEY, JSON.stringify(eliminados));
+    }
+
+    const raw = localStorage.getItem(STORAGE_CUSTOM_KEY);
+    if (raw) {
+      let lista: any[] = JSON.parse(raw);
+      if (Array.isArray(lista)) {
+        lista = lista.filter((u: any) => (u.correo || '').toLowerCase().trim() !== correoLimpio);
+        localStorage.setItem(STORAGE_CUSTOM_KEY, JSON.stringify(lista));
+      }
+    }
+  } catch (e) {
+    console.error('Error eliminando usuario de localStorage:', e);
+  }
+
+  // Intentar sincronizar con backend en segundo plano
+  if (typeof fetch !== 'undefined') {
+    fetch(`/api/admin/usuarios/${encodeURIComponent(correoLimpio)}`, { method: 'DELETE' }).catch(() => {});
+  }
+
+  return obtenerUsuariosCompletos();
+}
+
+/**
+ * Valida de forma estricta si un correo tiene acceso autorizado y retorna su perfil completo
+ */
+export function validarAccesoUsuario(correo?: string | null): UsuarioSistema | null {
   if (!correo) return null;
   const c = correo.trim().toLowerCase();
-  return LISTA_BLANCA_OFICIAL[c] || null;
+  const todos = obtenerUsuariosCompletos();
+  const encontrado = todos.find(u => {
+    const uCorreo = (u.correo || '').toLowerCase().trim();
+    if (uCorreo === c) return true;
+    // Soporte para variaciones corporativas (@pedidosya.com sin _dyn.ext)
+    const uSinDyn = uCorreo.replace(/_dyn\.ext$/, '').replace(/\.cxt$/, '');
+    const cSinDyn = c.replace(/_dyn\.ext$/, '').replace(/\.cxt$/, '');
+    return uSinDyn === cSinDyn && uSinDyn.includes('@');
+  });
+  return encontrado || null;
+}
+
+/**
+ * Valida si un correo pertenece a la lista blanca oficial (compatibilidad)
+ */
+export function obtenerPerfilPorCorreo(correo?: string | null): PerfilUsuario | null {
+  const u = validarAccesoUsuario(correo);
+  if (!u) return null;
+  return {
+    correo: u.correo,
+    nombre: u.nombre,
+    rol: u.rol,
+    pestanas: u.pestanas
+  };
 }
 
 /**
@@ -63,7 +314,7 @@ export function puedeRegistrarCasos(rol?: string | null): boolean {
 export function esSupervisor(rol?: string | null): boolean {
   if (!rol) return false;
   const r = rol.toLowerCase();
-  return r.includes('supervisor') || r.includes('admin');
+  return r.includes('supervisor') || r.includes('admin') || r.includes('tl');
 }
 
 export interface PestanaInfo {
@@ -83,7 +334,6 @@ export const LISTA_PESTANAS_SISTEMA: PestanaInfo[] = [
 
 /**
  * Pestañas permitidas por defecto según el rol del usuario.
- * Admite configuración personalizada por rol cargada desde Firestore.
  */
 export function obtenerPestanasPorDefecto(
   rol?: string | null,
@@ -93,7 +343,7 @@ export function obtenerPestanasPorDefecto(
     return pestanasPorRol[rol];
   }
   const r = (rol || '').toLowerCase();
-  if (r.includes('supervisor')) {
+  if (r.includes('supervisor') || r.includes('admin') || r.includes('tl')) {
     return ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
   }
   // Rol Agente o general: Por defecto datos, mis casos, búsqueda

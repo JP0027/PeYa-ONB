@@ -3,7 +3,7 @@ import { signInWithPopup, onAuthStateChanged, signOut, User } from "firebase/aut
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore"; 
 import { auth, provider, db } from './firebase';
 import Dashboard from './components/Dashboard/index';
-import { obtenerPerfilPorCorreo, RolUsuario } from './utils/userPermissions';
+import { obtenerPerfilPorCorreo, validarAccesoUsuario, RolUsuario } from './utils/userPermissions';
 
 const LOCAL_SESSION_KEY = 'peya_session_user';
 const LOCAL_ROLE_KEY = 'peya_session_role';
@@ -56,9 +56,19 @@ export default function App() {
       if (currentUser) {
         const emailLower = (currentUser.email || '').toLowerCase().trim();
 
-        // 1. Validar primero contra Firestore (usuarios_permitidos) buscando por ID directo o por campo correo
+        // 1. Validar contra la base en código y usuarios autorizados
+        const autorizado = validarAccesoUsuario(emailLower);
+        if (autorizado) {
+          const userData: UserSession = {
+            email: currentUser.email,
+            displayName: autorizado.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+          };
+          guardarSesion(userData, autorizado.rol || 'Agente');
+          return;
+        }
+
+        // 2. Validar contra Firestore (usuarios_permitidos) si existiera
         try {
-          // Intento A: Documento directo por ID (correoLimpio)
           const docRef = doc(db, "usuarios_permitidos", emailLower);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
@@ -160,9 +170,18 @@ export default function App() {
         const email = result.user.email || '';
         const emailLower = email.toLowerCase().trim();
 
-        // 1. Validar primero contra Firestore (usuarios_permitidos)
+        // 1. Validar contra la base en código y usuarios autorizados
+        const autorizado = validarAccesoUsuario(emailLower);
+        if (autorizado) {
+          guardarSesion({
+            email,
+            displayName: autorizado.nombre || result.user.displayName || email.split('@')[0]
+          }, autorizado.rol || 'Agente');
+          return;
+        }
+
+        // 2. Validar contra Firestore (usuarios_permitidos) si existiera
         try {
-          // Intento A: Documento directo por ID
           const docRef = doc(db, "usuarios_permitidos", emailLower);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
