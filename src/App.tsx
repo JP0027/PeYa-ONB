@@ -87,7 +87,28 @@ export default function App() {
           console.warn("Consulta Firestore usuarios_permitidos falló:", err);
         }
 
-        // 2. Fallback a la lista blanca oficial de PedidosYa
+        // 2. Validar contra el Backend persistente de la aplicación
+        try {
+          const resp = await fetch('/api/admin/usuarios');
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.success && Array.isArray(data.usuarios)) {
+              const uEncontrado = data.usuarios.find((u: any) => (u.correo || '').toLowerCase().trim() === emailLower);
+              if (uEncontrado) {
+                const userData: UserSession = {
+                  email: currentUser.email,
+                  displayName: uEncontrado.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+                };
+                guardarSesion(userData, uEncontrado.rol || 'Agente');
+                return;
+              }
+            }
+          }
+        } catch (errApi) {
+          console.warn("Consulta API /api/admin/usuarios falló:", errApi);
+        }
+
+        // 3. Fallback a la lista blanca oficial de PedidosYa
         if (currentUser.email) {
           const perfil = obtenerPerfilPorCorreo(currentUser.email);
           if (perfil) {
@@ -113,7 +134,7 @@ export default function App() {
 
         await signOut(auth);
         guardarSesion(null, null);
-        setError(`Acceso denegado. El correo ${currentUser.email} no se encuentra registrado en la base de usuarios de Firebase. Solicita a un supervisor que te dé de alta.`);
+        setError(`Acceso denegado. El correo ${currentUser.email} no se encuentra registrado en la base de usuarios de Onboarding. Solicita a un supervisor que te dé de alta.`);
       } else {
         // Si no hay sesión en Firebase Auth, verificar si el usuario tiene sesión manual local activa
         try {
@@ -168,7 +189,27 @@ export default function App() {
           console.warn('Error validando en Firestore en login:', e);
         }
 
-        // 2. Fallback a la lista blanca oficial
+        // 2. Validar contra el Backend persistente de la aplicación
+        try {
+          const resp = await fetch('/api/admin/usuarios');
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.success && Array.isArray(data.usuarios)) {
+              const uEncontrado = data.usuarios.find((u: any) => (u.correo || '').toLowerCase().trim() === emailLower);
+              if (uEncontrado) {
+                guardarSesion({
+                  email,
+                  displayName: uEncontrado.nombre || result.user.displayName || email.split('@')[0]
+                }, uEncontrado.rol || 'Agente');
+                return;
+              }
+            }
+          }
+        } catch (errApi) {
+          console.warn('Error validando en API backend en login:', errApi);
+        }
+
+        // 3. Fallback a la lista blanca oficial
         const perfil = obtenerPerfilPorCorreo(email);
         if (perfil) {
           try {
@@ -190,7 +231,7 @@ export default function App() {
 
         await signOut(auth);
         guardarSesion(null, null);
-        setError(`Acceso denegado. El correo ${email} no se encuentra registrado en la base de usuarios de Firebase. Solicita a un supervisor que te dé de alta.`);
+        setError(`Acceso denegado. El correo ${email} no se encuentra registrado en la base de usuarios de Onboarding. Solicita a un supervisor que te dé de alta.`);
       }
     } catch (err: any) {
       console.error("[Login Google]", err);

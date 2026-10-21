@@ -118,8 +118,26 @@ export default function GestionUsuariosView({
   });
   const [guardando, setGuardando] = useState<boolean>(false);
 
-  // Escuchar usuarios en Firestore en tiempo real con desduplicación inteligente
+  // Cargar y escuchar usuarios (desde API backend con persistencia y réplica en Firestore)
   useEffect(() => {
+    // 1. Carga inicial inmediata desde API Backend
+    const cargarUsuariosBackend = async () => {
+      try {
+        const resp = await fetch('/api/admin/usuarios');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && Array.isArray(data.usuarios) && data.usuarios.length > 0) {
+            setUsuarios(data.usuarios);
+            setCargando(false);
+          }
+        }
+      } catch (e) {
+        console.warn('Carga inicial de usuarios desde backend:', e);
+      }
+    };
+    cargarUsuariosBackend();
+
+    // 2. Escuchar cambios de Firestore en tiempo real con desduplicación inteligente
     const usuariosRef = collection(db, 'usuarios_permitidos');
     const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
       const mapaPorCorreo = new Map<string, UsuarioFirestore>();
@@ -132,7 +150,6 @@ export default function GestionUsuariosView({
           ? data.pestanas
           : obtenerPestanasPorDefecto(rol);
 
-        // Si hay duplicados para el mismo correo, preferir el documento cuyo id sea exactamente el correo
         if (!mapaPorCorreo.has(correo) || docSnap.id === correo) {
           mapaPorCorreo.set(correo, {
             id: docSnap.id,
@@ -146,49 +163,17 @@ export default function GestionUsuariosView({
       });
 
       const lista = Array.from(mapaPorCorreo.values());
-
-      // Si la colección está vacía en Firestore, pre-poblar automáticamente desde la lista blanca oficial
-      if (lista.length === 0 && !snapshot.metadata.hasPendingWrites) {
-        inicializarUsuariosDesdeListaOficial();
-      } else {
+      if (lista.length > 0) {
         setUsuarios(lista);
         setCargando(false);
       }
     }, (err) => {
-      console.error('Error cargando usuarios de Firestore:', err);
-      // Fallback a la lista blanca oficial en memoria
-      const listaOficial: UsuarioFirestore[] = Object.values(LISTA_BLANCA_OFICIAL).map(u => ({
-        id: u.correo,
-        correo: u.correo,
-        nombre: u.nombre,
-        rol: u.rol,
-        pestanas: obtenerPestanasPorDefecto(u.rol),
-        actualizadoEn: null
-      }));
-      setUsuarios(listaOficial);
+      console.warn('Firestore snapshot usuarios_permitidos (usando datos backend):', err?.message);
       setCargando(false);
     });
 
     return () => unsubscribe();
   }, []);
-
-  const inicializarUsuariosDesdeListaOficial = async () => {
-    try {
-      const oficiales = Object.values(LISTA_BLANCA_OFICIAL);
-      for (const u of oficiales) {
-        const docId = u.correo.toLowerCase().trim();
-        await setDoc(doc(db, 'usuarios_permitidos', docId), {
-          correo: docId,
-          nombre: u.nombre,
-          rol: u.rol,
-          pestanas: obtenerPestanasPorDefecto(u.rol),
-          actualizadoEn: new Date().toISOString()
-        }, { merge: true });
-      }
-    } catch (e) {
-      console.warn('Error sembrando usuarios oficiales en Firestore:', e);
-    }
-  };
 
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter(u => {
@@ -263,18 +248,61 @@ export default function GestionUsuariosView({
         return true;
       });
 
-      // Si estábamos editando y el ID original en Firestore era diferente al docId (ej. ID aleatorio anterior), eliminar el doc antiguo para no duplicar
-      if (esEdicion && usuarioEditando && usuarioEditando.id && usuarioEditando.id !== docId) {
-        await deleteDoc(doc(db, 'usuarios_permitidos', usuarioEditando.id.trim())).catch(() => {});
+      // 1. Guardar primero en el Backend persistente de la App
+      let guardadoEnBackend = false;
+      try {
+        const resp = await fetch('/api/admin/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            correo: correoLimpio,
+            nombre: nombreLimpio,
+            rol: formulario.rol,
+            pestanas: pestanasFinales
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && Array.isArray(data.usuarios)) {
+            setUsuarios(data.usuarios);
+            guardadoEnBackend = true;
+          }
+        }
+      } catch (errBackend) {
+        console.warn('Advertencia al guardar usuario en backend:', errBackend);
       }
 
-      await setDoc(doc(db, 'usuarios_permitidos', docId), {
-        correo: correoLimpio,
-        nombre: nombreLimpio,
-        rol: formulario.rol,
-        pestanas: pestanasFinales,
-        actualizadoEn: new Date().toISOString()
-      }, { merge: true });
+      // 2. Intentar replicar en Firestore (si tiene permisos)
+      try {
+        if (esEdicion && usuarioEditando && usuarioEditando.id && usuarioEditando.id !== docId) {
+          await deleteDoc(doc(db, 'usuarios_permitidos', usuarioEditando.id.trim())).catch(() => {});
+        }
+
+        await setDoc(doc(db, 'usuarios_permitidos', docId), {
+          correo: correoLimpio,
+          nombre: nombreLimpio,
+          rol: formulario.rol,
+          pestanas: pestanasFinales,
+          actualizadoEn: new Date().toISOString()
+        }, { merge: true });
+      } catch (errFirestore: any) {
+        console.warn('Firestore denegó escritura de usuario (permisos o cuota):', errFirestore?.message);
+        // Si no se pudo guardar en backend tampoco, actualizar al menos el estado en memoria local
+        if (!guardadoEnBackend) {
+          const usuarioLocal: UsuarioFirestore = {
+            id: docId,
+            correo: correoLimpio,
+            nombre: nombreLimpio,
+            rol: formulario.rol,
+            pestanas: pestanasFinales,
+            actualizadoEn: new Date().toISOString()
+          };
+          setUsuarios(prev => {
+            const sinEste = prev.filter(u => u.correo.toLowerCase() !== correoLimpio && u.id !== docId);
+            return [...sinEste, usuarioLocal];
+          });
+        }
+      }
 
       setModoModalAbierto(false);
       setUsuarioEditando(null);
@@ -285,7 +313,7 @@ export default function GestionUsuariosView({
         'success'
       );
     } catch (err: any) {
-      console.error('Error guardando usuario en Firestore:', err);
+      console.error('Error general guardando usuario:', err);
       mostrarNotificacion && mostrarNotificacion(`Error al guardar usuario: ${err.message}`, 'error');
     } finally {
       setGuardando(false);
@@ -304,16 +332,36 @@ export default function GestionUsuariosView({
       setCargandoOperacion(`Eliminando usuario "${nombreMostrar}"...`);
     }
     try {
-      // 1. Eliminar por su ID exacto de documento (sensible a mayúsculas/minúsculas en Firestore)
-      if (usuario.id) {
-        await deleteDoc(doc(db, 'usuarios_permitidos', usuario.id.trim()));
+      // 1. Eliminar en el Backend persistente
+      try {
+        const resp = await fetch(`/api/admin/usuarios/${encodeURIComponent(usuario.correo)}`, {
+          method: 'DELETE'
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.success && Array.isArray(data.usuarios)) {
+            setUsuarios(data.usuarios);
+          }
+        }
+      } catch (errBackend) {
+        console.warn('Error eliminando usuario en backend:', errBackend);
       }
-      
-      // 2. Si el ID era diferente al correo, eliminar también por el correo para asegurar que no quede huérfano
-      const correoDocId = (usuario.correo || '').toLowerCase().trim();
-      if (correoDocId && correoDocId !== usuario.id) {
-        await deleteDoc(doc(db, 'usuarios_permitidos', correoDocId)).catch(() => {});
+
+      // 2. Intentar eliminar en Firestore
+      try {
+        if (usuario.id) {
+          await deleteDoc(doc(db, 'usuarios_permitidos', usuario.id.trim())).catch(() => {});
+        }
+        const correoDocId = (usuario.correo || '').toLowerCase().trim();
+        if (correoDocId && correoDocId !== usuario.id) {
+          await deleteDoc(doc(db, 'usuarios_permitidos', correoDocId)).catch(() => {});
+        }
+      } catch (errFirestore) {
+        console.warn('Error eliminando en Firestore:', errFirestore);
       }
+
+      // 3. Garantizar actualización en memoria local
+      setUsuarios(prev => prev.filter(u => u.correo.toLowerCase() !== (usuario.correo || '').toLowerCase() && u.id !== usuario.id));
 
       mostrarNotificacion && mostrarNotificacion(`Usuario "${nombreMostrar}" eliminado de los permisos.`, 'success');
     } catch (err: any) {
@@ -329,24 +377,37 @@ export default function GestionUsuariosView({
   const conteoSupervisores = usuarios.filter(u => u.rol.includes('Supervisor')).length;
   const conteoAgentes = usuarios.filter(u => u.rol === 'Agente').length;
 
-  // Persistir cambios en los roles de usuario y pestañas predeterminadas en Firestore y notificar
+  // Persistir cambios en los roles de usuario y pestañas predeterminadas
   const persistirRoles = async (nuevosRoles: string[], nuevosPestanasPorRol?: Record<string, string[]>) => {
     setGuardandoRoles(true);
     const mapaFinalPestanas = nuevosPestanasPorRol || pestanasPorRol;
     if (setCargandoOperacion) {
-      setCargandoOperacion('Actualizando roles de usuario y pestañas predeterminadas en Firestore...');
+      setCargandoOperacion('Actualizando roles de usuario y pestañas predeterminadas...');
     }
     try {
       setRoles(nuevosRoles);
       if (nuevosPestanasPorRol) {
         setPestanasPorRol(nuevosPestanasPorRol);
       }
-      const docRef = doc(db, 'configuracion', 'catalogos');
-      await setDoc(docRef, { 
-        roles: nuevosRoles,
-        pestanasPorRol: mapaFinalPestanas,
-        actualizadoEn: new Date().toISOString()
-      }, { merge: true });
+
+      // 1. Guardar en API backend persistente
+      await fetch('/api/admin/roles-catalogos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roles: nuevosRoles, pestanasPorRol: mapaFinalPestanas })
+      }).catch(e => console.warn('Error guardando roles en backend:', e));
+
+      // 2. Intentar guardar en Firestore como réplica
+      try {
+        const docRef = doc(db, 'configuracion', 'catalogos');
+        await setDoc(docRef, { 
+          roles: nuevosRoles,
+          pestanasPorRol: mapaFinalPestanas,
+          actualizadoEn: new Date().toISOString()
+        }, { merge: true });
+      } catch (errFirestore: any) {
+        console.warn('Firestore denegó guardado de roles:', errFirestore?.message);
+      }
 
       if (onActualizarRoles) {
         await onActualizarRoles(nuevosRoles);

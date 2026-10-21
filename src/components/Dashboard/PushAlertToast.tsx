@@ -126,12 +126,19 @@ export interface PushAlertContainerProps {
   onCerrarAlerta: (id: string | number) => void;
   onCerrarTodas?: () => void;
   onClicAlerta: (alerta: AlertaPush) => void;
+  onApagarNotificaciones?: () => void;
 }
 
 /**
  * Contenedor flotante superior derecho para las alertas tipo modal/toast
  */
-export default function PushAlertContainer({ alertas, onCerrarAlerta, onCerrarTodas, onClicAlerta }: PushAlertContainerProps) {
+export default function PushAlertContainer({ 
+  alertas, 
+  onCerrarAlerta, 
+  onCerrarTodas, 
+  onClicAlerta,
+  onApagarNotificaciones 
+}: PushAlertContainerProps) {
   if (!alertas || alertas.length === 0) return null;
 
   return (
@@ -145,13 +152,24 @@ export default function PushAlertContainer({ alertas, onCerrarAlerta, onCerrarTo
         msOverflowStyle: 'none'
       }}
     >
-      {alertas.length > 2 && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-[#FEF3C7] dark:bg-[#202024]/95 border-2 border-amber-400 dark:border-amber-500/70 rounded-xl text-xs text-amber-900 dark:text-amber-300 shadow-xl shrink-0 font-bold">
-          <div className="flex items-center gap-1.5 font-black text-slate-900 dark:text-amber-300">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
-            <span>{alertas.length} alertas push pendientes</span>
-          </div>
-          {onCerrarTodas && (
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#FEF3C7] dark:bg-[#202024]/95 border-2 border-amber-400 dark:border-amber-500/70 rounded-xl text-xs text-amber-900 dark:text-amber-300 shadow-xl shrink-0 font-bold gap-2">
+        <div className="flex items-center gap-1.5 font-black text-slate-900 dark:text-amber-300">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
+          <span>{alertas.length} {alertas.length === 1 ? 'alerta push' : 'alertas push'}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {onApagarNotificaciones && (
+            <button
+              type="button"
+              onClick={onApagarNotificaciones}
+              title="Apagar y silenciar todas las notificaciones"
+              className="text-[11px] text-rose-800 hover:text-rose-950 dark:text-rose-300 dark:hover:text-white bg-rose-200/90 hover:bg-rose-300 dark:bg-rose-950/70 dark:hover:bg-rose-900 border border-rose-400/70 px-2 py-0.5 rounded transition cursor-pointer font-bold flex items-center gap-1"
+            >
+              <span>🔕</span>
+              <span>Apagar</span>
+            </button>
+          )}
+          {onCerrarTodas && alertas.length > 1 && (
             <button
               onClick={onCerrarTodas}
               className="text-[11px] text-slate-800 hover:text-black dark:text-[#B3B3B3] dark:hover:text-white bg-amber-200/80 hover:bg-amber-300 dark:bg-[#2C2C32] dark:hover:bg-[#3A3A3E] px-2 py-0.5 rounded transition cursor-pointer font-bold"
@@ -160,7 +178,7 @@ export default function PushAlertContainer({ alertas, onCerrarAlerta, onCerrarTo
             </button>
           )}
         </div>
-      )}
+      </div>
       {alertas.map((alerta) => (
         <PushAlertItem
           key={alerta.id}

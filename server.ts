@@ -449,6 +449,214 @@ async function startServer() {
     }
   });
 
+  // =========================================================================
+  // GESTIÓN DE USUARIOS Y ROLES (Persistencia robusta en disco)
+  // =========================================================================
+  const USUARIOS_FILE = path.resolve(process.cwd(), 'data_cached_usuarios.json');
+  const ROLES_FILE = path.resolve(process.cwd(), 'data_cached_roles.json');
+
+  const USUARIOS_INICIALES_LISTA: Record<string, any> = {
+    'jean.palomino_dyn.ext@pedidosya.com': {
+      id: 'jean.palomino_dyn.ext@pedidosya.com',
+      correo: 'jean.palomino_dyn.ext@pedidosya.com',
+      nombre: 'Jean Palomino',
+      rol: 'Supervisor',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'joel.tocas_dyn.ext@pedidosya.com': {
+      id: 'joel.tocas_dyn.ext@pedidosya.com',
+      correo: 'joel.tocas_dyn.ext@pedidosya.com',
+      nombre: 'Joel Tocas',
+      rol: 'Agente',
+      pestanas: ['admin', 'inicio', 'nuevo'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'prisila.leon_dyn.ext@pedidosya.com': {
+      id: 'prisila.leon_dyn.ext@pedidosya.com',
+      correo: 'prisila.leon_dyn.ext@pedidosya.com',
+      nombre: 'Prisila Leon',
+      rol: 'Agente',
+      pestanas: ['admin', 'inicio', 'nuevo'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'yadira.flores_dyn.ext@pedidosya.com': {
+      id: 'yadira.flores_dyn.ext@pedidosya.com',
+      correo: 'yadira.flores_dyn.ext@pedidosya.com',
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'henry.serrato_dyn.ext@pedidosya.com': {
+      id: 'henry.serrato_dyn.ext@pedidosya.com',
+      correo: 'henry.serrato_dyn.ext@pedidosya.com',
+      nombre: 'Henry Serrato',
+      rol: 'Supervisor',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'joseline.yactayo_dyn.ext@pedidosya.com': {
+      id: 'joseline.yactayo_dyn.ext@pedidosya.com',
+      correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
+      nombre: 'Joseline Yactayo',
+      rol: 'Supervisor',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    }
+  };
+
+  function leerUsuariosDisco(): Record<string, any> {
+    try {
+      if (fs.existsSync(USUARIOS_FILE)) {
+        const raw = fs.readFileSync(USUARIOS_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return { ...USUARIOS_INICIALES_LISTA, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.warn('[Server] Error leyendo data_cached_usuarios.json:', e);
+    }
+    return { ...USUARIOS_INICIALES_LISTA };
+  }
+
+  function guardarUsuariosDisco(usuarios: Record<string, any>) {
+    try {
+      fs.writeFileSync(USUARIOS_FILE, JSON.stringify(usuarios, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('[Server] Error guardando data_cached_usuarios.json:', e);
+    }
+  }
+
+  function leerRolesDisco(): { roles: string[]; pestanasPorRol: Record<string, string[]> } {
+    try {
+      if (fs.existsSync(ROLES_FILE)) {
+        const raw = fs.readFileSync(ROLES_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.roles)) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('[Server] Error leyendo data_cached_roles.json:', e);
+    }
+    return {
+      roles: ['Agente', 'Supervisor', 'Supervisor / TL'],
+      pestanasPorRol: {
+        'Agente': ['admin', 'inicio', 'nuevo'],
+        'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+        'Supervisor / TL': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
+      }
+    };
+  }
+
+  function guardarRolesDisco(data: { roles: string[]; pestanasPorRol: Record<string, string[]> }) {
+    try {
+      fs.writeFileSync(ROLES_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('[Server] Error guardando data_cached_roles.json:', e);
+    }
+  }
+
+  // GET: Obtener todos los usuarios permitidos
+  app.get('/api/admin/usuarios', (req, res) => {
+    try {
+      const mapa = leerUsuariosDisco();
+      res.json({ success: true, usuarios: Object.values(mapa) });
+    } catch (err: any) {
+      console.error('[API GET /api/admin/usuarios] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST: Crear o modificar usuario
+  app.post('/api/admin/usuarios', (req, res) => {
+    try {
+      const { correo, nombre, rol, pestanas } = req.body;
+      const correoLimpio = String(correo || '').toLowerCase().trim();
+      const nombreLimpio = String(nombre || '').trim();
+
+      if (!correoLimpio || !correoLimpio.includes('@')) {
+        return res.status(400).json({ success: false, error: 'Correo electrónico inválido' });
+      }
+      if (!nombreLimpio) {
+        return res.status(400).json({ success: false, error: 'El nombre es obligatorio' });
+      }
+
+      const rolValido = rol || 'Agente';
+      const pestanasFinales = Array.isArray(pestanas) && pestanas.length > 0 
+        ? pestanas.filter(p => rolValido !== 'Agente' || p !== 'usuarios')
+        : ['admin', 'inicio', 'nuevo'];
+
+      const mapa = leerUsuariosDisco();
+      const usuarioActualizado = {
+        id: correoLimpio,
+        correo: correoLimpio,
+        nombre: nombreLimpio,
+        rol: rolValido,
+        pestanas: pestanasFinales,
+        actualizadoEn: new Date().toISOString()
+      };
+
+      mapa[correoLimpio] = usuarioActualizado;
+      guardarUsuariosDisco(mapa);
+
+      console.log(`[Server] Usuario "${nombreLimpio}" (${correoLimpio}) guardado exitosamente.`);
+      res.json({ success: true, usuario: usuarioActualizado, usuarios: Object.values(mapa) });
+    } catch (err: any) {
+      console.error('[API POST /api/admin/usuarios] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // DELETE: Eliminar usuario
+  app.delete('/api/admin/usuarios/:correo', (req, res) => {
+    try {
+      const correoLimpio = decodeURIComponent(String(req.params.correo || '')).toLowerCase().trim();
+      const mapa = leerUsuariosDisco();
+      if (mapa[correoLimpio]) {
+        delete mapa[correoLimpio];
+        guardarUsuariosDisco(mapa);
+        console.log(`[Server] Usuario (${correoLimpio}) eliminado del sistema.`);
+      }
+      res.json({ success: true, message: 'Usuario eliminado', usuarios: Object.values(mapa) });
+    } catch (err: any) {
+      console.error('[API DELETE /api/admin/usuarios] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET: Roles y asignación de pestañas
+  app.get('/api/admin/roles-catalogos', (req, res) => {
+    try {
+      res.json({ success: true, ...leerRolesDisco() });
+    } catch (err: any) {
+      console.error('[API GET /api/admin/roles-catalogos] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST: Guardar roles y asignación de pestañas
+  app.post('/api/admin/roles-catalogos', (req, res) => {
+    try {
+      const { roles, pestanasPorRol } = req.body;
+      const data = {
+        roles: Array.isArray(roles) && roles.length > 0 ? roles : ['Agente', 'Supervisor', 'Supervisor / TL'],
+        pestanasPorRol: (pestanasPorRol && typeof pestanasPorRol === 'object') ? pestanasPorRol : {
+          'Agente': ['admin', 'inicio', 'nuevo'],
+          'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+          'Supervisor / TL': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
+        }
+      };
+      guardarRolesDisco(data);
+      res.json({ success: true, ...data });
+    } catch (err: any) {
+      console.error('[API POST /api/admin/roles-catalogos] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Montar Vite middleware para desarrollo o archivos estáticos en producción
   const distPath = path.resolve(process.cwd(), 'dist');
   const indexHtmlPath = path.resolve(distPath, 'index.html');

@@ -675,49 +675,79 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, []);
 
-  // 1. Al cargar o actualizar casos o al avanzar el reloj cada minuto: detectar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
-  useEffect(() => {
-    if (casosTotales.length === 0) return;
+  // Control de activación de notificaciones (persistente en localStorage)
+  const [notificacionesActivas, setNotificacionesActivas] = useState<boolean>(() => {
+    try {
+      const guardado = localStorage.getItem('peya_notificaciones_activas');
+      return guardado !== 'false';
+    } catch {
+      return true;
+    }
+  });
 
-    const pendientes = detectarCasosPushPendientes(casosTotales, rolEfectivo, email, nombreUsuarioAutenticado);
+  const alternarNotificaciones = useCallback((forzarValor?: boolean) => {
+    setNotificacionesActivas(prev => {
+      const nuevo = typeof forzarValor === 'boolean' ? forzarValor : !prev;
+      try {
+        localStorage.setItem('peya_notificaciones_activas', nuevo ? 'true' : 'false');
+      } catch {}
+      if (!nuevo) {
+        setAlertasPushActivas([]);
+        mostrarNotificacion('🔕 Notificaciones y alertas apagadas.', 'info');
+      } else {
+        mostrarNotificacion('🔔 Notificaciones y alertas activadas (cada 1 hora).', 'success');
+      }
+      return nuevo;
+    });
+  }, []);
+
+  const sesionAlertadaRef = useRef<boolean>(false);
+
+  // Función unificada para disparar alertas de supervisión (TL) y seguimiento (Agente)
+  const dispararAlertasProgramadas = useCallback((motivo: 'inicio' | 'hora') => {
+    if (!notificacionesActivas) return;
+    const casosActuales = casosTotalesRef.current || [];
+    if (casosActuales.length === 0) return;
+
+    const pendientes = detectarCasosPushPendientes(casosActuales, rolEfectivo, email, nombreUsuarioAutenticado);
     if (pendientes.length > 0) {
-      setAlertasPushActivas(prev => {
-        const idsPrevios = new Set(prev.map(a => String(a.id)));
-        const tieneNuevasAlertas = pendientes.some(p => !idsPrevios.has(String(p.id)));
-        if (tieneNuevasAlertas) {
-          reproducirCampana();
+      setAlertasPushActivas(pendientes);
+      reproducirCampana();
 
-          // Notificación del sistema si la pestaña está en segundo plano
-          if ('Notification' in window && Notification.permission === 'granted') {
-            const topAlerta = pendientes.find(p => !idsPrevios.has(String(p.id))) || pendientes[0];
-            if (topAlerta) {
-              new Notification(topAlerta.titulo, {
-                body: topAlerta.mensaje,
-                icon: '/favicon.ico'
-              });
-            }
-          }
+      // Notificación del sistema si la pestaña está en segundo plano
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const topAlerta = pendientes[0];
+        if (topAlerta) {
+          new Notification(topAlerta.titulo, {
+            body: topAlerta.mensaje,
+            icon: '/favicon.ico'
+          });
         }
-        return pendientes;
-      });
+      }
     } else {
       setAlertasPushActivas([]);
     }
-  }, [casosTotales, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana, tickReloj]);
+  }, [notificacionesActivas, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
 
-  // 2. Recordatorio continuo cada 5 minutos si aún existen casos con SLA >= 4h sin push
+  // 1. Mostrar alertas al INICIO DE SESIÓN (primera carga de casos)
   useEffect(() => {
-    const timer = setInterval(() => {
-      const casosActuales = casosTotalesRef.current || [];
-      if (casosActuales.length === 0) return;
+    if (casosTotales.length === 0 || !notificacionesActivas) return;
+    if (!sesionAlertadaRef.current) {
+      sesionAlertadaRef.current = true;
+      dispararAlertasProgramadas('inicio');
+    }
+  }, [casosTotales, notificacionesActivas, dispararAlertasProgramadas]);
 
-      const pendientes = detectarCasosPushPendientes(casosActuales, rolEfectivo, email, nombreUsuarioAutenticado);
-      if (pendientes.length > 0) {
-        setAlertasPushActivas(pendientes);
+  // 2. Recordatorio periódico: EXACTAMENTE CADA 1 HORA (60 minutos = 3600000 ms)
+  useEffect(() => {
+    const INTERVALO_HORA = 60 * 60 * 1000; // 1 hora
+    const timer = setInterval(() => {
+      if (notificacionesActivas) {
+        dispararAlertasProgramadas('hora');
       }
-    }, 5 * 60 * 1000); // 5 minutos
+    }, INTERVALO_HORA);
     return () => clearInterval(timer);
-  }, [rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
+  }, [notificacionesActivas, dispararAlertasProgramadas]);
 
   const esCasoActivo = (c: any): boolean => {
     if (!c) return false;
@@ -1542,6 +1572,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         onCerrarAlerta={manejarCerrarAlertaPush} 
         onCerrarTodas={manejarCerrarTodasAlertasPush}
         onClicAlerta={manejarClicAlertaPush} 
+        onApagarNotificaciones={() => alternarNotificaciones(false)}
       />
 
       {/* Botón flotante para ver sidebar en móviles y pantallas <= 1036px */}
@@ -1600,6 +1631,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
             </div>
             <div className="p-4 border-t border-slate-200 dark:border-[#3A3A3E]">
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
+              <button 
+                type="button"
+                onClick={() => alternarNotificaciones()} 
+                className={`w-full mt-2 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition border ${
+                  notificacionesActivas 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60' 
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+                }`}
+                title={notificacionesActivas ? "Alertas activas cada 1h (Clic para apagar)" : "Alertas apagadas (Clic para activar)"}
+              >
+                <span>{notificacionesActivas ? '🔔' : '🔕'}</span>
+                <span>{notificacionesActivas ? 'Notificaciones: Activadas (1h)' : 'Notificaciones: Apagadas'}</span>
+              </button>
               <button 
                 type="button"
                 onClick={() => setTemaClaro(prev => !prev)} 
@@ -1667,6 +1711,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
               <button 
                 type="button"
+                onClick={() => alternarNotificaciones()} 
+                className={`w-full mt-2 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition border ${
+                  notificacionesActivas 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60' 
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+                }`}
+                title={notificacionesActivas ? "Alertas activadas cada 1 hora (Clic para apagar)" : "Alertas apagadas (Clic para activar)"}
+              >
+                <span>{notificacionesActivas ? '🔔' : '🔕'}</span>
+                <span>{notificacionesActivas ? 'Notificaciones: Activadas (1h)' : 'Notificaciones: Apagadas'}</span>
+              </button>
+              <button 
+                type="button"
                 onClick={() => setTemaClaro(prev => !prev)} 
                 className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition"
                 title={temaClaro ? "Modo Claro activo (Clic para Modo Oscuro)" : "Modo Oscuro activo (Clic para Modo Claro)"}
@@ -1688,6 +1745,16 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer"
               >
                 🔄
+              </button>
+              <button 
+                type="button"
+                onClick={() => alternarNotificaciones()} 
+                title={notificacionesActivas ? "Alertas activadas cada 1 hora (Clic para apagar)" : "Alertas apagadas (Clic para activar)"}
+                className={`text-base cursor-pointer transition flex items-center justify-center min-h-[32px] ${
+                  notificacionesActivas ? 'text-emerald-500 hover:text-emerald-400' : 'text-rose-500 hover:text-rose-400'
+                }`}
+              >
+                {notificacionesActivas ? '🔔' : '🔕'}
               </button>
               <button 
                 type="button"
