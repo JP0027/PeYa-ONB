@@ -173,6 +173,17 @@ export function obtenerUsuariosCompletos(): UsuarioSistema[] {
     }
   }
 
+  // Garantizar que Yadira Flores siempre tenga rol de Supervisor / TL y acceso completo
+  const yKey = 'yadira.flores_dyn.ext@pedidosya.com';
+  mapa.set(yKey, {
+    id: yKey,
+    correo: yKey,
+    nombre: 'Yadira Flores',
+    rol: 'Supervisor / TL',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: new Date().toISOString()
+  });
+
   return Array.from(mapa.values());
 }
 
@@ -326,9 +337,15 @@ export function validarAccesoUsuario(correo?: string | null): UsuarioSistema | n
   const c = correo.trim().toLowerCase();
 
   // Mapeo transparente para la cuenta Google de autenticación hacia su usuario oficial de PedidosYa
-  if (c === 'yadirayajaida@gmail.com') {
-    const yadira = USUARIOS_CODIGO_BASE.find(u => u.correo === 'yadira.flores_dyn.ext@pedidosya.com');
-    if (yadira) return { ...yadira };
+  if (c === 'yadirayajaida@gmail.com' || c === 'yadira.flores_dyn.ext@pedidosya.com' || c.includes('yadira.flores')) {
+    return {
+      id: 'yadira.flores_dyn.ext@pedidosya.com',
+      correo: 'yadira.flores_dyn.ext@pedidosya.com',
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    };
   }
 
   const todos = obtenerUsuariosCompletos();

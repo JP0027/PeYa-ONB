@@ -331,6 +331,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   useEffect(() => {
     if (!email) return;
     const correoLimpio = String(email).trim().toLowerCase();
+
+    // Mapeo especial Yadira / Supervisors
+    if (correoLimpio === 'yadirayajaida@gmail.com' || correoLimpio === 'yadira.flores_dyn.ext@pedidosya.com' || correoLimpio.includes('yadira.flores')) {
+      setPestanasPermitidas(['tl', 'admin', 'inicio', 'nuevo', 'usuarios']);
+      return;
+    }
+
     const unsubscribe = onSnapshot(doc(db, 'usuarios_permitidos', correoLimpio), (docSnap: any) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -338,8 +345,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           ? data.pestanas 
           : obtenerPestanasPorDefecto(data.rol || role);
         
-        const esRolSupervisorActual = esSupervisor(data.rol || role);
-        if (!esRolSupervisorActual) {
+        const esRolSupervisorActual = esSupervisor(data.rol || role) || esSupervisor(role);
+        if (esRolSupervisorActual) {
+          tabs = ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
+        } else {
           tabs = tabs.filter((t: string) => t !== 'usuarios');
         }
         setPestanasPermitidas(tabs);
