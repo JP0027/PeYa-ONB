@@ -173,16 +173,24 @@ export function obtenerUsuariosCompletos(): UsuarioSistema[] {
     }
   }
 
-  // Garantizar que Yadira Flores siempre tenga rol de Supervisor / TL y acceso completo
+  // Garantizar que Yadira Flores siempre exista y tenga acceso de supervisor por defecto
   const yKey = 'yadira.flores_dyn.ext@pedidosya.com';
-  mapa.set(yKey, {
-    id: yKey,
-    correo: yKey,
-    nombre: 'Yadira Flores',
-    rol: 'Supervisor / TL',
-    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-    actualizadoEn: new Date().toISOString()
-  });
+  if (!mapa.has(yKey)) {
+    mapa.set(yKey, {
+      id: yKey,
+      correo: yKey,
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: '2026-10-21T00:00:00.000Z'
+    });
+  } else {
+    // Si ya existe en mapa (por localStorage, base en código o Firestore), asegurar que tenga sus pestañas de supervisor pero permitiendo cambios de rol/nombre
+    const yadiraActual = mapa.get(yKey)!;
+    if (!yadiraActual.pestanas || yadiraActual.pestanas.length === 0) {
+      yadiraActual.pestanas = ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
+    }
+  }
 
   return Array.from(mapa.values());
 }
@@ -337,27 +345,37 @@ export function validarAccesoUsuario(correo?: string | null): UsuarioSistema | n
   const c = correo.trim().toLowerCase();
 
   // Mapeo transparente para la cuenta Google de autenticación hacia su usuario oficial de PedidosYa
-  if (c === 'yadirayajaida@gmail.com' || c === 'yadira.flores_dyn.ext@pedidosya.com' || c.includes('yadira.flores')) {
-    return {
-      id: 'yadira.flores_dyn.ext@pedidosya.com',
-      correo: 'yadira.flores_dyn.ext@pedidosya.com',
-      nombre: 'Yadira Flores',
-      rol: 'Supervisor / TL',
-      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-      actualizadoEn: new Date().toISOString()
-    };
+  let correoBuscar = c;
+  if (c === 'yadirayajaida@gmail.com' || c.includes('yadira.flores')) {
+    correoBuscar = 'yadira.flores_dyn.ext@pedidosya.com';
   }
 
   const todos = obtenerUsuariosCompletos();
   const encontrado = todos.find(u => {
     const uCorreo = (u.correo || '').toLowerCase().trim();
-    if (uCorreo === c) return true;
+    if (uCorreo === correoBuscar) return true;
     // Soporte para variaciones corporativas (@pedidosya.com sin _dyn.ext)
     const uSinDyn = uCorreo.replace(/_dyn\.ext$/, '').replace(/\.cxt$/, '');
-    const cSinDyn = c.replace(/_dyn\.ext$/, '').replace(/\.cxt$/, '');
+    const cSinDyn = correoBuscar.replace(/_dyn\.ext$/, '').replace(/\.cxt$/, '');
     return uSinDyn === cSinDyn && uSinDyn.includes('@');
   });
-  return encontrado || null;
+
+  if (encontrado) {
+    return encontrado;
+  }
+
+  if (correoBuscar === 'yadira.flores_dyn.ext@pedidosya.com') {
+    return {
+      id: 'yadira.flores_dyn.ext@pedidosya.com',
+      correo: 'yadira.flores_dyn.ext@pedidosya.com',
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    };
+  }
+
+  return null;
 }
 
 /**
