@@ -34,6 +34,18 @@ export default function App() {
   const [loading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
+  useEffect(() => {
+    if (user?.email) {
+      const perfil = validarAccesoUsuario(user.email);
+      if (perfil && perfil.rol && perfil.rol !== role) {
+        setRole(perfil.rol);
+        try {
+          localStorage.setItem(LOCAL_ROLE_KEY, perfil.rol);
+        } catch {}
+      }
+    }
+  }, [user, role]);
+
   const guardarSesion = (userData: UserSession | null, userRole: string | null) => {
     setUser(userData);
     setRole(userRole);

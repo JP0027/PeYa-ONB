@@ -386,7 +386,13 @@ export function puedeRegistrarCasos(rol?: string | null): boolean {
 /**
  * Determina si el usuario tiene acceso a la vista HeroCare TL de supervisión y catálogos admin
  */
-export function esSupervisor(rol?: string | null): boolean {
+export function esSupervisor(rol?: string | null, correo?: string | null): boolean {
+  if (correo) {
+    const u = validarAccesoUsuario(correo);
+    if (u && u.rol && (u.rol.toLowerCase().includes('supervisor') || u.rol.toLowerCase().includes('tl') || u.rol.toLowerCase().includes('admin'))) {
+      return true;
+    }
+  }
   if (!rol) return false;
   const r = rol.toLowerCase();
   return r.includes('supervisor') || r.includes('admin') || r.includes('tl');

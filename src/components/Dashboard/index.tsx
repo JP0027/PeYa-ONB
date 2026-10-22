@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { isAgentMatch, identificarMiembro, isHeroCareOwnerMatch } from '../../utils/agentMatching';
-import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL, CORREOS_ONBOARDING_OFICIALES, obtenerCorreosOnboardingDinamicos } from '../../utils/userPermissions';
+import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL, CORREOS_ONBOARDING_OFICIALES, obtenerCorreosOnboardingDinamicos, validarAccesoUsuario } from '../../utils/userPermissions';
 import { 
   procesarActualizacionCaso, 
   analizarAlertasCaso, 
@@ -252,11 +252,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const miembroActual = useMemo(() => identificarMiembro(email), [email]);
   const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
 
-  const rolEfectivo = useMemo(() => {
-    return role || 'Agente';
-  }, [role]);
+  const perfilBase = useMemo(() => validarAccesoUsuario(email), [email]);
 
-  const tieneAccesoSupervisor = useMemo(() => esSupervisor(rolEfectivo), [rolEfectivo]);
+  const rolEfectivo = useMemo(() => {
+    if (perfilBase?.rol) return perfilBase.rol;
+    return role || 'Agente';
+  }, [role, perfilBase]);
+
+  const tieneAccesoSupervisor = useMemo(() => esSupervisor(rolEfectivo, email), [rolEfectivo, email]);
   const puedeRegistrar = useMemo(() => puedeRegistrarCasos(rolEfectivo), [rolEfectivo]);
 
   // Sidebar responsivo y colapsable
@@ -303,19 +306,22 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   // Lista dinámica de pestañas permitidas para el usuario autenticado (desde Firestore o por defecto)
   const [pestanasPermitidas, setPestanasPermitidas] = useState<string[]>(() => {
+    if (perfilBase?.pestanas && perfilBase.pestanas.length > 0) {
+      return perfilBase.pestanas;
+    }
     const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
-    return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto;
+    return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : porDefecto;
   });
 
   const puedeVerTab = useCallback((tabId: string): boolean => {
-    if (tabId === 'usuarios' && !tieneAccesoSupervisor) return false;
+    if ((tabId === 'usuarios' || tabId === 'tl') && !tieneAccesoSupervisor) return false;
     return pestanasPermitidas.includes(tabId);
   }, [pestanasPermitidas, tieneAccesoSupervisor]);
 
   const [activeTab, setActiveTabState] = useState<string>(() => {
     const saved = sessionStorage.getItem('peya_onb_active_tab');
-    const tabsDefecto = obtenerPestanasPorDefecto(rolEfectivo);
-    const tabsValidas = !tieneAccesoSupervisor ? tabsDefecto.filter(p => p !== 'usuarios') : tabsDefecto;
+    const tabsDefecto = perfilBase?.pestanas || obtenerPestanasPorDefecto(rolEfectivo);
+    const tabsValidas = !tieneAccesoSupervisor ? tabsDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : tabsDefecto;
     if (saved && tabsValidas.includes(saved)) {
       return saved;
     }
@@ -332,8 +338,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (!email) return;
     const correoLimpio = String(email).trim().toLowerCase();
 
-    // Mapeo especial Yadira / Supervisors
-    if (correoLimpio === 'yadirayajaida@gmail.com' || correoLimpio === 'yadira.flores_dyn.ext@pedidosya.com' || correoLimpio.includes('yadira.flores')) {
+    // Mapeo especial Yadira / Supervisors en código
+    if (correoLimpio === 'yadirayajaida@gmail.com' || correoLimpio === 'yadira.flores_dyn.ext@pedidosya.com' || correoLimpio.includes('yadira.flores') || perfilBase?.rol?.includes('Supervisor')) {
       setPestanasPermitidas(['tl', 'admin', 'inicio', 'nuevo', 'usuarios']);
       return;
     }
@@ -343,27 +349,27 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         const data = docSnap.data();
         let tabs = Array.isArray(data.pestanas) && data.pestanas.length > 0 
           ? data.pestanas 
-          : obtenerPestanasPorDefecto(data.rol || role);
+          : obtenerPestanasPorDefecto(data.rol || rolEfectivo);
         
-        const esRolSupervisorActual = esSupervisor(data.rol || role) || esSupervisor(role);
+        const esRolSupervisorActual = esSupervisor(data.rol || rolEfectivo, correoLimpio);
         if (esRolSupervisorActual) {
           tabs = ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
         } else {
-          tabs = tabs.filter((t: string) => t !== 'usuarios');
+          tabs = tabs.filter((t: string) => t !== 'usuarios' && t !== 'tl');
         }
         setPestanasPermitidas(tabs);
       } else {
-        const porDefecto = obtenerPestanasPorDefecto(role);
-        setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
+        const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
+        setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : porDefecto);
       }
     }, (error: any) => {
       console.warn("No se pudo obtener permisos específicos de usuario desde Firestore:", error);
-      const porDefecto = obtenerPestanasPorDefecto(role);
-      setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
+      const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
+      setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : porDefecto);
     });
 
     return () => unsubscribe();
-  }, [email, role, tieneAccesoSupervisor]);
+  }, [email, rolEfectivo, tieneAccesoSupervisor, perfilBase]);
 
   useEffect(() => {
     if (!pestanasPermitidas || pestanasPermitidas.length === 0) return;

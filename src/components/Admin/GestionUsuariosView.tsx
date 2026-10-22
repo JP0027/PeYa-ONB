@@ -151,7 +151,12 @@ export default function GestionUsuariosView({
               if (u && u.correo) {
                 const c = u.correo.toLowerCase().trim();
                 if (!correosExcluidos.has(c) && c.endsWith('@pedidosya.com') && !c.includes('gmail.com')) {
-                  mapa.set(c, u);
+                  const existente = mapa.get(c);
+                  const fechaApi = u.actualizadoEn ? new Date(u.actualizadoEn).getTime() : 0;
+                  const fechaExistente = existente?.actualizadoEn ? new Date(existente.actualizadoEn).getTime() : 0;
+                  if (!existente || fechaApi >= fechaExistente) {
+                    mapa.set(c, u);
+                  }
                 }
               }
             });
@@ -164,6 +169,13 @@ export default function GestionUsuariosView({
     };
     cargarUsuariosBackend();
 
+    // Event listener para actualizaciones locales inmediatas
+    const refrescarLocales = () => {
+      const actualizados = obtenerUsuariosCompletos();
+      setUsuarios(actualizados);
+    };
+    window.addEventListener('peya_usuarios_actualizados', refrescarLocales);
+
     // 3. Escuchar cambios de Firestore en tiempo real con desduplicación inteligente
     const usuariosRef = collection(db, 'usuarios_permitidos');
     const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
@@ -174,7 +186,7 @@ export default function GestionUsuariosView({
           'jean.changanaqui_dyn.ext@pedidosya.com'
         ]);
         const mapaPorCorreo = new Map<string, UsuarioFirestore>();
-        // Base oficial primero
+        // Base oficial e historia local primero
         obtenerUsuariosCompletos().forEach(u => mapaPorCorreo.set(u.correo.toLowerCase().trim(), u));
 
         snapshot.forEach((docSnap) => {
@@ -189,14 +201,21 @@ export default function GestionUsuariosView({
             ? data.pestanas
             : obtenerPestanasPorDefecto(rol);
 
-          mapaPorCorreo.set(correo, {
-            id: docSnap.id,
-            correo,
-            nombre,
-            rol,
-            pestanas,
-            actualizadoEn: data.actualizadoEn || null
-          });
+          const existente = mapaPorCorreo.get(correo);
+          const fechaFirestore = data.actualizadoEn ? new Date(data.actualizadoEn).getTime() : 0;
+          const fechaExistente = existente?.actualizadoEn ? new Date(existente.actualizadoEn).getTime() : 0;
+
+          // Solo sobreescribir si Firestore tiene información igual o más reciente que la versión local
+          if (!existente || fechaFirestore >= fechaExistente) {
+            mapaPorCorreo.set(correo, {
+              id: docSnap.id,
+              correo,
+              nombre,
+              rol,
+              pestanas,
+              actualizadoEn: data.actualizadoEn || null
+            });
+          }
         });
 
         const lista = Array.from(mapaPorCorreo.values());
@@ -208,7 +227,10 @@ export default function GestionUsuariosView({
       console.warn('Firestore snapshot usuarios_permitidos (usando base de código):', err?.message);
     });
 
-    return () => unsubscribe();
+    return () => {
+      window.removeEventListener('peya_usuarios_actualizados', refrescarLocales);
+      unsubscribe();
+    };
   }, []);
 
   const usuariosFiltrados = useMemo(() => {
