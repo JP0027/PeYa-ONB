@@ -122,6 +122,7 @@ export default function ModalCambiosMasivosOnboarding({
   const [modoAgregar, setModoAgregar] = useState<ModoAgregar>('mismos_valores');
   // Modo A: Mismos valores para múltiples OPs / IDs
   const [inputIdsAgregar, setInputIdsAgregar] = useState<string>('');
+  const [vendorIdBaseAgregar, setVendorIdBaseAgregar] = useState<string>('');
   const [tiendaBaseAgregar, setTiendaBaseAgregar] = useState<string>('');
   const [valoresComunesAgregar, setValoresComunesAgregar] = useState<{
     pais: string;
@@ -134,10 +135,10 @@ export default function ModalCambiosMasivosOnboarding({
     tieneCasoInicio: string;
     comentarios: string;
   }>({
-    pais: listaPaises[0] || 'Argentina',
-    integracion: listaIntegraciones[0] || 'Datalive',
-    oportunidad: listaOportunidades[0] || 'Franchise Extension',
-    asset: listaAssets[0] || 'Integración',
+    pais: '',
+    integracion: '',
+    oportunidad: 'Franchise Extension',
+    asset: 'Integración',
     estado: 'En progreso',
     etapa: 'Sin integración confirmada',
     propietario: nombreUsuarioAutenticado,
@@ -258,36 +259,38 @@ export default function ModalCambiosMasivosOnboarding({
 
     return tokens.map((tok, idx) => {
       const tokLimpio = tok.trim();
-      const soloNum = tokLimpio.replace(/\D/g, '');
-      const esOp = tokLimpio.toUpperCase().startsWith('OP-') || soloNum.length >= 9;
+      // N° Caso OP limpio sin el prefijo "OP-"
+      const opLimpia = tokLimpio.replace(/^op[-_\s]*/i, '').trim();
 
-      const casoOp = esOp ? (tokLimpio.toUpperCase().startsWith('OP-') ? tokLimpio : `OP-${tokLimpio}`) : '';
-      const vendorId = !esOp ? tokLimpio : '';
+      const casoOp = opLimpia;
+      
+      // Vendor ID y Tienda son opcionales: si no se proveen, dejarlos estrictamente vacíos ("")
+      const vendorId = vendorIdBaseAgregar.trim();
       const tiendaNombre = tiendaBaseAgregar.trim()
-        ? (tokens.length > 1 ? `${tiendaBaseAgregar.trim()} (${tokLimpio})` : tiendaBaseAgregar.trim())
-        : `Tienda ${tokLimpio}`;
+        ? (tokens.length > 1 && !tiendaBaseAgregar.includes('(') ? `${tiendaBaseAgregar.trim()} (${tokLimpio})` : tiendaBaseAgregar.trim())
+        : '';
 
       return {
-        id: casoOp || `TEMP_NUEVO_${vendorId || idx}`,
+        id: casoOp || vendorId || `TEMP_NUEVO_${idx + 1}`,
         casoOp,
-        vendorId: vendorId || tokLimpio,
-        vendor_id: vendorId || tokLimpio,
+        vendorId,
+        vendor_id: vendorId,
         tienda: tiendaNombre,
-        pais: valoresComunesAgregar.pais,
-        integracion: valoresComunesAgregar.integracion,
-        oportunidad: valoresComunesAgregar.oportunidad,
-        asset: valoresComunesAgregar.asset,
-        estado: valoresComunesAgregar.estado,
-        etapa: valoresComunesAgregar.etapa,
-        propietarioOportunidad: valoresComunesAgregar.propietario,
-        propietarioTicket: valoresComunesAgregar.propietario,
-        agente: valoresComunesAgregar.propietario,
-        tieneCasoInicio: valoresComunesAgregar.tieneCasoInicio,
-        comentarios: valoresComunesAgregar.comentarios,
+        pais: valoresComunesAgregar.pais || '',
+        integracion: valoresComunesAgregar.integracion || '',
+        oportunidad: valoresComunesAgregar.oportunidad || '',
+        asset: valoresComunesAgregar.asset || '',
+        estado: valoresComunesAgregar.estado || 'En progreso',
+        etapa: valoresComunesAgregar.etapa || 'Sin integración confirmada',
+        propietarioOportunidad: valoresComunesAgregar.propietario || '',
+        propietarioTicket: valoresComunesAgregar.propietario || '',
+        agente: valoresComunesAgregar.propietario || 'Sin asignación',
+        tieneCasoInicio: valoresComunesAgregar.tieneCasoInicio || 'Si',
+        comentarios: valoresComunesAgregar.comentarios || '',
         esNuevo: true
       };
     });
-  }, [inputIdsAgregar, tiendaBaseAgregar, valoresComunesAgregar]);
+  }, [inputIdsAgregar, tiendaBaseAgregar, vendorIdBaseAgregar, valoresComunesAgregar]);
 
   // Casos parseados para Tab Agregar (Modo B: Pegar Líneas CSV)
   const casosNuevosModoB = useMemo(() => {
@@ -299,20 +302,19 @@ export default function ModalCambiosMasivosOnboarding({
       .filter(l => l.length > 0 && !l.toLowerCase().startsWith('caso op') && !l.toLowerCase().startsWith('op,'));
 
     return lineas.map((linea, idx) => {
-      // Separar por comas (respetando comillas simples o dobles básicas)
       const partes = linea.split(',').map(p => p.trim());
-      const casoOpRaw = partes[0] || '';
+      const casoOpRaw = (partes[0] || '').replace(/^op[-_\s]*/i, '').trim();
       const vendorIdRaw = partes[1] || '';
-      const tiendaRaw = partes[2] || `Tienda ${casoOpRaw || vendorIdRaw || idx + 1}`;
-      const paisRaw = partes[3] || valoresComunesAgregar.pais;
-      const integracionRaw = partes[4] || valoresComunesAgregar.integracion;
-      const oportunidadRaw = partes[5] || valoresComunesAgregar.oportunidad;
-      const assetRaw = partes[6] || valoresComunesAgregar.asset;
-      const estadoRaw = partes[7] || valoresComunesAgregar.estado;
-      const etapaRaw = partes[8] || valoresComunesAgregar.etapa;
+      const tiendaRaw = partes[2] || '';
+      const paisRaw = partes[3] !== undefined && partes[3] !== '' ? partes[3] : (valoresComunesAgregar.pais || '');
+      const integracionRaw = partes[4] !== undefined && partes[4] !== '' ? partes[4] : (valoresComunesAgregar.integracion || '');
+      const oportunidadRaw = partes[5] !== undefined && partes[5] !== '' ? partes[5] : (valoresComunesAgregar.oportunidad || '');
+      const assetRaw = partes[6] !== undefined && partes[6] !== '' ? partes[6] : (valoresComunesAgregar.asset || '');
+      const estadoRaw = partes[7] || valoresComunesAgregar.estado || 'En progreso';
+      const etapaRaw = partes[8] || valoresComunesAgregar.etapa || 'Sin integración confirmada';
 
       return {
-        id: casoOpRaw || `TEMP_CSV_${vendorIdRaw || idx}`,
+        id: casoOpRaw || vendorIdRaw || `TEMP_CSV_${idx + 1}`,
         casoOp: casoOpRaw,
         vendorId: vendorIdRaw,
         vendor_id: vendorIdRaw,
@@ -323,9 +325,9 @@ export default function ModalCambiosMasivosOnboarding({
         asset: assetRaw,
         estado: estadoRaw,
         etapa: etapaRaw,
-        propietarioOportunidad: nombreUsuarioAutenticado,
-        propietarioTicket: nombreUsuarioAutenticado,
-        agente: nombreUsuarioAutenticado,
+        propietarioOportunidad: valoresComunesAgregar.propietario || nombreUsuarioAutenticado,
+        propietarioTicket: valoresComunesAgregar.propietario || nombreUsuarioAutenticado,
+        agente: valoresComunesAgregar.propietario || nombreUsuarioAutenticado,
         tieneCasoInicio: 'Si',
         comentarios: '',
         esNuevo: true
@@ -926,22 +928,27 @@ export default function ModalCambiosMasivosOnboarding({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div>
                         <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
-                          Nombre o Prefijo de Tienda (Opcional):
+                          Vendor ID (ID) base (Opcional - dejar vacío si no aplica):
+                        </label>
+                        <input
+                          type="text"
+                          value={vendorIdBaseAgregar}
+                          onChange={(e) => setVendorIdBaseAgregar(e.target.value)}
+                          placeholder="Ej: 646399 (o dejar vacío)"
+                          className="w-full bg-white dark:bg-[#0F0F12] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-3 py-1.5 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                          Nombre de Tienda base (Opcional - dejar vacío si no aplica):
                         </label>
                         <input
                           type="text"
                           value={tiendaBaseAgregar}
                           onChange={(e) => setTiendaBaseAgregar(e.target.value)}
-                          placeholder="Ej: Franquicia Central"
+                          placeholder="Ej: Cafe Martinez (o dejar vacío)"
                           className="w-full bg-white dark:bg-[#0F0F12] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-3 py-1.5 text-xs"
                         />
-                      </div>
-                      <div className="flex items-end">
-                        <span className="text-[11px] text-slate-700 dark:text-slate-300">
-                          {casosNuevosModoA.length > 0
-                            ? `✓ Se generarán ${casosNuevosModoA.length} registros listos para añadir.`
-                            : 'Escribe las OPs o IDs arriba para generar los casos.'}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -954,23 +961,25 @@ export default function ModalCambiosMasivosOnboarding({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                       <div>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">País:</label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">País (Opcional):</label>
                         <select
                           value={valoresComunesAgregar.pais}
                           onChange={(e) => setValoresComunesAgregar(prev => ({ ...prev, pais: e.target.value }))}
                           className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs"
                         >
+                          <option value="">(Sin especificar / Vacío)</option>
                           {listaPaises.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
 
                       <div>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Integración:</label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Integración (Opcional):</label>
                         <select
                           value={valoresComunesAgregar.integracion}
                           onChange={(e) => setValoresComunesAgregar(prev => ({ ...prev, integracion: e.target.value }))}
                           className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs"
                         >
+                          <option value="">(Sin especificar / Vacío)</option>
                           {listaIntegraciones.map(i => <option key={i} value={i}>{i}</option>)}
                         </select>
                       </div>
@@ -982,6 +991,7 @@ export default function ModalCambiosMasivosOnboarding({
                           onChange={(e) => setValoresComunesAgregar(prev => ({ ...prev, oportunidad: e.target.value }))}
                           className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs"
                         >
+                          <option value="">(Sin especificar / Vacío)</option>
                           {listaOportunidades.map(op => <option key={op} value={op}>{op}</option>)}
                         </select>
                       </div>
@@ -993,6 +1003,7 @@ export default function ModalCambiosMasivosOnboarding({
                           onChange={(e) => setValoresComunesAgregar(prev => ({ ...prev, asset: e.target.value }))}
                           className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs"
                         >
+                          <option value="">(Sin especificar / Vacío)</option>
                           {listaAssets.map(a => <option key={a} value={a}>{a}</option>)}
                         </select>
                       </div>
@@ -1020,12 +1031,13 @@ export default function ModalCambiosMasivosOnboarding({
                       </div>
 
                       <div>
-                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Agente / Propietario:</label>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Agente / Propietario (Opcional):</label>
                         <select
                           value={valoresComunesAgregar.propietario}
                           onChange={(e) => setValoresComunesAgregar(prev => ({ ...prev, propietario: e.target.value }))}
                           className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs"
                         >
+                          <option value="">(Sin asignación / Vacío)</option>
                           {listaAgentes.map(ag => <option key={ag} value={ag}>{ag}</option>)}
                         </select>
                       </div>

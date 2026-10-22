@@ -115,13 +115,8 @@ export default function CasoForm({
 
   const intentarGuardar = () => {
     const faltantes = [];
-    if (!formulario.pais) faltantes.push('País');
-    if (!formulario.integracion) faltantes.push('Integración');
-    if (!formulario.oportunidad) faltantes.push('Oportunidad');
-    if (!formulario.asset) faltantes.push('Asset');
     if (!formulario.estado) faltantes.push('Estado del caso');
     if (!formulario.etapa) faltantes.push('Etapa del onboarding');
-    if (!formulario.tieneCasoInicio) faltantes.push('¿Tiene caso en inicio?');
 
     if (faltantes.length > 0) {
       setAlertaFaltantes(`Faltan completar: ${faltantes.join(', ')}`);
@@ -202,9 +197,9 @@ export default function CasoForm({
         </div>
 
         <div>
-          <label className="text-[#B3B3B3] block mb-1 font-medium">d. País *</label>
+          <label className="text-[#B3B3B3] block mb-1 font-medium">d. País</label>
           <select name="pais" value={formulario.pais || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
-            <option value="" disabled>Seleccione país...</option>
+            <option value="">(Sin especificar / Vacío)</option>
             {paises.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
