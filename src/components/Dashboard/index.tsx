@@ -310,18 +310,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       return perfilBase.pestanas;
     }
     const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
-    return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : porDefecto;
+    return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto;
   });
 
   const puedeVerTab = useCallback((tabId: string): boolean => {
-    if ((tabId === 'usuarios' || tabId === 'tl') && !tieneAccesoSupervisor) return false;
+    if (tabId === 'usuarios' && !tieneAccesoSupervisor) return false;
     return pestanasPermitidas.includes(tabId);
   }, [pestanasPermitidas, tieneAccesoSupervisor]);
 
   const [activeTab, setActiveTabState] = useState<string>(() => {
     const saved = sessionStorage.getItem('peya_onb_active_tab');
     const tabsDefecto = perfilBase?.pestanas || obtenerPestanasPorDefecto(rolEfectivo);
-    const tabsValidas = !tieneAccesoSupervisor ? tabsDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : tabsDefecto;
+    const tabsValidas = !tieneAccesoSupervisor ? tabsDefecto.filter(p => p !== 'usuarios') : tabsDefecto;
     if (saved && tabsValidas.includes(saved)) {
       return saved;
     }
@@ -355,17 +355,17 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         if (esRolSupervisorActual) {
           tabs = ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
         } else {
-          tabs = tabs.filter((t: string) => t !== 'usuarios' && t !== 'tl');
+          tabs = tabs.filter((t: string) => t !== 'usuarios');
         }
         setPestanasPermitidas(tabs);
       } else {
         const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
-        setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : porDefecto);
+        setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
       }
     }, (error: any) => {
       console.warn("No se pudo obtener permisos específicos de usuario desde Firestore:", error);
       const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
-      setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios' && p !== 'tl') : porDefecto);
+      setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
     });
 
     return () => unsubscribe();
