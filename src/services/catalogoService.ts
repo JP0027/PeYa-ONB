@@ -45,7 +45,7 @@ export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
   assets: CATALOGOS_CACHE?.assets || [...LISTA_ASSETS],
   estados: CATALOGOS_CACHE?.estados || [...LISTA_ESTADOS],
   etapas: CATALOGOS_CACHE?.etapas || [...LISTA_ETAPAS],
-  roles: ['Agente', 'Supervisor', 'Supervisor / TL'],
+  roles: ['Agente', 'Supervisor'],
   agentes: (CATALOGOS_CACHE?.agentes && CATALOGOS_CACHE.agentes.length > 0) ? CATALOGOS_CACHE.agentes : [
     'Prisila Leon',
     'Joel Tocas',
@@ -66,11 +66,19 @@ export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
  * Obtiene los catálogos en caché local o por defecto
  */
 export function obtenerCatalogosLocales(): CatalogosPorDefecto {
+  let rolesLocales = CATALOGOS_POR_DEFECTO.roles;
+  try {
+    const savedRoles = localStorage.getItem('peya_roles_personalizados');
+    if (savedRoles) {
+      const parsedR = JSON.parse(savedRoles);
+      if (Array.isArray(parsedR) && parsedR.length > 0) rolesLocales = parsedR;
+    }
+  } catch {}
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Si la caché local tiene menos integraciones que los datos actualizados embebidos, actualizarla
       const integracionesLocales = (parsed.integraciones?.length && parsed.integraciones.length >= CATALOGOS_POR_DEFECTO.integraciones.length)
         ? parsed.integraciones
         : CATALOGOS_POR_DEFECTO.integraciones;
@@ -83,13 +91,13 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
         etapas: parsed.etapas?.length ? parsed.etapas : CATALOGOS_POR_DEFECTO.etapas,
         integraciones: integracionesLocales,
         agentes: (Array.isArray(parsed.agentes) && parsed.agentes.length > 0) ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
-        roles: (Array.isArray(parsed.roles) && parsed.roles.length > 0) ? parsed.roles : (CATALOGOS_POR_DEFECTO.roles || [])
+        roles: (Array.isArray(parsed.roles) && parsed.roles.length > 0) ? parsed.roles : rolesLocales
       };
     }
   } catch (err) {
     console.warn('[catalogoService] Error leyendo localStorage:', err);
   }
-  return { ...CATALOGOS_POR_DEFECTO };
+  return { ...CATALOGOS_POR_DEFECTO, roles: rolesLocales };
 }
 
 /**

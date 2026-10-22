@@ -562,11 +562,10 @@ async function startServer() {
       console.warn('[Server] Error leyendo data_cached_roles.json:', e);
     }
     return {
-      roles: ['Agente', 'Supervisor', 'Supervisor / TL'],
+      roles: ['Agente', 'Supervisor'],
       pestanasPorRol: {
         'Agente': ['admin', 'inicio', 'nuevo'],
-        'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-        'Supervisor / TL': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
+        'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
       }
     };
   }
@@ -662,11 +661,10 @@ async function startServer() {
     try {
       const { roles, pestanasPorRol } = req.body;
       const data = {
-        roles: Array.isArray(roles) && roles.length > 0 ? roles : ['Agente', 'Supervisor', 'Supervisor / TL'],
+        roles: Array.isArray(roles) ? roles : ['Agente', 'Supervisor'],
         pestanasPorRol: (pestanasPorRol && typeof pestanasPorRol === 'object') ? pestanasPorRol : {
           'Agente': ['admin', 'inicio', 'nuevo'],
-          'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-          'Supervisor / TL': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
+          'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
         }
       };
       guardarRolesDisco(data);

@@ -59,16 +59,37 @@ export default function GestionUsuariosView({
 
   // Gestión de roles de usuario y pestañas predeterminadas
   const [roles, setRoles] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('peya_roles_personalizados');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
     if (Array.isArray(rolesDisponibles) && rolesDisponibles.length > 0) {
       return rolesDisponibles;
     }
-    return ['Agente', 'Supervisor', 'Supervisor / TL'];
+    return ['Agente', 'Supervisor'];
   });
-  const [pestanasPorRol, setPestanasPorRol] = useState<Record<string, string[]>>({
-    'Agente': ['admin', 'inicio', 'nuevo'],
-    'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
-    'Supervisor / TL': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
+
+  const [pestanasPorRol, setPestanasPorRol] = useState<Record<string, string[]>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const local = localStorage.getItem('peya_pestanas_por_rol');
+        if (local) {
+          const parsed = JSON.parse(local);
+          if (parsed && typeof parsed === 'object') return parsed;
+        }
+      } catch (e) {}
+    }
+    return {
+      'Agente': ['admin', 'inicio', 'nuevo'],
+      'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
+    };
   });
+
   const [nuevoRol, setNuevoRol] = useState<string>('');
   const [nuevoRolPestanas, setNuevoRolPestanas] = useState<string[]>(['admin', 'inicio', 'nuevo']);
   const [busquedaRoles, setBusquedaRoles] = useState<string>('');
@@ -79,9 +100,39 @@ export default function GestionUsuariosView({
 
   useEffect(() => {
     if (Array.isArray(rolesDisponibles) && rolesDisponibles.length > 0) {
-      setRoles(rolesDisponibles);
+      const tieneCustom = typeof window !== 'undefined' && localStorage.getItem('peya_roles_personalizados');
+      if (!tieneCustom) {
+        setRoles(rolesDisponibles);
+      }
     }
   }, [rolesDisponibles]);
+
+  // Cargar roles desde el backend al montar
+  useEffect(() => {
+    const cargarBackend = async () => {
+      try {
+        const resp = await fetch('/api/admin/roles-catalogos');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.roles && Array.isArray(data.roles) && data.roles.length > 0) {
+            setRoles(data.roles);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('peya_roles_personalizados', JSON.stringify(data.roles));
+            }
+          }
+          if (data.pestanasPorRol && typeof data.pestanasPorRol === 'object') {
+            setPestanasPorRol(data.pestanasPorRol);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('peya_pestanas_por_rol', JSON.stringify(data.pestanasPorRol));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error al obtener roles del backend:', e);
+      }
+    };
+    cargarBackend();
+  }, []);
 
   // Sincronización en vivo de roles y pestañas por rol desde Firestore (configuracion/catalogos)
   useEffect(() => {
@@ -91,9 +142,15 @@ export default function GestionUsuariosView({
         const data = docSnap.data();
         if (Array.isArray(data.roles) && data.roles.length > 0) {
           setRoles(data.roles);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('peya_roles_personalizados', JSON.stringify(data.roles));
+          }
         }
         if (data.pestanasPorRol && typeof data.pestanasPorRol === 'object') {
           setPestanasPorRol(data.pestanasPorRol);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('peya_pestanas_por_rol', JSON.stringify(data.pestanasPorRol));
+          }
         }
       }
     }, (err) => {
@@ -408,6 +465,21 @@ export default function GestionUsuariosView({
       setRoles(nuevosRoles);
       if (nuevosPestanasPorRol) {
         setPestanasPorRol(nuevosPestanasPorRol);
+      }
+
+      // Save immediately to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('peya_roles_personalizados', JSON.stringify(nuevosRoles));
+          localStorage.setItem('peya_pestanas_por_rol', JSON.stringify(mapaFinalPestanas));
+          
+          const localCat = localStorage.getItem('peya_catalogos_personalizados');
+          const catObj = localCat ? JSON.parse(localCat) : {};
+          catObj.roles = nuevosRoles;
+          localStorage.setItem('peya_catalogos_personalizados', JSON.stringify(catObj));
+        } catch (e) {
+          console.warn('Error guardando roles en localStorage:', e);
+        }
       }
 
       // 1. Guardar en API backend persistente
