@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
-import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta } from '../../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto } from '../../utils/onboardingRules';
 import { esEstadoActivoOficial, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 
 const AGENTES_OFICIALES = [
@@ -191,6 +191,8 @@ export default function TLDashboard({
           if (!c.esActivo || !(c.horasSLA >= 72 && c.horasSLA < 96)) return false;
         } else if (filtroKpi === 'req_kam_push') {
           if (!c.requiereKamPush) return false;
+        } else if (filtroKpi === 'hc_abiertos') {
+          if (!esCasoHcAbierto(c)) return false;
         }
       }
 
@@ -409,6 +411,11 @@ export default function TLDashboard({
             </button>
           )}
           <ReportDownloader 
+            casos={casosProcesados.filter(c => esCasoHcAbierto(c))} 
+            label="Reporte Seguimiento" 
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 cursor-pointer"
+          />
+          <ReportDownloader 
             casos={casosProcesados.filter(c => c.esActivo && c.horasSLA >= 96)} 
             label="Reporte SLA (96h)" 
             className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-pink-900/40 cursor-pointer"
@@ -417,7 +424,7 @@ export default function TLDashboard({
       </div>
 
       {/* Summary Cards: Solo borde, sin fondo (Imagen 3) */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
         <div className="p-3.5 rounded-xl border-2 border-slate-300 dark:border-[#3A3A3E] text-center bg-transparent">
           <div className="text-[#B3B3B3] text-xs mb-1">Total Casos</div>
           <div className="text-2xl font-bold text-white">{totalCasos}</div>
@@ -473,6 +480,24 @@ export default function TLDashboard({
             <span>⚡</span> Req. KAM Push
           </div>
           <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{kamPushTotal}</div>
+        </div>
+
+        {/* Card Seguimiento Abiertos */}
+        <div 
+          onClick={() => setFiltroKpi(prev => prev === 'hc_abiertos' ? 'todos' : 'hc_abiertos')}
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'hc_abiertos' 
+              ? 'border-emerald-500 ring-2 ring-emerald-400' 
+              : 'border-emerald-500/80 hover:border-emerald-400'
+          }`}
+          title="Clic para filtrar la tabla por casos de seguimiento abiertos"
+        >
+          <div className="text-emerald-500 dark:text-emerald-400 text-xs mb-1 font-bold flex items-center justify-center gap-1">
+            <span>🎫</span> Seg. Abiertos
+          </div>
+          <div className="text-2xl font-black text-emerald-500 dark:text-emerald-400">
+            {casosProcesados.filter(c => esCasoHcAbierto(c)).length}
+          </div>
         </div>
       </div>
 

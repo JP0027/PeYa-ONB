@@ -632,9 +632,13 @@ export function esCasoHcAbierto(caso: any): boolean {
   if (!caso) return false;
   const est = String(caso.estado || '').toLowerCase().trim();
   const et = String(caso.etapa || '').toLowerCase().trim();
+  const estTicket = String(caso.estadoTicketSeguimiento || '').toLowerCase().trim();
   
   // Los casos fallidos o cancelados cierran su ticket HeroCare
   if (est.includes('fallid') || est.includes('cancel')) return false;
+
+  // Si el ticket de seguimiento está explícitamente Abierto o Abierto (sin oportunidad)
+  if (estTicket.includes('abierto')) return true;
   
   // Debe ser un estado cerrado satisfactorio (por ONB o KAM o satisfactorio)
   const esCerradoSatisfactorio = est.includes('cerrad') || est.includes('satisfactori');
