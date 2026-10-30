@@ -634,11 +634,11 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
 }
 
 /**
- * Detecta si un caso corresponde a "Casos HC Abiertos":
- * Casos con oportunidad u onboarding cerrados (satisfactorio por ONB o KAM),
- * pero que continúan en proceso para prueba (etapa en proceso para pruebas)
- * con ticket de seguimiento HeroCare activo/abierto.
- * Los fallidos NO aplican (sus tickets HeroCare sí se cierran).
+ * Detecta si un caso corresponde a "Casos HC Abiertos" / "Seguimiento Abierto":
+ * Casos donde el ticket de seguimiento HeroCare está Abierto o en seguimiento
+ * (ej. "Abierto", "Abierto (sin oportunidad)", "Esperando por el cliente", "Transferido"),
+ * independientemente de si la OP ya cerró como satisfactoria o sigue en progreso.
+ * Los casos fallidos o cancelados NO aplican.
  */
 export function esCasoHcAbierto(caso: any): boolean {
   if (!caso) return false;
@@ -648,13 +648,11 @@ export function esCasoHcAbierto(caso: any): boolean {
   // Los casos fallidos o cancelados no aplican
   if (est.includes('fallid') || est.includes('cancel')) return false;
 
-  // El ticket de seguimiento HeroCare debe estar explícitamente abierto
-  const esTicketAbierto = estTicket.includes('abierto');
-  
-  // La OP/onboarding debe estar ya cerrada
-  const esOpCerrada = est.includes('cerrad') || est.includes('satisfactori');
+  // El ticket de seguimiento HeroCare está abierto si NO está resuelto, NO es "sin ticket", y NO está vacío/guión
+  const esTicketCerrado = estTicket.includes('resuelto') || estTicket.includes('sin ticket') || estTicket === '' || estTicket === '-';
+  const esTicketAbierto = !esTicketCerrado;
 
-  return esTicketAbierto && esOpCerrada;
+  return esTicketAbierto;
 }
 
 /**

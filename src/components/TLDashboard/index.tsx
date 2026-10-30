@@ -179,10 +179,11 @@ export default function TLDashboard({
 
       if (filtroKpi !== 'todos') {
         const estLower = String(c.estado || '').toLowerCase().trim();
-        const esSinOp = estLower.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '' || String(c.casoOp).toLowerCase() === 'sin caso op';
+        const etapaLower = String(c.etapa || '').toLowerCase().trim();
+        const esSinOp = estLower.includes('sin oportunidad') || etapaLower.includes('sin oportunidad');
         
         if (filtroKpi === 'en_progreso') {
-          if (esSinOp) return false;
+          if (esSinOp || !c.esActivo) return false;
         } else if (filtroKpi === 'sin_op') {
           if (!esSinOp) return false;
         } else if (filtroKpi === 'fuera_sla') {
@@ -326,10 +327,15 @@ export default function TLDashboard({
   casosProcesados.forEach(c => {
     const estado = String(c.estado || '').toLowerCase().trim();
 
-    if (estado.includes('satisfactori')) closedSat++;
-    else if (estado.includes('fallid')) closedFail++;
-    else if (estado.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '' || String(c.casoOp).toLowerCase() === 'sin caso op') inProgressSinOp++;
-    else if (estado === 'en progreso' || estado.includes('progreso')) inProgressNormal++;
+    if (estado.includes('satisfactori')) {
+      closedSat++;
+    } else if (estado.includes('fallid') || estado.includes('cancel')) {
+      closedFail++;
+    } else if (estado.includes('sin oportunidad')) {
+      inProgressSinOp++;
+    } else if (c.esActivo || estado === 'en progreso' || estado.includes('progreso') || estado === 'nuevo' || estado === 'abierto' || estado === '') {
+      inProgressNormal++;
+    }
 
     if (c.esActivo) {
       if (c.horasSLA >= 96) {

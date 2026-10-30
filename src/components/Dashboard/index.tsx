@@ -814,7 +814,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (!esCasoActivo(x.caso)) return false;
     const est = String(x.caso.estado || '').toLowerCase().trim();
     const etapa = String(x.caso.etapa || '').toLowerCase().trim();
-    const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op' || etapa.includes('sin oportunidad');
+    const esSinOp = est.includes('sin oportunidad') || etapa.includes('sin oportunidad');
     return !esSinOp;
   }).length, [casosConAlertas]);
 
@@ -822,7 +822,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (!esCasoActivo(x.caso)) return false;
     const est = String(x.caso.estado || '').toLowerCase().trim();
     const etapa = String(x.caso.etapa || '').toLowerCase().trim();
-    return est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op' || etapa.includes('sin oportunidad');
+    return est.includes('sin oportunidad') || etapa.includes('sin oportunidad');
   }).length, [casosConAlertas]);
 
   const totalPos = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && x.alertas.requierePushPos).length, [casosConAlertas]);
@@ -853,7 +853,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
       const est = String(x.caso.estado || '').toLowerCase().trim();
       const etapa = String(x.caso.etapa || '').toLowerCase().trim();
-      const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op' || etapa.includes('sin oportunidad');
+      const esSinOp = est.includes('sin oportunidad') || etapa.includes('sin oportunidad');
 
       if (filtroMisCasos === 'hcAbiertos') {
         return esCasoHcAbierto(x.caso);
