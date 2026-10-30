@@ -6,8 +6,6 @@
  * sin tener que modificar el código fuente.
  */
 
-import { doc, getDoc, setDoc, onSnapshot, Unsubscribe, DocumentData } from 'firebase/firestore';
-import { db } from '../firebase';
 import {
   LISTA_PAISES,
   LISTA_OPORTUNIDADES,
@@ -187,6 +185,8 @@ export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]
 /**
  * Se suscribe a los cambios del catálogo en Firestore y Google Sheets
  */
+export type Unsubscribe = () => void;
+
 export function suscribirCatalogos(callback: (catalogos: CatalogosPorDefecto) => void): Unsubscribe {
   // 1. Entregar inmediatamente lo que haya en caché local
   callback(obtenerCatalogosLocales());
@@ -198,36 +198,7 @@ export function suscribirCatalogos(callback: (catalogos: CatalogosPorDefecto) =>
     }
   });
 
-  try {
-    const docRef = doc(db, FIRESTORE_DOC_PATH[0], FIRESTORE_DOC_PATH[1]);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as DocumentData;
-        const combinados: CatalogosPorDefecto = {
-          paises: Array.isArray(data.paises) && data.paises.length ? data.paises : CATALOGOS_POR_DEFECTO.paises,
-          oportunidades: Array.isArray(data.oportunidades) && data.oportunidades.length ? data.oportunidades : CATALOGOS_POR_DEFECTO.oportunidades,
-          assets: Array.isArray(data.assets) && data.assets.length ? data.assets : CATALOGOS_POR_DEFECTO.assets,
-          agentes: Array.isArray(data.agentes) && data.agentes.length ? data.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
-          estados: Array.isArray(data.estados) && data.estados.length ? data.estados : CATALOGOS_POR_DEFECTO.estados,
-          etapas: Array.isArray(data.etapas) && data.etapas.length ? data.etapas : CATALOGOS_POR_DEFECTO.etapas,
-          estadosTicketSeguimiento: Array.isArray(data.estadosTicketSeguimiento) && data.estadosTicketSeguimiento.length ? data.estadosTicketSeguimiento : CATALOGOS_POR_DEFECTO.estadosTicketSeguimiento,
-          roles: Array.isArray(data.roles) && data.roles.length ? data.roles : (CATALOGOS_POR_DEFECTO.roles || []),
-          integraciones: Array.isArray(data.integraciones) && data.integraciones.length ? data.integraciones : CATALOGOS_POR_DEFECTO.integraciones
-        };
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(combinados));
-        } catch (_) {}
-        callback(combinados);
-      }
-    }, (error) => {
-      console.warn('[catalogoService] Error en suscripción Firestore:', error);
-    });
-
-    return unsubscribe;
-  } catch (err) {
-    console.warn('[catalogoService] No se pudo inicializar listener Firestore:', err);
-    return () => {};
-  }
+  return () => {};
 }
 
 /**

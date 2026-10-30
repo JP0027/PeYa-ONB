@@ -139,11 +139,13 @@ export default async function handler(req: any, res: any) {
     const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')));
     const colTieneInicio = findCol(h => h.includes('onboarding') && h.includes('inicio') && h.includes('?'));
     const colComentarios = findCol(h => h.includes('comentario'));
-    const colEstado = findCol(h => (h.includes('estado') && !h.includes('onboarding')) || h === 'estado del caso' || h === 'estado caso');
+    const colEstado = findCol(h => (h.includes('estado') && !h.includes('onboarding') && !h.includes('ticket')) || h === 'estado del caso' || h === 'estado caso');
     const colEtapa = findCol(h => h.includes('etapa') || (h.includes('estado') && h.includes('onboarding')));
+    const colEstadoTicketSeguimiento = findCol(h => h.includes('estado del ticket') || h.includes('estado ticket'));
     const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
     const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op'));
     const colFechaCierre = findCol(h => h.includes('cierre de op') || h.includes('cierre op'));
+    const colFechaCierreSeguimiento = findCol(h => h.includes('cierre de seguimiento'));
     const colFechaInicioPos = findCol(h => h.includes('inicio') && h.includes('pos'));
     const colFechaPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
     const colRespPos = findCol(h => (h.includes('respuesta') || h.includes('resp')) && h.includes('pos'));
@@ -187,32 +189,35 @@ export default async function handler(req: any, res: any) {
       const casoSeguimiento = getVal(colSeguimiento >= 0 ? colSeguimiento : 11);
       const tieneCasoInicio = getVal(colTieneInicio >= 0 ? colTieneInicio : 12, 'Si');
       const comentarios = getVal(colComentarios >= 0 ? colComentarios : 13);
-      let estado = getVal(colEstado >= 0 ? colEstado : 14, 'Cerrado por oportunidad satisfactoria');
+      let estado = getVal(colEstado >= 0 ? colEstado : 14, 'En progreso');
       let etapa = getVal(colEtapa >= 0 ? colEtapa : 15, 'Validación del Onboarding');
-      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
+      const estadoTicketSeguimiento = getVal(colEstadoTicketSeguimiento >= 0 ? colEstadoTicketSeguimiento : 16, 'Abierto');
+      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17);
       const fechaCreacion = formatearFechaHoraSheet(rawFechaCreacion);
-      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, rawFechaCreacion || '');
+      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 18, rawFechaCreacion || '');
       const sla_inicio = formatearFechaHoraSheet(rawSlaInicio);
-      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 18);
+      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 19);
       const fechaCierre = rawFechaCierre && rawFechaCierre !== '-' ? formatearFechaHoraSheet(rawFechaCierre) : rawFechaCierre;
-      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 19);
+      const rawFechaCierreSeg = getVal(colFechaCierreSeguimiento >= 0 ? colFechaCierreSeguimiento : 20);
+      const fechaCierreSeguimiento = rawFechaCierreSeg && rawFechaCierreSeg !== '-' ? formatearFechaHoraSheet(rawFechaCierreSeg) : rawFechaCierreSeg;
+      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 21);
       const fechaInicioPos = rawInicioPos && rawInicioPos !== 'S/V' ? formatearFechaHoraSheet(rawInicioPos) : rawInicioPos;
-      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
+      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 22);
       const fechaPushPos = rawPushPos && rawPushPos !== 'S/V' ? formatearFechaHoraSheet(rawPushPos) : rawPushPos;
-      const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 21, 'No');
+      const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 23, 'No');
       const respuestaPos = (rawRespPos.toLowerCase() === 'si' || rawRespPos.toLowerCase() === 'sí') ? 'Si' : (rawRespPos.toLowerCase() === 'no' ? 'No' : (rawRespPos.toUpperCase() === 'S/V' ? 'S/V' : rawRespPos));
-      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
+      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 24);
       const pushKamPos = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamPos).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
-      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
+      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 25);
       const fechaInicioCat = rawInicioCat && rawInicioCat !== 'S/V' ? formatearFechaHoraSheet(rawInicioCat) : rawInicioCat;
-      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
+      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 26);
       const fechaPushCat = rawPushCat && rawPushCat !== 'S/V' ? formatearFechaHoraSheet(rawPushCat) : rawPushCat;
-      const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 25, 'No');
+      const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 27, 'No');
       const respuestaCat = (rawRespCat.toLowerCase() === 'si' || rawRespCat.toLowerCase() === 'sí') ? 'Si' : (rawRespCat.toLowerCase() === 'no' ? 'No' : (rawRespCat.toUpperCase() === 'S/V' ? 'S/V' : rawRespCat));
-      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
+      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 28);
       const pushKamCat = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamCat).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
-      const freezePos = getVal(colFreezePos >= 0 ? colFreezePos : 39);
-      const freezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 40);
+      const freezePos = getVal(colFreezePos >= 0 ? colFreezePos : 41);
+      const freezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 42);
       const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
       const tiempoTranscurridoPos = getVal(colTiempoPos >= 0 ? colTiempoPos : -1);
       const tiempoTranscurridoCat = getVal(colTiempoCat >= 0 ? colTiempoCat : -1);
@@ -255,11 +260,13 @@ export default async function handler(req: any, res: any) {
         fechaCreacion,
         estado,
         etapa,
+        estadoTicketSeguimiento,
         sla_inicio,
         esActivo,
         origen: 'Google Sheets (API)',
         filaNumero,
         fechaCierre,
+        fechaCierreSeguimiento,
         fechaInicioPos,
         fechaPushPos,
         respuestaPos,
