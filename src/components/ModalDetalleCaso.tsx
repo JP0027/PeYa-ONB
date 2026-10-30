@@ -8,6 +8,7 @@ import {
   LISTA_TIENE_INICIO,
   LISTA_AGENTES,
   LISTA_INTEGRACIONES_OFICIALES,
+  LISTA_ESTADOS_TICKET_SEGUIMIENTO,
   obtenerSponsorship
 } from '../data/catalogoOnboarding';
 import { 
@@ -35,6 +36,7 @@ export interface ModalDetalleCasoProps {
   paises?: string[];
   assets?: string[];
   integraciones?: string[];
+  estadosTicketSeguimiento?: string[];
   integracionesDetalle?: Array<{ nombre: string; sponsorship: string; contactos?: string }>;
   correosOnboarding?: string[];
 }
@@ -60,6 +62,7 @@ export default function ModalDetalleCaso({
   paises = LISTA_PAISES,
   assets = LISTA_ASSETS,
   integraciones = [],
+  estadosTicketSeguimiento = LISTA_ESTADOS_TICKET_SEGUIMIENTO,
   integracionesDetalle = [],
   correosOnboarding = []
 }: ModalDetalleCasoProps) {
@@ -95,8 +98,10 @@ export default function ModalDetalleCaso({
     comentarios: caso?.comentarios || '',
     estado: caso?.estado || 'En progreso',
     etapa: limpiarTextoEtapa(caso?.etapa, caso?.comentarios, caso?.integracion),
+    estadoTicketSeguimiento: caso?.estadoTicketSeguimiento || 'Abierto',
     fechaCreacion: fmtFechaOVacio(caso?.fechaCreacion),
     fechaCierre: fmtFechaOVacio(caso?.fechaCierre),
+    fechaCierreSeguimiento: fmtFechaOVacio(caso?.fechaCierreSeguimiento),
     
     // Seguimiento POS API
     fechaInicioPos: fmtFechaOVacio(caso?.fechaInicioPos),
@@ -628,6 +633,30 @@ export default function ModalDetalleCaso({
                 >
                   {etapas.map(et => <option key={et} value={et}>{et}</option>)}
                 </select>
+              </div>
+
+              <div>
+                <label className="text-purple-400 block mb-1 font-semibold">Estado del ticket de seguimiento</label>
+                <select 
+                  name="estadoTicketSeguimiento" 
+                  value={form.estadoTicketSeguimiento || 'Abierto'} 
+                  onChange={manejarCambio}
+                  className="w-full bg-[#121212] border border-purple-700/70 rounded-lg p-2.5 text-purple-300 font-bold min-h-[44px]"
+                >
+                  {(estadosTicketSeguimiento && estadosTicketSeguimiento.length > 0 ? estadosTicketSeguimiento : LISTA_ESTADOS_TICKET_SEGUIMIENTO).map(est => <option key={est} value={est}>{est}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-purple-400 block mb-1 font-medium">Fecha de cierre de seguimiento</label>
+                <input 
+                  type="text" 
+                  name="fechaCierreSeguimiento" 
+                  value={form.fechaCierreSeguimiento || ''} 
+                  onChange={manejarCambio}
+                  placeholder="Automática al resolver ticket (DD/MM/YYYY HH:mm)"
+                  className="w-full bg-[#121212] border border-purple-900/60 rounded-lg p-2.5 text-purple-300 font-mono min-h-[44px]"
+                />
               </div>
 
               <div>

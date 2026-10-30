@@ -230,6 +230,28 @@ export function aplicarReglaCierre(nuevoEstado: any, fechaCierreActual: any): st
   }
 }
 
+/**
+ * 1b. Casuísticas de Cierre de Seguimiento / Ticket HeroCare
+ * - Si el Estado del ticket de seguimiento es "Abierto", "Abierto (sin oportunidad)" o "Transferido":
+ *   Fecha de Cierre de seguimiento permanece vacía o "".
+ * - Si el Estado cambia a cualquier otro estado (Resuelto..., Esperando por el cliente, Sin ticket HC):
+ *   Imprime la Fecha de cierre de seguimiento.
+ * - Si vuelve a cambiar de regreso a Abierto, Abierto (sin oportunidad) o Transferido:
+ *   Borra la Fecha de cierre de seguimiento.
+ */
+export function aplicarReglaCierreSeguimiento(nuevoEstadoTicket: any, fechaCierreSeguimientoActual: any): string {
+  const est = String(nuevoEstadoTicket || '').trim().toLowerCase();
+  const esAbierto = est === 'abierto' || est === 'abierto (sin oportunidad)' || est === 'transferido' || est === '' || est === '-';
+
+  if (esAbierto) {
+    return '';
+  } else {
+    return fechaCierreSeguimientoActual && fechaCierreSeguimientoActual !== '-' 
+      ? formatearFechaHora(fechaCierreSeguimientoActual) 
+      : formatearFechaHora(new Date());
+  }
+}
+
 export const ETAPAS_AVANZADAS_SIN_SEGUIMIENTO: string[] = [
   'validación del onboarding',
   'validacion del onboarding',
@@ -529,6 +551,16 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
 
   // 1. Regla de Cierre de OP
   resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre);
+
+  // 1b. Regla de Cierre de Seguimiento
+  const estadoTicket = resultado.estadoTicketSeguimiento !== undefined 
+    ? resultado.estadoTicketSeguimiento 
+    : (casoAnterior?.estadoTicketSeguimiento || 'Abierto');
+  resultado.estadoTicketSeguimiento = estadoTicket;
+  resultado.fechaCierreSeguimiento = aplicarReglaCierreSeguimiento(
+    estadoTicket, 
+    resultado.fechaCierreSeguimiento
+  );
 
   // Reglas estrictas de fechas base por etapa de Onboarding
   resultado = aplicarFechasPorEtapaOnboarding(resultado, casoAnterior);

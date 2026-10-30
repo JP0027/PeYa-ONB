@@ -14,6 +14,7 @@ import {
   LISTA_ASSETS,
   LISTA_ESTADOS,
   LISTA_ETAPAS,
+  LISTA_ESTADOS_TICKET_SEGUIMIENTO,
   MAPA_INTEGRACIONES_SPONSORSHIP
 } from '../data/catalogoOnboarding';
 import CATALOGOS_CACHE from '../../data_cached_catalogos.json';
@@ -35,6 +36,7 @@ export interface CatalogosPorDefecto {
   estados: string[];
   etapas: string[];
   integraciones: IntegracionSponsorship[];
+  estadosTicketSeguimiento?: string[];
   agentes?: string[];
   roles?: string[];
 }
@@ -45,6 +47,7 @@ export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
   assets: CATALOGOS_CACHE?.assets || [...LISTA_ASSETS],
   estados: CATALOGOS_CACHE?.estados || [...LISTA_ESTADOS],
   etapas: CATALOGOS_CACHE?.etapas || [...LISTA_ETAPAS],
+  estadosTicketSeguimiento: (CATALOGOS_CACHE as any)?.estadosTicketSeguimiento || [...LISTA_ESTADOS_TICKET_SEGUIMIENTO],
   roles: ['Agente', 'Supervisor'],
   agentes: (CATALOGOS_CACHE?.agentes && CATALOGOS_CACHE.agentes.length > 0) ? CATALOGOS_CACHE.agentes : [
     'Prisila Leon',
@@ -89,6 +92,7 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
         assets: parsed.assets?.length ? parsed.assets : CATALOGOS_POR_DEFECTO.assets,
         estados: parsed.estados?.length ? parsed.estados : CATALOGOS_POR_DEFECTO.estados,
         etapas: parsed.etapas?.length ? parsed.etapas : CATALOGOS_POR_DEFECTO.etapas,
+        estadosTicketSeguimiento: parsed.estadosTicketSeguimiento?.length ? parsed.estadosTicketSeguimiento : CATALOGOS_POR_DEFECTO.estadosTicketSeguimiento,
         integraciones: integracionesLocales,
         agentes: (Array.isArray(parsed.agentes) && parsed.agentes.length > 0) ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
         roles: (Array.isArray(parsed.roles) && parsed.roles.length > 0) ? parsed.roles : rolesLocales
@@ -206,6 +210,7 @@ export function suscribirCatalogos(callback: (catalogos: CatalogosPorDefecto) =>
           agentes: Array.isArray(data.agentes) && data.agentes.length ? data.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
           estados: Array.isArray(data.estados) && data.estados.length ? data.estados : CATALOGOS_POR_DEFECTO.estados,
           etapas: Array.isArray(data.etapas) && data.etapas.length ? data.etapas : CATALOGOS_POR_DEFECTO.etapas,
+          estadosTicketSeguimiento: Array.isArray(data.estadosTicketSeguimiento) && data.estadosTicketSeguimiento.length ? data.estadosTicketSeguimiento : CATALOGOS_POR_DEFECTO.estadosTicketSeguimiento,
           roles: Array.isArray(data.roles) && data.roles.length ? data.roles : (CATALOGOS_POR_DEFECTO.roles || []),
           integraciones: Array.isArray(data.integraciones) && data.integraciones.length ? data.integraciones : CATALOGOS_POR_DEFECTO.integraciones
         };

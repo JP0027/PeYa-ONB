@@ -2414,6 +2414,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           paises={catalogosDinamicos.paises}
           assets={catalogosDinamicos.assets}
           integraciones={listaIntegracionesNombres}
+          estadosTicketSeguimiento={catalogosDinamicos.estadosTicketSeguimiento}
           integracionesDetalle={catalogosDinamicos.integraciones}
           correosOnboarding={correosOnboarding}
         />

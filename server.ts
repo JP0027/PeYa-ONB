@@ -224,6 +224,8 @@ async function startServer() {
             fechaCreacion: String(fila["Fecha de creación de la OP"] || fila["fechaCreacion"] || ''),
             estado,
             etapa: String(fila["Etapa del onboarding"] || fila["etapa"] || 'Validación del Onboarding'),
+            estadoTicketSeguimiento: String(fila["Estado del ticket de seguimiento"] || fila["estadoTicketSeguimiento"] || 'Abierto'),
+            fechaCierreSeguimiento: String(fila["Fecha de cierre de seguimiento"] || fila["fechaCierreSeguimiento"] || ''),
             sla_inicio: String(fila["Fecha de inicio de seguimiento de OP"] || fila["sla_inicio"] || new Date().toISOString()),
             esActivo,
             origen: 'Google Apps Script',

@@ -437,11 +437,13 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
   const colSeguimiento = findCol(h => (h.includes('seguimiento') && h.includes('caso')) || h === 'n° caso seguimiento');
   const colTieneInicio = findCol(h => (h.includes('inicio') && h.includes('seguimiento')) || h.includes('¿tiene') || h.includes('tiene caso'));
   const colComentarios = findCol(h => h.includes('comentario'));
-  const colEstado = findCol(h => (h.includes('estado') && h.includes('caso')) || (h.includes('estado') && !h.includes('onboarding')));
+  const colEstado = findCol(h => (h.includes('estado') && h.includes('caso')) || (h.includes('estado') && !h.includes('onboarding') && !h.includes('ticket')));
   const colEtapa = findCol(h => (h.includes('etapa') && h.includes('onboarding')) || h.includes('etapa del onboarding') || (h.includes('etapa') && !h.includes('inicio')));
+  const colEstadoTicket = findCol(h => (h.includes('estado') && h.includes('ticket')) || (h.includes('estado del ticket') && h.includes('seguimiento')));
   const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
   const colSlaInicio = findCol(h => (h.includes('inicio de seguimiento') && h.includes('op')) || h.includes('sla'));
   const colFechaCierre = findCol(h => h.includes('cierre') && h.includes('op'));
+  const colFechaCierreSeguimiento = findCol(h => h.includes('cierre') && h.includes('seguimiento'));
   const colInicioPos = findCol(h => (h.includes('inicio') && h.includes('pos')) || h.includes('datos faltantes'));
   const colPushPos = findCol(h => (h.includes('push') && h.includes('pos')));
   const colRespPos = findCol(h => (h.includes('respuesta') && h.includes('pos')));
@@ -592,6 +594,8 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
       freezeCat: getVal(colFreezeCat, ''),
       estado,
       etapa,
+      estadoTicketSeguimiento: getVal(colEstadoTicket, 'Abierto'),
+      fechaCierreSeguimiento: getVal(colFechaCierreSeguimiento) ? formatearFechaHora(getVal(colFechaCierreSeguimiento)) : '',
       sla_inicio: getVal(colSlaInicio) ? formatearFechaHora(getVal(colSlaInicio)) : (getVal(colFechaCreacion) ? formatearFechaHora(getVal(colFechaCreacion)) : formatearFechaHora(new Date())),
       esActivo,
       origen,

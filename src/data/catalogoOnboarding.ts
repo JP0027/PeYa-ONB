@@ -57,6 +57,17 @@ export const LISTA_ESTADOS: string[] = [
   'En progreso'
 ];
 
+// 5b. Estado del ticket de seguimiento oficial
+export const LISTA_ESTADOS_TICKET_SEGUIMIENTO: string[] = [
+  'Abierto',
+  'Abierto (sin oportunidad)',
+  'Resuelto (bloquear respuesta)',
+  'Resuelto (sin bloquear respuesta)',
+  'Esperando por el cliente',
+  'Transferido',
+  'Sin ticket HC'
+];
+
 // 6. Etapa del onboarding oficial
 export const LISTA_ETAPAS: string[] = [
   'Sin integración confirmada',
