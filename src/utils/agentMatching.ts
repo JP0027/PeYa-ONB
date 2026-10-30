@@ -193,12 +193,12 @@ export function isAgentMatch(
  * como Propietario de Ticket HeroCare (Columna K: Propietario de Ticket HeroCare)
  */
 export function isHeroCareOwnerMatch(
-  caso: { propietarioTicket?: string; [key: string]: any },
+  caso: { propietarioTicket?: string; agente?: string; propietarioOportunidad?: string; [key: string]: any },
   userEmail?: string,
   userDisplayName?: string
 ): boolean {
-  if (!caso || !caso.propietarioTicket) return false;
-  const prop = String(caso.propietarioTicket).trim();
+  if (!caso) return false;
+  const prop = String(caso.propietarioTicket || caso.agente || caso.propietarioOportunidad || '').trim();
   if (!prop || prop === '-' || prop === 'Sin asignación' || prop === 'Sin asignar') return false;
   return isAgentMatch({ propietarioTicket: prop, agente: prop }, userEmail, userDisplayName);
 }

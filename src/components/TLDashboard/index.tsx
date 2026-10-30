@@ -209,9 +209,14 @@ export default function TLDashboard({
 
   // Ordenar casos activos / filtrados
   const casosActivosOrdenados = useMemo(() => {
-    const base = (filtroEstado === 'todos' && filtroKpi === 'todos')
-      ? casosFiltrados.filter(c => c.esActivo)
-      : casosFiltrados;
+    let base: any[] = [];
+    if (filtroKpi === 'hc_abiertos') {
+      base = casosFiltrados.filter(c => esCasoHcAbierto(c));
+    } else if (filtroEstado === 'todos' && filtroKpi === 'todos') {
+      base = casosFiltrados.filter(c => c.esActivo);
+    } else {
+      base = casosFiltrados;
+    }
     const ordenados = [...base];
 
     ordenados.sort((a, b) => {
@@ -326,14 +331,16 @@ export default function TLDashboard({
 
   casosProcesados.forEach(c => {
     const estado = String(c.estado || '').toLowerCase().trim();
+    const etapa = String(c.etapa || '').toLowerCase().trim();
+    const esSinOp = estado.includes('sin oportunidad') || etapa.includes('sin oportunidad');
 
     if (estado.includes('satisfactori')) {
       closedSat++;
     } else if (estado.includes('fallid') || estado.includes('cancel')) {
       closedFail++;
-    } else if (estado.includes('sin oportunidad')) {
+    } else if (esSinOp) {
       inProgressSinOp++;
-    } else if (c.esActivo || estado === 'en progreso' || estado.includes('progreso') || estado === 'nuevo' || estado === 'abierto' || estado === '') {
+    } else if (c.esActivo) {
       inProgressNormal++;
     }
 
@@ -610,7 +617,11 @@ export default function TLDashboard({
           <div className="bg-[#1A1A1C] rounded-xl border border-[#3A3A3E] overflow-hidden shadow-xl">
             <div className="p-4 border-b border-[#3A3A3E] bg-[#1a1d27] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white">Casos Activos ({casosActivosOrdenados.length})</h2>
+                <h2 className="text-sm font-bold text-white">
+                  {filtroKpi === 'hc_abiertos' 
+                    ? 'Casos con Seguimiento Abierto' 
+                    : (filtroKpi === 'todos' && filtroEstado === 'todos' ? 'Casos Activos' : 'Casos Filtrados')} ({casosActivosOrdenados.length})
+                </h2>
                 <span className="text-[11px] text-[#B3B3B3] bg-[#2C2C32]/80 px-2 py-0.5 rounded-full">
                   Ordenados por SLA Crítico arriba
                 </span>
@@ -725,15 +736,42 @@ export default function TLDashboard({
                           </span>
                         </td>
                         <td className="py-4 px-3">
-                          {String(c.estado || '').toLowerCase().includes('sin oportunidad') ? (
-                            <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm">
-                              <span>⚡</span> Sin OP
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm">
-                              <span>💼</span> En Progreso
-                            </span>
-                          )}
+                          {(() => {
+                            const estLower = String(c.estado || '').toLowerCase().trim();
+                            if (estLower.includes('sin oportunidad')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap">
+                                  <span>⚡</span> Sin OP
+                                </span>
+                              );
+                            }
+                            if (estLower.includes('satisfactori')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap" title={c.estado}>
+                                  <span>✅</span> {c.estado.includes('KAM') ? 'Cerrado KAM' : 'Cerrado ONB'}
+                                </span>
+                              );
+                            }
+                            if (estLower.includes('fallid') || estLower.includes('cancel')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap" title={c.estado}>
+                                  <span>❌</span> {c.estado.includes('KAM') ? 'Fallido KAM' : 'Fallido ONB'}
+                                </span>
+                              );
+                            }
+                            if (estLower.includes('api vendor')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap" title={c.estado}>
+                                  <span>🔌</span> API Vendor
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap">
+                                <span>💼</span> En Progreso
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-4 px-3 font-medium text-[#D1D5DB]">{c.agenteACargo}</td>
                         <td className="py-4 px-3"><span className="px-2 py-0.5 rounded bg-[#2C2C32] text-[10px]">{limpiarTextoEtapa(c.etapa)}</span></td>

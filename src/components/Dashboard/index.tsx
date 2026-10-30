@@ -55,6 +55,7 @@ export interface FormularioNuevoCaso {
   comentarios: string;
   estado: string;
   etapa: string;
+  estadoTicketSeguimiento: string;
   fechaCreacion: string;
   sla_inicio?: string;
 }
@@ -520,6 +521,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
       casoSeguimiento: '', tieneCasoInicio: '', comentarios: '', estado: '',
       etapa: '', 
+      estadoTicketSeguimiento: 'Abierto',
       fechaCreacion: '',
       sla_inicio: ''
     };
@@ -1087,6 +1089,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       comentarios: '',
       estado: '',
       etapa: '',
+      estadoTicketSeguimiento: 'Abierto',
       fechaCreacion: '',
       sla_inicio: ''
     }));
@@ -1978,6 +1981,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   oportunidades={catalogosDinamicos.oportunidades}
                   assets={catalogosDinamicos.assets}
                   estados={catalogosDinamicos.estados}
+                  estadosTicketSeguimiento={catalogosDinamicos.estadosTicketSeguimiento}
                   etapas={catalogosDinamicos.etapas}
                   agentes={catalogosDinamicos.agentes}
                 />

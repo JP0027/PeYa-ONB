@@ -4,6 +4,7 @@ import {
   LISTA_OPORTUNIDADES,
   LISTA_ASSETS,
   LISTA_ESTADOS,
+  LISTA_ESTADOS_TICKET_SEGUIMIENTO,
   LISTA_ETAPAS,
   LISTA_TIENE_INICIO,
   LISTA_AGENTES,
@@ -31,6 +32,7 @@ export interface CasoFormProps {
     sla_inicio?: string;
     estado?: string;
     etapa?: string;
+    estadoTicketSeguimiento?: string;
     comentarios?: string;
     [key: string]: any;
   };
@@ -47,6 +49,7 @@ export interface CasoFormProps {
   oportunidades?: string[];
   assets?: string[];
   estados?: string[];
+  estadosTicketSeguimiento?: string[];
   etapas?: string[];
   agentes?: string[];
 }
@@ -66,6 +69,7 @@ export default function CasoForm({
   oportunidades = LISTA_OPORTUNIDADES,
   assets = LISTA_ASSETS,
   estados = LISTA_ESTADOS,
+  estadosTicketSeguimiento = LISTA_ESTADOS_TICKET_SEGUIMIENTO,
   etapas = LISTA_ETAPAS,
   agentes = LISTA_AGENTES
 }: CasoFormProps) {
@@ -425,11 +429,23 @@ export default function CasoForm({
           </select>
         </div>
 
-        <div className="sm:col-span-2">
+        <div>
           <label className="text-[#B3B3B3] block mb-1 font-medium">o. Etapa del onboarding *</label>
           <select name="etapa" value={formulario.etapa || ''} onChange={onChange} className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]">
             <option value="" disabled>Seleccione etapa...</option>
             {etapas.map(et => <option key={et} value={et}>{et}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[#B3B3B3] block mb-1 font-medium">q. Estado del ticket de seguimiento</label>
+          <select 
+            name="estadoTicketSeguimiento" 
+            value={formulario.estadoTicketSeguimiento || 'Abierto'} 
+            onChange={onChange} 
+            className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]"
+          >
+            {estadosTicketSeguimiento.map(et => <option key={et} value={et}>{et}</option>)}
           </select>
         </div>
 
@@ -485,6 +501,7 @@ export default function CasoForm({
               <div><span className="text-[#9CA3AF]">Integración:</span> <span className="text-cyan-300">{formulario.integracion}</span> (Sponsorship: {sponsorshipActual})</div>
               <div><span className="text-[#9CA3AF]">Oportunidad:</span> <span className="text-white">{formulario.oportunidad}</span></div>
               <div><span className="text-[#9CA3AF]">Etapa:</span> <span className="text-amber-300">{formulario.etapa}</span></div>
+              <div><span className="text-[#9CA3AF]">Ticket HeroCare:</span> <span className="text-purple-300">{formulario.estadoTicketSeguimiento || 'Abierto'}</span></div>
               <div><span className="text-[#9CA3AF]">Inicio Seguimiento:</span> <span className="text-emerald-400">{formulario.sla_inicio || formulario.fechaCreacion || 'Automático según etapa'}</span></div>
             </div>
 
