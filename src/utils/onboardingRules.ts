@@ -218,15 +218,21 @@ export function limpiarTextoEstado(estado: any, _etapa?: any): string {
  * - Si el Estado cambia a cualquiera de los estados de Cerrado (Cerrado por ONB..., Cerrado por KAM..., Cerrado por API Vendor):
  *   Imprime la Fecha de cierre de OP y detiene el SLA.
  */
-export function aplicarReglaCierre(nuevoEstado: any, fechaCierreActual: any): string {
+export function aplicarReglaCierre(nuevoEstado: any, fechaCierreActual: any, estadoAnterior?: any): string {
   const est = String(nuevoEstado || '').trim().toLowerCase();
   const esAbierto = est === 'en progreso' || est === 'en progreso (sin oportunidad)' || est === 'nuevo' || est === '';
 
   if (esAbierto) {
     return '';
   } else {
-    // Si es un estado cerrado, imprime fecha y hora de cierre de OP para detener SLA
-    return fechaCierreActual && fechaCierreActual !== '-' ? formatearFechaHora(fechaCierreActual) : formatearFechaHora(new Date());
+    const estAnt = String(estadoAnterior || '').trim().toLowerCase();
+    const eraAbierto = estAnt === 'en progreso' || estAnt === 'en progreso (sin oportunidad)' || estAnt === 'nuevo' || estAnt === '';
+    const tieneHora = fechaCierreActual && /\d{1,2}:\d{2}/.test(String(fechaCierreActual));
+
+    if (eraAbierto || !fechaCierreActual || fechaCierreActual === '-' || !tieneHora) {
+      return formatearFechaHora(new Date());
+    }
+    return formatearFechaHora(fechaCierreActual);
   }
 }
 
@@ -235,20 +241,25 @@ export function aplicarReglaCierre(nuevoEstado: any, fechaCierreActual: any): st
  * - Si el Estado del ticket de seguimiento es "Abierto", "Abierto (sin oportunidad)" o "Transferido":
  *   Fecha de Cierre de seguimiento permanece vacía o "".
  * - Si el Estado cambia a cualquier otro estado (Resuelto..., Esperando por el cliente, Sin ticket HC):
- *   Imprime la Fecha de cierre de seguimiento.
+ *   Imprime la Fecha de cierre de seguimiento con fecha, hora y minutos.
  * - Si vuelve a cambiar de regreso a Abierto, Abierto (sin oportunidad) o Transferido:
  *   Borra la Fecha de cierre de seguimiento.
  */
-export function aplicarReglaCierreSeguimiento(nuevoEstadoTicket: any, fechaCierreSeguimientoActual: any): string {
+export function aplicarReglaCierreSeguimiento(nuevoEstadoTicket: any, fechaCierreSeguimientoActual: any, estadoTicketAnterior?: any): string {
   const est = String(nuevoEstadoTicket || '').trim().toLowerCase();
   const esAbierto = est === 'abierto' || est === 'abierto (sin oportunidad)' || est === 'transferido' || est === '' || est === '-';
 
   if (esAbierto) {
     return '';
   } else {
-    return fechaCierreSeguimientoActual && fechaCierreSeguimientoActual !== '-' 
-      ? formatearFechaHora(fechaCierreSeguimientoActual) 
-      : formatearFechaHora(new Date());
+    const estAnt = String(estadoTicketAnterior || '').trim().toLowerCase();
+    const eraAbierto = estAnt === 'abierto' || estAnt === 'abierto (sin oportunidad)' || estAnt === 'transferido' || estAnt === '' || estAnt === '-';
+    const tieneHora = fechaCierreSeguimientoActual && /\d{1,2}:\d{2}/.test(String(fechaCierreSeguimientoActual));
+
+    if (eraAbierto || !fechaCierreSeguimientoActual || fechaCierreSeguimientoActual === '-' || !tieneHora) {
+      return formatearFechaHora(new Date());
+    }
+    return formatearFechaHora(fechaCierreSeguimientoActual);
   }
 }
 
@@ -550,7 +561,7 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   if (resultado.fechaInicioSeguimientoOP) resultado.fechaInicioSeguimientoOP = normalizarFecha(resultado.fechaInicioSeguimientoOP);
 
   // 1. Regla de Cierre de OP
-  resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre);
+  resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre, casoAnterior?.estado);
 
   // 1b. Regla de Cierre de Seguimiento
   const estadoTicket = resultado.estadoTicketSeguimiento !== undefined 
@@ -559,7 +570,8 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   resultado.estadoTicketSeguimiento = estadoTicket;
   resultado.fechaCierreSeguimiento = aplicarReglaCierreSeguimiento(
     estadoTicket, 
-    resultado.fechaCierreSeguimiento
+    resultado.fechaCierreSeguimiento,
+    casoAnterior?.estadoTicketSeguimiento
   );
 
   // Reglas estrictas de fechas base por etapa de Onboarding
@@ -631,25 +643,18 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
 export function esCasoHcAbierto(caso: any): boolean {
   if (!caso) return false;
   const est = String(caso.estado || '').toLowerCase().trim();
-  const et = String(caso.etapa || '').toLowerCase().trim();
   const estTicket = String(caso.estadoTicketSeguimiento || '').toLowerCase().trim();
   
-  // Los casos fallidos o cancelados cierran su ticket HeroCare
+  // Los casos fallidos o cancelados no aplican
   if (est.includes('fallid') || est.includes('cancel')) return false;
 
-  // Si el ticket de seguimiento está explícitamente Abierto o Abierto (sin oportunidad)
-  if (estTicket.includes('abierto')) return true;
+  // El ticket de seguimiento HeroCare debe estar explícitamente abierto
+  const esTicketAbierto = estTicket.includes('abierto');
   
-  // Debe ser un estado cerrado satisfactorio (por ONB o KAM o satisfactorio)
-  const esCerradoSatisfactorio = est.includes('cerrad') || est.includes('satisfactori');
-  
-  // Debe estar en proceso para pruebas
-  const enPruebas = et.includes('en proceso para prueba') || et.includes('proceso para prueba') || et.includes('en proceso para pruebas');
-  
-  // Debe contar con caso/ticket de seguimiento de HeroCare
-  const tieneSeguimiento = Boolean(caso.casoSeguimiento && caso.casoSeguimiento !== '-' && String(caso.casoSeguimiento).trim() !== '');
-  
-  return esCerradoSatisfactorio && enPruebas && tieneSeguimiento;
+  // La OP/onboarding debe estar ya cerrada
+  const esOpCerrada = est.includes('cerrad') || est.includes('satisfactori');
+
+  return esTicketAbierto && esOpCerrada;
 }
 
 /**

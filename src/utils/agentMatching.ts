@@ -16,7 +16,7 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   {
     nombre: 'Kimberly Silvera',
     rol: 'Supervisor',
-    slugs: ['kimberly', 'silvera', 'kimberly silvera', 'kimberly.silvera'],
+    slugs: ['kimberly silvera', 'kimberly.silvera'],
     correos: [
       'kimberly.silvera_dyn.ext@pedidosya.com',
       'kimberly.silvera@pedidosya.com'
@@ -25,7 +25,7 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   {
     nombre: 'Henry Serrato',
     rol: 'Supervisor',
-    slugs: ['serrato', 'henry serrato', 'henry.serrato'],
+    slugs: ['henry serrato', 'henry.serrato'],
     correos: [
       'henry.serrato_dyn.ext@pedidosya.com',
       'henry.serrato@pedidosya.com'
@@ -34,7 +34,7 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   {
     nombre: 'Joseline Yactayo',
     rol: 'Supervisor',
-    slugs: ['yactayo', 'joseline yactayo', 'joseline.yactayo'],
+    slugs: ['joseline yactayo', 'joseline.yactayo'],
     correos: [
       'joseline.yactayo_dyn.ext@pedidosya.com',
       'joseline.yactayo@pedidosya.com'
@@ -43,17 +43,18 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   {
     nombre: 'Yadira Flores',
     rol: 'Supervisor',
-    slugs: ['flores', 'yadira flores', 'yadira.flores'],
+    slugs: ['yadira flores', 'yadira.flores', 'yadirayajaida'],
     correos: [
       'yadira.flores_dyn.ext@pedidosya.com',
-      'yadira.flores@pedidosya.com'
+      'yadira.flores@pedidosya.com',
+      'yadirayajaida@gmail.com'
     ]
   },
   // AGENTES (3)
   {
     nombre: 'Joel Tocas',
     rol: 'Agente',
-    slugs: ['tocas', 'joel tocas', 'joel.tocas'],
+    slugs: ['joel tocas', 'joel.tocas'],
     correos: [
       'joel.tocas_dyn.ext@pedidosya.com',
       'joel.tocas@pedidosya.com'
@@ -62,7 +63,7 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   {
     nombre: 'Prisila Leon',
     rol: 'Agente',
-    slugs: ['leon', 'prisila leon', 'prisila.leon'],
+    slugs: ['prisila leon', 'prisila.leon'],
     correos: [
       'prisila.leon_dyn.ext@pedidosya.com',
       'prisila.leon@pedidosya.com'
@@ -71,7 +72,7 @@ export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
   {
     nombre: 'Jean Palomino',
     rol: 'Agente',
-    slugs: ['palomino', 'jppd', 'jean palomino', 'jean.palomino'],
+    slugs: ['jean palomino', 'jean.palomino', 'jppd'],
     correos: [
       'jean.palomino_dyn.ext@pedidosya.com',
       'jean.palomino@pedidosya.com'

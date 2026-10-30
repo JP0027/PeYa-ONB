@@ -484,33 +484,34 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
     'sin configuraciones a nivel integración', 'sin configuraciones a nivel integracion'
   ];
   const estadosConocidos = [
-    'en progreso', 'en progreso (sin oportunidad)', 'abierto',
-    'cerrado por onb (satisfactorio)', 'cerrado por onb (fallido)',
-    'cerrado por kam (satisfactorio)', 'cerrado por kam (fallido)',
-    'cerrado por api vendor', 'fallido', 'cerrado'
+    'en progreso',
+    'cerrado por oportunidad satisfactoria', 'cerrado por onb (satisfactorio)', 'cerrado por onb (fallido)',
+    'cerrado por kam (satisfactorio)', 'cerrado por kam (fallido)', 'cerrado por api vendor', 'fallido'
   ];
 
   let bestColEstado = colEstado >= 0 ? colEstado : 14;
   let bestColEtapa = colEtapa >= 0 ? colEtapa : 15;
 
-  let maxEstadoHits = 0;
-  let maxEtapaHits = 0;
+  if (colEstado < 0 || colEtapa < 0) {
+    let maxEstadoHits = 0;
+    let maxEtapaHits = 0;
 
-  for (let c = 12; c < Math.min(headers.length, 26); c++) {
-    let estadoHits = 0;
-    let etapaHits = 0;
-    for (let r = 0; r < Math.min(30, rows.length); r++) {
-      const v = String((rows[r] && rows[r][c]) || '').toLowerCase().trim();
-      if (estadosConocidos.some(est => v === est || v.includes(est))) estadoHits++;
-      if (etapasConocidas.some(et => v === et || v.includes(et))) etapaHits++;
-    }
-    if (estadoHits > maxEstadoHits) {
-      maxEstadoHits = estadoHits;
-      bestColEstado = c;
-    }
-    if (etapaHits > maxEtapaHits) {
-      maxEtapaHits = etapaHits;
-      bestColEtapa = c;
+    for (let c = 12; c < Math.min(headers.length, 26); c++) {
+      let estadoHits = 0;
+      let etapaHits = 0;
+      for (let r = 0; r < Math.min(30, rows.length); r++) {
+        const v = String((rows[r] && rows[r][c]) || '').toLowerCase().trim();
+        if (estadosConocidos.some(est => v === est || v.includes(est))) estadoHits++;
+        if (etapasConocidas.some(et => v === et || v.includes(et))) etapaHits++;
+      }
+      if (colEstado < 0 && estadoHits > maxEstadoHits) {
+        maxEstadoHits = estadoHits;
+        bestColEstado = c;
+      }
+      if (colEtapa < 0 && etapaHits > maxEtapaHits) {
+        maxEtapaHits = etapaHits;
+        bestColEtapa = c;
+      }
     }
   }
 
@@ -557,7 +558,7 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
 
     const propOp = getVal(colPropOp >= 0 ? colPropOp : 9, '');
     const propTick = getVal(colPropTicket >= 0 ? colPropTicket : 10, '');
-    const agente = propTick || propOp || 'Sin asignación';
+    const agente = propTick || 'Sin asignación';
     const integracion = getVal(colIntegracion >= 0 ? colIntegracion : 5, 'Datalive');
     const sponsorship = getVal(colSponsorship >= 0 ? colSponsorship : 6, '') || 'NO';
 

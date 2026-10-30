@@ -790,7 +790,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const esCasoActivo = (c: any): boolean => {
     if (!c) return false;
     const est = String(c.estado || '').toLowerCase().trim();
-    if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel')) return false;
+    if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel') || est.includes('resuelto')) return false;
     return true;
   };
 
