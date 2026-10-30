@@ -438,14 +438,14 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
   const colTieneInicio = findCol(h => (h.includes('inicio') && h.includes('seguimiento') && h.includes('?')) || h.includes('¿tiene') || h.includes('tiene caso'));
   const colComentarios = findCol(h => h.includes('comentario'));
 
-  const colEstadoTicket = findCol(h => (h.includes('estado') && h.includes('ticket')) || h.includes('estado del ticket'));
-  const colEstado = findCol(h => h === 'estado del caso' || h === 'estado caso' || (h.includes('estado') && h.includes('caso') && !h.includes('ticket')));
+  const colEstadoTicket = findCol(h => h === 'estado del ticket de seguimiento' || h === 'estado del ticket' || h === 'estado del caso hc' || (h.includes('estado') && (h.includes('ticket') || h.includes('hc'))));
+  const colEstado = findCol(h => h === 'estado del caso de onboarding' || h === 'estado del caso' || h === 'estado caso' || (h.includes('estado') && h.includes('caso') && !h.includes('ticket') && !h.includes('hc') && !h.includes('seguimiento')));
   const colEtapa = findCol(h => h === 'etapa del onboarding' || h === 'etapa onboarding' || (h.includes('etapa') && !h.includes('inicio')));
 
-  const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
-  const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op') || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
-  const colFechaCierre = findCol(h => h.includes('cierre de op') || (h.includes('cierre') && h.includes('op')));
-  const colFechaCierreSeguimiento = findCol(h => h.includes('cierre de seguimiento') || (h.includes('cierre') && h.includes('seguimiento') && !h.includes('op')));
+  const colFechaCreacion = findCol(h => h === 'fecha de creación de la op' || h === 'fecha de creacion de la op' || (h.includes('creación') || h.includes('creacion')));
+  const colSlaInicio = findCol(h => h === 'fecha de inicio de seguimiento de op' || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
+  const colFechaCierre = findCol(h => h === 'fecha de cierre de op' || h === 'fecha de cierre op' || (h.includes('cierre') && h.includes('op')));
+  const colFechaCierreSeguimiento = findCol(h => h === 'fecha de cierre de seguimiento' || (h.includes('cierre') && h.includes('seguimiento') && !h.includes('op')));
 
   const colInicioPos = findCol(h => (h.includes('inicio') && h.includes('pos')) || h.includes('datos faltantes pos'));
   const colPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
@@ -531,7 +531,10 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
 
     let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'En progreso');
     let etapa = getVal(bestColEtapa >= 0 ? bestColEtapa : 15, 'Validación del Onboarding');
-    const estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
+    let estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
+    if (/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(estadoTicketSeguimiento) || estadoTicketSeguimiento.includes('GMT') || !estadoTicketSeguimiento) {
+      estadoTicketSeguimiento = 'Abierto';
+    }
 
     // Sanear si vino con fecha
     if (estado.includes('GMT') || estado.includes('00:00:00') || !estado) {
