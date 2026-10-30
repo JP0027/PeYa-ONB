@@ -423,43 +423,50 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
   const headers = (lines[headerRowIdx] || []).map(h => String(h || '').trim());
   const findCol = (predicate: (h: string) => boolean) => headers.findIndex(h => predicate(h.toLowerCase()));
 
-  const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op');
+  const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op' || h === 'caso op');
   const colVendorId = findCol(h => h === 'id' || h.includes('vendor'));
   const colTienda = findCol(h => h.includes('tienda'));
   const colPais = findCol(h => h.includes('país') || h.includes('pais'));
-  const colKam = findCol(h => h === 'kam' || (h.includes('kam') && !h.includes('push')));
+  const colKam = findCol(h => (h === 'kam' || h.includes('kam')) && !h.includes('push') && !h.includes('propietario'));
   const colIntegracion = findCol(h => h.includes('integrac'));
   const colSponsorship = findCol(h => h.includes('sponsorship') || h.includes('descuentos'));
   const colOportunidad = findCol(h => h.includes('oportunidad') && !h.includes('propietario'));
   const colAsset = findCol(h => h.includes('asset'));
   const colPropOp = findCol(h => h.includes('propietario') && h.includes('oportunidad'));
   const colPropTicket = findCol(h => h.includes('herocare') || (h.includes('propietario') && h.includes('ticket')));
-  const colSeguimiento = findCol(h => (h.includes('seguimiento') && h.includes('caso')) || h === 'n° caso seguimiento');
-  const colTieneInicio = findCol(h => (h.includes('inicio') && h.includes('seguimiento')) || h.includes('¿tiene') || h.includes('tiene caso'));
+  const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')) || h === 'n° caso seguimiento');
+  const colTieneInicio = findCol(h => (h.includes('inicio') && h.includes('seguimiento') && h.includes('?')) || h.includes('¿tiene') || h.includes('tiene caso'));
   const colComentarios = findCol(h => h.includes('comentario'));
-  const colEstado = findCol(h => (h.includes('estado') && h.includes('caso')) || (h.includes('estado') && !h.includes('onboarding') && !h.includes('ticket')));
-  const colEtapa = findCol(h => (h.includes('etapa') && h.includes('onboarding')) || h.includes('etapa del onboarding') || (h.includes('etapa') && !h.includes('inicio')));
-  const colEstadoTicket = findCol(h => (h.includes('estado') && h.includes('ticket')) || (h.includes('estado del ticket') && h.includes('seguimiento')));
+
+  const colEstadoTicket = findCol(h => (h.includes('estado') && h.includes('ticket')) || h.includes('estado del ticket'));
+  const colEstado = findCol(h => h === 'estado del caso' || h === 'estado caso' || (h.includes('estado') && h.includes('caso') && !h.includes('ticket')));
+  const colEtapa = findCol(h => h === 'etapa del onboarding' || h === 'etapa onboarding' || (h.includes('etapa') && !h.includes('inicio')));
+
   const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
-  const colSlaInicio = findCol(h => (h.includes('inicio de seguimiento') && h.includes('op')) || h.includes('sla'));
-  const colFechaCierre = findCol(h => h.includes('cierre') && h.includes('op'));
-  const colFechaCierreSeguimiento = findCol(h => h.includes('cierre') && h.includes('seguimiento'));
-  const colInicioPos = findCol(h => (h.includes('inicio') && h.includes('pos')) || h.includes('datos faltantes'));
-  const colPushPos = findCol(h => (h.includes('push') && h.includes('pos')));
-  const colRespPos = findCol(h => (h.includes('respuesta') && h.includes('pos')));
-  const colCheckPos = findCol(h => (h.includes('push kam') && h.includes('pos')));
-  const colInicioCat = findCol(h => (h.includes('inicio') && h.includes('cat')));
-  const colPushCat = findCol(h => (h.includes('push') && h.includes('cat')));
-  const colRespCat = findCol(h => (h.includes('respuesta') && h.includes('cat')));
-  const colCheckCat = findCol(h => (h.includes('push kam') && h.includes('cat')));
-  const colTiempoOp = findCol(h => (h.includes('tiempo transcurrido') && h.includes('op')));
+  const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op') || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
+  const colFechaCierre = findCol(h => h.includes('cierre de op') || (h.includes('cierre') && h.includes('op')));
+  const colFechaCierreSeguimiento = findCol(h => h.includes('cierre de seguimiento') || (h.includes('cierre') && h.includes('seguimiento') && !h.includes('op')));
+
+  const colInicioPos = findCol(h => (h.includes('inicio') && h.includes('pos')) || h.includes('datos faltantes pos'));
+  const colPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
+  const colRespPos = findCol(h => h.includes('respuesta') && h.includes('pos') && !h.includes('fecha'));
+  const colCheckPos = findCol(h => h.includes('push kam') && h.includes('pos'));
+
+  const colInicioCat = findCol(h => (h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo'))) || h.includes('datos faltantes catálogo'));
+  const colPushCat = findCol(h => h.includes('push') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('push kam'));
+  const colRespCat = findCol(h => h.includes('respuesta') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
+  const colCheckCat = findCol(h => h.includes('push kam') && (h.includes('catálogo') || h.includes('catalogo')));
+
+  const colTiempoOp = findCol(h => (h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')) && !h.includes('pos') && !h.includes('cat')));
   const colTiempoPos = findCol(h => (h.includes('tiempo transcurrido') && h.includes('pos')));
-  const colTiempoCat = findCol(h => (h.includes('tiempo transcurrido') && h.includes('cat')));
+  const colTiempoCat = findCol(h => (h.includes('tiempo transcurrido') && (h.includes('catálogo') || h.includes('catalogo'))));
+
   const colRangoSla = findCol(h => h.includes('rango sla') && !h.includes('pos') && !h.includes('cat'));
   const colRangoSlaPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
   const colRangoSlaCat = findCol(h => h.includes('rango sla') && h.includes('cat'));
+
   const colFreezePos = findCol(h => (h.includes('fecha de respuesta') && h.includes('pos')));
-  const colFreezeCat = findCol(h => (h.includes('fecha de respuesta') && h.includes('cat')));
+  const colFreezeCat = findCol(h => (h.includes('fecha de respuesta') && (h.includes('catálogo') || h.includes('catalogo'))));
 
   const rows = lines.slice(headerRowIdx + 1);
   const casos: any[] = [];
@@ -515,14 +522,15 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
       return fallback;
     };
 
-    const casoOp = getVal(colCasoOp, '');
-    const vendorId = getVal(colVendorId, '');
-    const tienda = getVal(colTienda, '');
+    const casoOp = getVal(colCasoOp >= 0 ? colCasoOp : 0, '');
+    const vendorId = getVal(colVendorId >= 0 ? colVendorId : 1, '');
+    const tienda = getVal(colTienda >= 0 ? colTienda : 2, '');
 
     if (!casoOp && !vendorId && !tienda) return;
 
-    let estado = getVal(bestColEstado, 'En progreso');
-    let etapa = getVal(bestColEtapa, 'Validación del Onboarding');
+    let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'En progreso');
+    let etapa = getVal(bestColEtapa >= 0 ? bestColEtapa : 15, 'Validación del Onboarding');
+    const estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
 
     // Sanear si vino con fecha
     if (estado.includes('GMT') || estado.includes('00:00:00') || !estado) {
@@ -547,11 +555,11 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
     const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel');
     const esActivo = !esCerrado && (estadoLower.includes('progreso') || estadoLower === 'abierto' || estadoLower === 'nuevo');
 
-    const propOp = getVal(colPropOp, '');
-    const propTick = getVal(colPropTicket, '');
+    const propOp = getVal(colPropOp >= 0 ? colPropOp : 9, '');
+    const propTick = getVal(colPropTicket >= 0 ? colPropTicket : 10, '');
     const agente = propTick || propOp || 'Sin asignación';
-    const integracion = getVal(colIntegracion, 'Datalive');
-    const sponsorship = getVal(colSponsorship, '') || 'NO';
+    const integracion = getVal(colIntegracion >= 0 ? colIntegracion : 5, 'Datalive');
+    const sponsorship = getVal(colSponsorship >= 0 ? colSponsorship : 6, '') || 'NO';
 
     casos.push({
       id: casoOp || vendorId || `CASO-${idx + 1}`,
@@ -559,44 +567,44 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
       vendorId,
       vendor_id: vendorId,
       tienda,
-      pais: getVal(colPais, 'Argentina'),
-      kam: getVal(colKam, ''),
+      pais: getVal(colPais >= 0 ? colPais : 3, 'Argentina'),
+      kam: getVal(colKam >= 0 ? colKam : 4, ''),
       integracion,
       sponsorship,
       descuentosBajoEstructuraSponsorship: sponsorship,
-      oportunidad: getVal(colOportunidad, ''),
-      asset: getVal(colAsset, ''),
-      casoSeguimiento: getVal(colSeguimiento, ''),
+      oportunidad: getVal(colOportunidad >= 0 ? colOportunidad : 7, ''),
+      asset: getVal(colAsset >= 0 ? colAsset : 8, ''),
+      casoSeguimiento: getVal(colSeguimiento >= 0 ? colSeguimiento : 11, ''),
       propietarioOportunidad: propOp,
       propietarioTicket: propTick,
       agente,
-      tieneCasoInicio: getVal(colTieneInicio, 'Si'),
-      comentarios: getVal(colComentarios, ''),
-      fechaCreacion: getVal(colFechaCreacion) ? formatearFechaHora(getVal(colFechaCreacion)) : '',
-      fechaInicioSeguimientoOP: getVal(colSlaInicio) ? formatearFechaHora(getVal(colSlaInicio)) : '',
-      fechaCierre: getVal(colFechaCierre) ? formatearFechaHora(getVal(colFechaCierre)) : '',
-      fechaInicioPos: getVal(colInicioPos) && getVal(colInicioPos) !== 'S/V' ? formatearFechaHora(getVal(colInicioPos)) : getVal(colInicioPos, ''),
-      fechaPushPos: getVal(colPushPos) && getVal(colPushPos) !== 'S/V' ? formatearFechaHora(getVal(colPushPos)) : getVal(colPushPos, ''),
-      respuestaPos: getVal(colRespPos, ''),
-      pushKamPos: getVal(colCheckPos, '').toLowerCase() === 'true',
-      fechaInicioCat: getVal(colInicioCat) && getVal(colInicioCat) !== 'S/V' ? formatearFechaHora(getVal(colInicioCat)) : getVal(colInicioCat, ''),
-      fechaPushCat: getVal(colPushCat) && getVal(colPushCat) !== 'S/V' ? formatearFechaHora(getVal(colPushCat)) : getVal(colPushCat, ''),
-      respuestaCat: getVal(colRespCat, ''),
-      pushKamCat: getVal(colCheckCat, '').toLowerCase() === 'true',
-      tiempoTranscurridoOp: getVal(colTiempoOp, ''),
-      tiempoTranscurridoPos: getVal(colTiempoPos, ''),
-      tiempoTranscurridoCat: getVal(colTiempoCat, ''),
-      rangoSla: getVal(colRangoSla, ''),
-      rangoSlaOp: getVal(colRangoSla, ''),
-      rangoSlaPos: getVal(colRangoSlaPos, ''),
-      rangoSlaCat: getVal(colRangoSlaCat, ''),
-      freezePos: getVal(colFreezePos, ''),
-      freezeCat: getVal(colFreezeCat, ''),
+      tieneCasoInicio: getVal(colTieneInicio >= 0 ? colTieneInicio : 12, 'Si'),
+      comentarios: getVal(colComentarios >= 0 ? colComentarios : 13, ''),
+      fechaCreacion: getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17) ? formatearFechaHora(getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17)) : '',
+      fechaInicioSeguimientoOP: getVal(colSlaInicio >= 0 ? colSlaInicio : 18) ? formatearFechaHora(getVal(colSlaInicio >= 0 ? colSlaInicio : 18)) : '',
+      fechaCierre: getVal(colFechaCierre >= 0 ? colFechaCierre : 19) ? formatearFechaHora(getVal(colFechaCierre >= 0 ? colFechaCierre : 19)) : '',
+      fechaCierreSeguimiento: getVal(colFechaCierreSeguimiento >= 0 ? colFechaCierreSeguimiento : 20) ? formatearFechaHora(getVal(colFechaCierreSeguimiento >= 0 ? colFechaCierreSeguimiento : 20)) : '',
+      fechaInicioPos: getVal(colInicioPos >= 0 ? colInicioPos : 21) && getVal(colInicioPos >= 0 ? colInicioPos : 21) !== 'S/V' ? formatearFechaHora(getVal(colInicioPos >= 0 ? colInicioPos : 21)) : getVal(colInicioPos >= 0 ? colInicioPos : 21, ''),
+      fechaPushPos: getVal(colPushPos >= 0 ? colPushPos : 22) && getVal(colPushPos >= 0 ? colPushPos : 22) !== 'S/V' ? formatearFechaHora(getVal(colPushPos >= 0 ? colPushPos : 22)) : getVal(colPushPos >= 0 ? colPushPos : 22, ''),
+      respuestaPos: getVal(colRespPos >= 0 ? colRespPos : 23, ''),
+      pushKamPos: getVal(colCheckPos >= 0 ? colCheckPos : 24, '').toLowerCase() === 'true',
+      fechaInicioCat: getVal(colInicioCat >= 0 ? colInicioCat : 25) && getVal(colInicioCat >= 0 ? colInicioCat : 25) !== 'S/V' ? formatearFechaHora(getVal(colInicioCat >= 0 ? colInicioCat : 25)) : getVal(colInicioCat >= 0 ? colInicioCat : 25, ''),
+      fechaPushCat: getVal(colPushCat >= 0 ? colPushCat : 26) && getVal(colPushCat >= 0 ? colPushCat : 26) !== 'S/V' ? formatearFechaHora(getVal(colPushCat >= 0 ? colPushCat : 26)) : getVal(colPushCat >= 0 ? colPushCat : 26, ''),
+      respuestaCat: getVal(colRespCat >= 0 ? colRespCat : 27, ''),
+      pushKamCat: getVal(colCheckCat >= 0 ? colCheckCat : 28, '').toLowerCase() === 'true',
+      tiempoTranscurridoOp: getVal(colTiempoOp >= 0 ? colTiempoOp : 32, ''),
+      tiempoTranscurridoPos: getVal(colTiempoPos >= 0 ? colTiempoPos : 33, ''),
+      tiempoTranscurridoCat: getVal(colTiempoCat >= 0 ? colTiempoCat : 34, ''),
+      rangoSla: getVal(colRangoSla >= 0 ? colRangoSla : 36, ''),
+      rangoSlaOp: getVal(colRangoSla >= 0 ? colRangoSla : 36, ''),
+      rangoSlaPos: getVal(colRangoSlaPos >= 0 ? colRangoSlaPos : 37, ''),
+      rangoSlaCat: getVal(colRangoSlaCat >= 0 ? colRangoSlaCat : 38, ''),
+      freezePos: getVal(colFreezePos >= 0 ? colFreezePos : 41, ''),
+      freezeCat: getVal(colFreezeCat >= 0 ? colFreezeCat : 42, ''),
       estado,
       etapa,
-      estadoTicketSeguimiento: getVal(colEstadoTicket, 'Abierto'),
-      fechaCierreSeguimiento: getVal(colFechaCierreSeguimiento) ? formatearFechaHora(getVal(colFechaCierreSeguimiento)) : '',
-      sla_inicio: getVal(colSlaInicio) ? formatearFechaHora(getVal(colSlaInicio)) : (getVal(colFechaCreacion) ? formatearFechaHora(getVal(colFechaCreacion)) : formatearFechaHora(new Date())),
+      estadoTicketSeguimiento,
+      sla_inicio: getVal(colSlaInicio >= 0 ? colSlaInicio : 18) ? formatearFechaHora(getVal(colSlaInicio >= 0 ? colSlaInicio : 18)) : (getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17) ? formatearFechaHora(getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17)) : formatearFechaHora(new Date())),
       esActivo,
       origen,
       filaNumero: idx + 3

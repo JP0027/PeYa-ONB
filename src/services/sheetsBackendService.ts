@@ -370,44 +370,48 @@ export class SheetsService {
       return headers.findIndex(h => predicate(h.toLowerCase()));
     };
 
-    const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op');
+    const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op' || h === 'caso op');
     const colVendorId = findCol(h => h === 'id' || h.includes('vendor'));
     const colTienda = findCol(h => h.includes('tienda'));
     const colPais = findCol(h => h.includes('país') || h.includes('pais'));
-    const colKam = findCol(h => h.includes('kam') && !h.includes('push'));
+    const colKam = findCol(h => (h === 'kam' || h.includes('kam')) && !h.includes('push') && !h.includes('propietario'));
     const colIntegracion = findCol(h => h.includes('integrac'));
+    const colSponsorship = findCol(h => h.includes('sponsorship') || h.includes('descuentos'));
     const colOportunidad = findCol(h => h.includes('oportunidad') && !h.includes('propietario'));
     const colAsset = findCol(h => h.includes('asset'));
     const colPropOp = findCol(h => h.includes('propietario') && h.includes('oportunidad'));
     const colPropTicket = findCol(h => h.includes('herocare') || (h.includes('propietario') && h.includes('ticket')));
-    const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')));
-    const colTieneInicio = findCol(h => h.includes('onboarding') && h.includes('inicio') && h.includes('?'));
+    const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')) || h === 'n° caso seguimiento');
+    const colTieneInicio = findCol(h => (h.includes('inicio') && h.includes('seguimiento') && h.includes('?')) || h.includes('¿tiene') || h.includes('tiene caso'));
     const colComentarios = findCol(h => h.includes('comentario'));
-    const colEstado = findCol(h => (h.includes('estado') && !h.includes('onboarding') && !h.includes('ticket')) || h === 'estado del caso' || h === 'estado caso');
-    const colEtapa = findCol(h => h.includes('etapa') || (h.includes('estado') && h.includes('onboarding')));
-    const colEstadoTicket = findCol(h => h.includes('estado del ticket') || (h.includes('estado') && h.includes('ticket')));
+
+    // Estados y Etapa
+    const colEstadoTicket = findCol(h => (h.includes('estado') && h.includes('ticket')) || h.includes('estado del ticket'));
+    const colEstado = findCol(h => h === 'estado del caso' || h === 'estado caso' || (h.includes('estado') && h.includes('caso') && !h.includes('ticket')));
+    const colEtapa = findCol(h => h === 'etapa del onboarding' || h === 'etapa onboarding' || (h.includes('etapa') && !h.includes('inicio')));
+
     const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
-    const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op'));
-    const colFechaCierre = findCol(h => h.includes('cierre de op') || h.includes('cierre op'));
-    const colFechaCierreSeguimiento = findCol(h => h.includes('cierre de seguimiento') || (h.includes('cierre') && h.includes('seguimiento')));
+    const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op') || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
+    const colFechaCierre = findCol(h => h.includes('cierre de op') || (h.includes('cierre') && h.includes('op')));
+    const colFechaCierreSeguimiento = findCol(h => h.includes('cierre de seguimiento') || (h.includes('cierre') && h.includes('seguimiento') && !h.includes('op')));
 
     // POS API
-    const colFechaInicioPos = findCol(h => h.includes('inicio') && h.includes('pos'));
+    const colFechaInicioPos = findCol(h => (h.includes('inicio') && h.includes('pos')) || h.includes('datos faltantes pos'));
     const colFechaPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
-    const colRespPos = findCol(h => h.includes('respuesta') && h.includes('roadmap') && h.includes('pos') && !h.includes('fecha'));
+    const colRespPos = findCol(h => h.includes('respuesta') && h.includes('pos') && !h.includes('fecha'));
     const colPushKamPos = findCol(h => h.includes('push kam') && h.includes('pos'));
 
     // Catálogo
-    const colFechaInicioCat = findCol(h => h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo')));
+    const colFechaInicioCat = findCol(h => (h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo'))) || h.includes('datos faltantes catálogo'));
     const colFechaPushCat = findCol(h => h.includes('push') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('push kam'));
-    const colRespCat = findCol(h => h.includes('respuesta') && h.includes('roadmap') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
+    const colRespCat = findCol(h => h.includes('respuesta') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
     const colPushKamCat = findCol(h => h.includes('push kam') && (h.includes('catálogo') || h.includes('catalogo')));
 
     // Tiempos y Rangos
-    const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')));
+    const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')) && !h.includes('pos') && !h.includes('cat'));
     const colTiempoPos = findCol(h => h.includes('tiempo transcurrido') && h.includes('pos'));
     const colTiempoCat = findCol(h => h.includes('tiempo transcurrido') && (h.includes('catálogo') || h.includes('catalogo')));
-    const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) || h === 'rango sla op');
+    const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) && !h.includes('pos') && !h.includes('cat'));
     const colRangoPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
     const colRangoCat = findCol(h => h.includes('rango sla') && (h.includes('catálogo') || h.includes('catalogo')));
 
@@ -429,16 +433,16 @@ export class SheetsService {
       'en proceso para pruebas (baja de integración)', 'en proceso para pruebas (baja de integracion)',
       'pedido de prueba realizado (baja de integración)', 'pedido de prueba realizado (baja de integracion)',
       'solicitud de creación de oportunidad admin (sin go)', 'solicitud de creacion de oportunidad admin (sin go)',
-      'sin configuraciones a nivel integración', 'sin configuraciones a nivel integracion'
+      'sin configuraciones a level integración', 'sin configuraciones a nivel integracion'
     ];
     const estadosConocidos = [
       'en progreso', 'nuevo', 'ticket hc', 'abierto',
-      'cerrado por oportunidad satisfactoria', 
-      'cerrado por kam', 'cerrado por api vendor', 'fallido', 'cerrado'
+      'cerrado por oportunidad satisfactoria', 'cerrado por onb (satisfactorio)', 'cerrado por onb (fallido)',
+      'cerrado por kam (satisfactorio)', 'cerrado por kam (fallido)', 'cerrado por api vendor', 'fallido', 'cerrado'
     ];
 
-    let bestColEstado = colEstado >= 0 ? colEstado : 14;
-    let bestColEtapa = colEtapa >= 0 ? colEtapa : 15;
+    let bestColEstado = colEstado >= 0 ? colEstado : 15;
+    let bestColEtapa = colEtapa >= 0 ? colEtapa : 16;
 
     let maxEstadoHits = 0;
     let maxEtapaHits = 0;
@@ -486,7 +490,7 @@ export class SheetsService {
       const casoSeguimiento = getVal(colSeguimiento >= 0 ? colSeguimiento : 11);
       const tieneCasoInicio = getVal(colTieneInicio >= 0 ? colTieneInicio : 12, 'Si');
       const comentarios = getVal(colComentarios >= 0 ? colComentarios : 13);
-      let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'Cerrado por oportunidad satisfactoria');
+      let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'En progreso');
       let etapa = getVal(bestColEtapa >= 0 ? bestColEtapa : 15, 'Validación del Onboarding');
       const estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
       const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17);
@@ -507,7 +511,7 @@ export class SheetsService {
       }
 
       if (estado.includes('GMT') || !estado) {
-        estado = 'Cerrado por oportunidad satisfactoria';
+        estado = 'En progreso';
       }
       if (etapa.includes('GMT') || !etapa) {
         etapa = 'Validación del Onboarding';
@@ -1027,7 +1031,7 @@ export class SheetsService {
       c.casoSeguimiento || '',                                             // L: N° Caso Seguimiento
       c.tieneCasoInicio || 'Si',                                           // M: ¿Tiene caso de onboarding en el inicio de seguimiento?
       c.comentarios || '',                                                 // N: Comentarios del Onboarding
-      c.estado || 'En progreso',                                           // O: Estado del caso
+      c.estado || 'En progreso',                                           // O: Estado del caso de onboarding
       c.etapa || 'Validación del Onboarding',                              // P: Etapa del onboarding
       estadoTicketVal,                                                     // Q: Estado del ticket de seguimiento
       fechaCreacionStr,                                                    // R: Fecha de creación de la OP
@@ -1040,7 +1044,7 @@ export class SheetsService {
       pushKamPosStr,                                                       // Y: Push KAM - Datos Faltantes POS API
       fechaInicioCatStr,                                                   // Z: Fecha de inicio de seguimiento - Catálogo
       fechaPushCatStr,                                                     // AA: Fecha de push de seguimiento - Catálogo
-      c.respuestaCat || '',                                                // AB: ¿Existe respuesta en el roadmap de Catálogo?
+      c.respuestaCat || '',                                                // AB: ¿Existe respuesta en el roadmap Catálogo?
       pushKamCatStr                                                        // AC: Push KAM - Catálogo
     ];
   }
@@ -1255,7 +1259,7 @@ export class SheetsService {
 
           if (valFreezePos || valFreezeCat) {
             dataUpdates.push({
-              range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
+              range: `'Onboarding_New'!AP${filaTarget}:AQ${filaTarget}`,
               values: [[valFreezePos, valFreezeCat]]
             });
           }
@@ -1337,7 +1341,7 @@ export class SheetsService {
 
         if (valFreezePos || valFreezeCat) {
           dataUpdatesNuevo.push({
-            range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
+            range: `'Onboarding_New'!AP${nuevaFila}:AQ${nuevaFila}`,
             values: [[valFreezePos, valFreezeCat]]
           });
         }
@@ -1406,19 +1410,19 @@ export class SheetsService {
 
       if (tipo === 'pos') {
         caso.fechaPushPos = ahoraStr;
-        colLetra = 'U';
+        colLetra = 'W';
         nuevoValor = ahoraStr;
       } else if (tipo === 'cat') {
         caso.fechaPushCat = ahoraStr;
-        colLetra = 'Y';
+        colLetra = 'AA';
         nuevoValor = ahoraStr;
       } else if (tipo === 'kam_pos') {
         caso.pushKamPos = 'TRUE';
-        colLetra = 'W';
+        colLetra = 'Y';
         nuevoValor = 'TRUE';
       } else if (tipo === 'kam_cat') {
         caso.pushKamCat = 'TRUE';
-        colLetra = 'AA';
+        colLetra = 'AC';
         nuevoValor = 'TRUE';
       }
 
