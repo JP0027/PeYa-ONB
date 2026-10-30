@@ -77,7 +77,10 @@ export default function AdminCatalogoView({
 
   const listaActual = useMemo(() => {
     if (categoriaActiva === 'onboarding') return casos;
-    return catalogos[categoriaActiva] || [];
+    const items = catalogos[categoriaActiva];
+    if (Array.isArray(items) && items.length > 0) return items;
+    if (categoriaActiva === 'estadosTicketSeguimiento') return CATALOGOS_POR_DEFECTO.estadosTicketSeguimiento || [];
+    return items || [];
   }, [catalogos, categoriaActiva, casos]);
 
   // Filtrar elementos según búsqueda

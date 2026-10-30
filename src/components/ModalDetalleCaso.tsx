@@ -210,6 +210,18 @@ export default function ModalDetalleCaso({
     return Array.from(new Set(lista));
   }, [oportunidades, form.oportunidad]);
 
+  const listaEstadosTicketFinal = useMemo(() => {
+    const base = Array.isArray(estadosTicketSeguimiento) && estadosTicketSeguimiento.length > 0 
+      ? estadosTicketSeguimiento 
+      : LISTA_ESTADOS_TICKET_SEGUIMIENTO;
+    const lista = [...base];
+    const actual = String(form.estadoTicketSeguimiento || '').trim();
+    if (actual && !lista.some(e => e.toLowerCase().trim() === actual.toLowerCase().trim())) {
+      lista.unshift(actual);
+    }
+    return Array.from(new Set(lista));
+  }, [estadosTicketSeguimiento, form.estadoTicketSeguimiento]);
+
   if (!caso) return null;
 
   const manejarCambio = (e: any) => {
@@ -643,7 +655,7 @@ export default function ModalDetalleCaso({
                   onChange={manejarCambio}
                   className="w-full bg-[#121212] border border-purple-700/70 rounded-lg p-2.5 text-purple-300 font-bold min-h-[44px]"
                 >
-                  {(estadosTicketSeguimiento && estadosTicketSeguimiento.length > 0 ? estadosTicketSeguimiento : LISTA_ESTADOS_TICKET_SEGUIMIENTO).map(est => <option key={est} value={est}>{est}</option>)}
+                  {listaEstadosTicketFinal.map(est => <option key={est} value={est}>{est}</option>)}
                 </select>
               </div>
 

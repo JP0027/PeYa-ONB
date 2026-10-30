@@ -1590,5 +1590,14 @@
     "Pedido de prueba realizado  (baja de integración)",
     "Solicitar creación de oportunidad Admin (Sin go)",
     "Sin configuraciones a nivel integración"
+  ],
+  "estadosTicketSeguimiento": [
+    "Abierto",
+    "Abierto (sin oportunidad)",
+    "Resuelto (bloquear respuesta)",
+    "Resuelto (sin bloquear respuesta)",
+    "Esperando por el cliente",
+    "Transferido",
+    "Sin ticket HC"
   ]
 }

@@ -558,9 +558,8 @@ export class SheetsService {
       }
 
       const estadoLower = estado.toLowerCase();
-      const etapaLower = etapa.toLowerCase();
-      const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel') || etapaLower.includes('pedido de prueba realizado');
-      const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc') || estadoLower === 'abierto' || estadoLower.includes('sin oportunidad'));
+      const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel');
+      const esActivo = !esCerrado;
 
       // En Onboarding_New: Fila 1 = categoría, Fila 2 = encabezados. Los casos inician en la fila 3
       const filaNum = idx + 3;
@@ -1611,6 +1610,18 @@ export class SheetsService {
             // Col Q (16): Estado del caso HC / Estado del ticket de seguimiento
             const estHC = row[16] ? String(row[16]).trim() : '';
             if (estHC && !estadosTicketSeguimiento.some(x => x.toLowerCase() === estHC.toLowerCase())) estadosTicketSeguimiento.push(estHC);
+          }
+
+          if (estadosTicketSeguimiento.length === 0) {
+            estadosTicketSeguimiento.push(
+              "Abierto",
+              "Abierto (sin oportunidad)",
+              "Resuelto (bloquear respuesta)",
+              "Resuelto (sin bloquear respuesta)",
+              "Esperando por el cliente",
+              "Transferido",
+              "Sin ticket HC"
+            );
           }
 
           const resultado: CatalogosSheet = {

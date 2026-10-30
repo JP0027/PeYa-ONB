@@ -98,7 +98,7 @@ export default function TLDashboard({
       });
 
       const estadoLower = String(c.estado || '').toLowerCase().trim();
-      const esActivo = !estadoLower.match(/cerrad|fallid|cancel/) && (estadoLower.includes('progreso') || c.esActivo);
+      const esActivo = !estadoLower.match(/cerrad|fallid|cancel/);
 
       // Evaluación estricta de seguimiento POS API y Catálogo según regla oficial
       // ¿A cuál le falta el push?: Si tiene fecha de inicio y fecha de push y en existe respuesta dice NO y Push KAM no está hecho
@@ -182,7 +182,7 @@ export default function TLDashboard({
         const esSinOp = estLower.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '' || String(c.casoOp).toLowerCase() === 'sin caso op';
         
         if (filtroKpi === 'en_progreso') {
-          if (esSinOp || (!estLower.includes('progreso') && estLower !== 'en progreso')) return false;
+          if (esSinOp) return false;
         } else if (filtroKpi === 'sin_op') {
           if (!esSinOp) return false;
         } else if (filtroKpi === 'fuera_sla') {
