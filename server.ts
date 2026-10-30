@@ -490,6 +490,14 @@ async function startServer() {
       pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
       actualizadoEn: new Date().toISOString()
     },
+    'yadirayajaida@gmail.com': {
+      id: 'yadirayajaida@gmail.com',
+      correo: 'yadirayajaida@gmail.com',
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
     'joel.tocas_dyn.ext@pedidosya.com': {
       id: 'joel.tocas_dyn.ext@pedidosya.com',
       correo: 'joel.tocas_dyn.ext@pedidosya.com',
@@ -523,14 +531,13 @@ async function startServer() {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
           const correosExcluidos = new Set([
-            'yadirayajaida@gmail.com',
             'guillermo.gonzales_dyn.ext@pedidosya.com',
             'jean.changanaqui_dyn.ext@pedidosya.com'
           ]);
           const resultado: Record<string, any> = { ...USUARIOS_INICIALES_LISTA };
           for (const [k, v] of Object.entries(parsed)) {
             const keyLower = k.toLowerCase().trim();
-            if (!correosExcluidos.has(keyLower) && keyLower.endsWith('@pedidosya.com') && !keyLower.includes('gmail.com')) {
+            if (!correosExcluidos.has(keyLower) && (keyLower.endsWith('@pedidosya.com') || keyLower === 'yadirayajaida@gmail.com')) {
               resultado[keyLower] = v;
             }
           }

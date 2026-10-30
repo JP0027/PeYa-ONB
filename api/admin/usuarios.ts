@@ -1,3 +1,8 @@
+import fs from 'fs';
+import path from 'path';
+
+const USERS_FILE_PATH = path.resolve(process.cwd(), 'data_usuarios.json');
+
 const USUARIOS_INICIALES = [
   // LÍDERES / SUPERVISORES / TEAM LEADERS (4)
   {
@@ -59,6 +64,37 @@ const USUARIOS_INICIALES = [
   }
 ];
 
+function cargarUsuarios(): any[] {
+  try {
+    if (fs.existsSync(USERS_FILE_PATH)) {
+      const raw = fs.readFileSync(USERS_FILE_PATH, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Fusionar con iniciales asegurando que no falte ninguno
+        const mapa = new Map<string, any>();
+        USUARIOS_INICIALES.forEach(u => mapa.set(u.correo.toLowerCase().trim(), u));
+        parsed.forEach(u => {
+          if (u && u.correo) {
+            mapa.set(u.correo.toLowerCase().trim(), u);
+          }
+        });
+        return Array.from(mapa.values());
+      }
+    }
+  } catch (e) {
+    console.warn('[UsuariosAPI] Error leyendo data_usuarios.json:', e);
+  }
+  return USUARIOS_INICIALES;
+}
+
+function guardarUsuarios(usuarios: any[]) {
+  try {
+    fs.writeFileSync(USERS_FILE_PATH, JSON.stringify(usuarios, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('[UsuariosAPI] Error guardando data_usuarios.json:', e);
+  }
+}
+
 export default function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -68,10 +104,12 @@ export default function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
+  let usuariosActuales = cargarUsuarios();
+
   if (req.method === 'GET') {
     return res.status(200).json({
       success: true,
-      usuarios: USUARIOS_INICIALES
+      usuarios: usuariosActuales
     });
   }
 
@@ -98,15 +136,46 @@ export default function handler(req: any, res: any) {
       actualizadoEn: new Date().toISOString()
     };
 
+    const mapa = new Map<string, any>();
+    usuariosActuales.forEach(u => mapa.set(u.correo.toLowerCase().trim(), u));
+    mapa.set(correoLimpio, nuevoUsuario);
+
+    const listaFinal = Array.from(mapa.values());
+    guardarUsuarios(listaFinal);
+
     return res.status(200).json({
       success: true,
       usuario: nuevoUsuario,
-      usuarios: [nuevoUsuario, ...USUARIOS_INICIALES.filter(u => u.correo !== correoLimpio)]
+      usuarios: listaFinal
+    });
+  }
+
+  if (req.method === 'DELETE') {
+    let correoEliminar = String(req.query?.correo || req.body?.correo || '').toLowerCase().trim();
+    if (!correoEliminar && req.url) {
+      const parts = req.url.split('/');
+      const last = parts[parts.length - 1];
+      if (last && last.includes('@')) {
+        correoEliminar = decodeURIComponent(last).toLowerCase().trim();
+      }
+    }
+
+    if (!correoEliminar) {
+      return res.status(400).json({ success: false, error: 'Se requiere el correo del usuario a eliminar' });
+    }
+
+    const filtrados = usuariosActuales.filter(u => (u.correo || '').toLowerCase().trim() !== correoEliminar);
+    guardarUsuarios(filtrados);
+
+    return res.status(200).json({
+      success: true,
+      message: `Usuario ${correoEliminar} eliminado correctamente`,
+      usuarios: filtrados
     });
   }
 
   return res.status(200).json({
     success: true,
-    usuarios: USUARIOS_INICIALES
+    usuarios: usuariosActuales
   });
 }

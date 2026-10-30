@@ -55,6 +55,14 @@ export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
     pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
+  {
+    id: 'yadirayajaida@gmail.com',
+    correo: 'yadirayajaida@gmail.com',
+    nombre: 'Yadira Flores',
+    rol: 'Supervisor / TL',
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+    actualizadoEn: '2026-10-21T00:00:00.000Z'
+  },
   // AGENTES DE ONBOARDING (3)
   {
     id: 'joel.tocas_dyn.ext@pedidosya.com',
@@ -87,6 +95,7 @@ export const CORREOS_ONBOARDING_OFICIALES: string[] = [
   'henry.serrato_dyn.ext@pedidosya.com',
   'joseline.yactayo_dyn.ext@pedidosya.com',
   'yadira.flores_dyn.ext@pedidosya.com',
+  'yadirayajaida@gmail.com',
   'joel.tocas_dyn.ext@pedidosya.com',
   'prisila.leon_dyn.ext@pedidosya.com',
   'jean.palomino_dyn.ext@pedidosya.com'
@@ -160,9 +169,8 @@ export function obtenerUsuariosCompletos(): UsuarioSistema[] {
     }
   } catch {}
 
-  // 4. Excluir estrictamente correos personales (ej. @gmail.com) y usuarios legacy no autorizados
+  // 4. Excluir estrictamente correos de usuarios legacy no autorizados
   const correosExcluidos = new Set([
-    'yadirayajaida@gmail.com',
     'guillermo.gonzales_dyn.ext@pedidosya.com',
     'jean.changanaqui_dyn.ext@pedidosya.com'
   ]);
@@ -311,7 +319,6 @@ export function eliminarUsuarioDelSistema(correo: string): UsuarioSistema[] {
  */
 export function obtenerCorreosOnboardingDinamicos(): string[] {
   const correosExcluidos = new Set([
-    'yadirayajaida@gmail.com',
     'guillermo.gonzales_dyn.ext@pedidosya.com',
     'jean.changanaqui_dyn.ext@pedidosya.com'
   ]);
