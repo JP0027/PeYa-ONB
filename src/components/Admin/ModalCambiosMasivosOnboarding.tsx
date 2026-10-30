@@ -73,6 +73,7 @@ export default function ModalCambiosMasivosOnboarding({
   const [camposAEditar, setCamposAEditar] = useState<{
     estado: boolean;
     etapa: boolean;
+    estadoTicketSeguimiento: boolean;
     integracion: boolean;
     oportunidad: boolean;
     asset: boolean;
@@ -83,6 +84,7 @@ export default function ModalCambiosMasivosOnboarding({
   }>({
     estado: true,
     etapa: false,
+    estadoTicketSeguimiento: false,
     integracion: false,
     oportunidad: false,
     asset: false,
@@ -95,6 +97,7 @@ export default function ModalCambiosMasivosOnboarding({
   const [valoresEditar, setValoresEditar] = useState<{
     estado: string;
     etapa: string;
+    estadoTicketSeguimiento: string;
     integracion: string;
     oportunidad: string;
     asset: string;
@@ -106,6 +109,7 @@ export default function ModalCambiosMasivosOnboarding({
   }>({
     estado: 'En progreso',
     etapa: 'Sin integración confirmada',
+    estadoTicketSeguimiento: 'Abierto',
     integracion: listaIntegraciones[0] || 'Datalive',
     oportunidad: listaOportunidades[0] || 'Franchise Extension',
     asset: listaAssets[0] || 'Integración',
@@ -131,6 +135,7 @@ export default function ModalCambiosMasivosOnboarding({
     asset: string;
     estado: string;
     etapa: string;
+    estadoTicketSeguimiento: string;
     propietario: string;
     tieneCasoInicio: string;
     comentarios: string;
@@ -141,6 +146,7 @@ export default function ModalCambiosMasivosOnboarding({
     asset: 'Integración',
     estado: 'En progreso',
     etapa: 'Sin integración confirmada',
+    estadoTicketSeguimiento: 'Abierto',
     propietario: nombreUsuarioAutenticado,
     tieneCasoInicio: 'Si',
     comentarios: ''
@@ -282,6 +288,7 @@ export default function ModalCambiosMasivosOnboarding({
         asset: valoresComunesAgregar.asset || '',
         estado: valoresComunesAgregar.estado || 'En progreso',
         etapa: valoresComunesAgregar.etapa || 'Sin integración confirmada',
+        estadoTicketSeguimiento: valoresComunesAgregar.estadoTicketSeguimiento || 'Abierto',
         propietarioOportunidad: valoresComunesAgregar.propietario || '',
         propietarioTicket: valoresComunesAgregar.propietario || '',
         agente: valoresComunesAgregar.propietario || 'Sin asignación',
@@ -325,6 +332,7 @@ export default function ModalCambiosMasivosOnboarding({
         asset: assetRaw,
         estado: estadoRaw,
         etapa: etapaRaw,
+        estadoTicketSeguimiento: valoresComunesAgregar.estadoTicketSeguimiento || 'Abierto',
         propietarioOportunidad: valoresComunesAgregar.propietario || nombreUsuarioAutenticado,
         propietarioTicket: valoresComunesAgregar.propietario || nombreUsuarioAutenticado,
         agente: valoresComunesAgregar.propietario || nombreUsuarioAutenticado,
@@ -362,6 +370,7 @@ export default function ModalCambiosMasivosOnboarding({
 
         if (camposAEditar.estado) cambios.estado = valoresEditar.estado;
         if (camposAEditar.etapa) cambios.etapa = valoresEditar.etapa;
+        if (camposAEditar.estadoTicketSeguimiento) cambios.estadoTicketSeguimiento = valoresEditar.estadoTicketSeguimiento;
         if (camposAEditar.integracion) cambios.integracion = valoresEditar.integracion;
         if (camposAEditar.oportunidad) cambios.oportunidad = valoresEditar.oportunidad;
         if (camposAEditar.asset) cambios.asset = valoresEditar.asset;
@@ -651,6 +660,32 @@ export default function ModalCambiosMasivosOnboarding({
                       className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs disabled:opacity-40"
                     >
                       {listaEtapas.map(et => <option key={et} value={et}>{et}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Campo: Estado Ticket de Seguimiento */}
+                  <div className={`p-3 rounded-xl border transition ${camposAEditar.estadoTicketSeguimiento ? 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-300 dark:border-purple-800/80' : 'bg-white dark:bg-[#0F0F12] border-slate-200 dark:border-[#2C2C32] opacity-80'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800 dark:text-white">
+                        <input
+                          type="checkbox"
+                          checked={camposAEditar.estadoTicketSeguimiento}
+                          onChange={(e) => setCamposAEditar(prev => ({ ...prev, estadoTicketSeguimiento: e.target.checked }))}
+                          className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer"
+                        />
+                        <span>Cambiar Estado Ticket Seguimiento</span>
+                      </label>
+                    </div>
+                    <select
+                      disabled={!camposAEditar.estadoTicketSeguimiento}
+                      value={valoresEditar.estadoTicketSeguimiento}
+                      onChange={(e) => setValoresEditar(prev => ({ ...prev, estadoTicketSeguimiento: e.target.value }))}
+                      className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs disabled:opacity-40"
+                    >
+                      <option value="Abierto">Abierto</option>
+                      <option value="Resuelto (bloquear respuesta)">Resuelto (bloquear respuesta)</option>
+                      <option value="Cerrado">Cerrado</option>
+                      <option value="Pendiente">Pendiente</option>
                     </select>
                   </div>
 
@@ -1027,6 +1062,20 @@ export default function ModalCambiosMasivosOnboarding({
                           className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs"
                         >
                           {listaEtapas.map(et => <option key={et} value={et}>{et}</option>)}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">Estado Ticket Seguimiento:</label>
+                        <select
+                          value={valoresComunesAgregar.estadoTicketSeguimiento}
+                          onChange={(e) => setValoresComunesAgregar(prev => ({ ...prev, estadoTicketSeguimiento: e.target.value }))}
+                          className="w-full bg-white dark:bg-[#1A1A20] border border-slate-300 dark:border-[#3A3A3E] text-slate-900 dark:text-white rounded-lg px-2.5 py-1.5 text-xs"
+                        >
+                          <option value="Abierto">Abierto</option>
+                          <option value="Resuelto (bloquear respuesta)">Resuelto (bloquear respuesta)</option>
+                          <option value="Cerrado">Cerrado</option>
+                          <option value="Pendiente">Pendiente</option>
                         </select>
                       </div>
 

@@ -133,8 +133,9 @@ export function isAgentMatch(
   const emailNormalizado = normalizarCorreo(userEmail || '');
   const nombreNormalizado = normalizarTexto(userDisplayName || userEmail || '');
 
-  // Campos del caso a cotejar
+  // Campos del caso a cotejar (prioriza Propietario de Oportunidad)
   const targets = [
+    caso.propietarioOportunidad,
     caso.propietarioTicket,
     caso.agente
   ].filter(Boolean) as string[];
@@ -202,4 +203,23 @@ export function isHeroCareOwnerMatch(
   if (!prop || prop === '-' || prop === 'Sin asignación' || prop === 'Sin asignar') return false;
   return isAgentMatch({ propietarioTicket: prop, agente: prop }, userEmail, userDisplayName);
 }
+
+/**
+ * Valida de manera estricta si un caso pertenece al usuario actual
+ * como Propietario de la Oportunidad (Columna J: Propietario de la Oportunidad)
+ */
+export function isOpportunityOwnerMatch(
+  caso: { propietarioOportunidad?: string; agente?: string; propietarioTicket?: string; [key: string]: any },
+  userEmail?: string,
+  userDisplayName?: string
+): boolean {
+  if (!caso) return false;
+  const propOp = String(caso.propietarioOportunidad || '').trim();
+  if (!propOp || propOp === '-' || propOp === 'Sin asignación' || propOp === 'Sin asignar') {
+    // Si no tiene propietario de oportunidad pero tiene agente asignado, cotejar como fallback
+    return isAgentMatch(caso, userEmail, userDisplayName);
+  }
+  return isAgentMatch({ propietarioOportunidad: propOp, propietarioTicket: propOp, agente: propOp }, userEmail, userDisplayName);
+}
+
 

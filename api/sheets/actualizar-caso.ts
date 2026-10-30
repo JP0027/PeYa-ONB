@@ -115,6 +115,9 @@ function mapearCasoAColumnasSheet(c: any): any[] {
   const fechaCreacionStr = c.fechaCreacion ? formatearFechaHoraSheet(c.fechaCreacion) : '';
   const slaInicioStr = c.sla_inicio || c.fechaInicioSeguimientoOP ? formatearFechaHoraSheet(c.sla_inicio || c.fechaInicioSeguimientoOP) : (fechaCreacionStr || '');
   const fechaCierreStr = c.fechaCierre && c.fechaCierre !== '-' ? formatearFechaHoraSheet(c.fechaCierre) : (c.fechaCierre || '');
+  const estadoTicketVal = c.estadoTicketSeguimiento || 'Abierto';
+  const fechaCierreSeguimientoStr = c.fechaCierreSeguimiento && c.fechaCierreSeguimiento !== '-' ? formatearFechaHoraSheet(c.fechaCierreSeguimiento) : (c.fechaCierreSeguimiento || '');
+
   const fechaInicioPosStr = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' ? formatearFechaHoraSheet(c.fechaInicioPos) : (c.fechaInicioPos || '');
   const fechaPushPosStr = c.fechaPushPos && c.fechaPushPos !== 'S/V' ? formatearFechaHoraSheet(c.fechaPushPos) : (c.fechaPushPos || '');
   const fechaInicioCatStr = c.fechaInicioCat && c.fechaInicioCat !== 'S/V' ? formatearFechaHoraSheet(c.fechaInicioCat) : (c.fechaInicioCat || '');
@@ -130,33 +133,35 @@ function mapearCasoAColumnasSheet(c: any): any[] {
   const opVal = esOpValido ? opRaw : '';
 
   return [
-    opVal,                                                               // A: N° Caso OP (vacío "" si no tiene OP aún)
-    c.vendorId || c.vendor_id || '',                                     // B: ID
-    c.tienda || '',                                                      // C: Tienda
-    c.pais || '',                                                        // D: País
-    c.kam || '',                                                         // E: Kam
-    c.integracion || '',                                                 // F: Integración
-    sponsorship,                                                         // G: Descuentos bajo estructura Sponsorship
-    c.oportunidad || '',                                                 // H: Oportunidad
-    c.asset || '',                                                       // I: Asset
-    c.propietarioOportunidad || '',                                      // J: Propietario Oportunidad
-    c.propietarioTicket || c.agente || '',                               // K: Propietario de Ticket HeroCare
-    c.casoSeguimiento || '',                                             // L: N° Caso Seguimiento
-    c.tieneCasoInicio || 'Si',                                           // M: ¿Tiene caso de onboarding en el inicio de seguimiento?
-    c.comentarios || '',                                                 // N: Comentarios del Onboarding
-    c.estado || 'En progreso',                                           // O: Estado del caso
-    c.etapa || 'Validación del Onboarding',                              // P: Etapa del onboarding
-    fechaCreacionStr,                                                    // Q: Fecha de creación de la OP
-    slaInicioStr,                                                        // R: Fecha de inicio de seguimiento de OP
-    fechaCierreStr,                                                      // S: Fecha de cierre de OP
-    fechaInicioPosStr,                                                   // T: Fecha de inicio de seguimiento - Datos Faltantes POS API
-    fechaPushPosStr,                                                     // U: Fecha de push de seguimiento - Datos Faltantes POS API
-    c.respuestaPos || '',                                                // V: ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
-    pushKamPosStr,                                                       // W: Push KAM - Datos Faltantes POS API
-    fechaInicioCatStr,                                                   // X: Fecha de inicio de seguimiento - Catálogo
-    fechaPushCatStr,                                                     // Y: Fecha de push de seguimiento - Catálogo
-    c.respuestaCat || '',                                                // Z: ¿Existe respuesta en el roadmap de Catálogo?
-    pushKamCatStr                                                        // AA: Push KAM - Catálogo
+    opVal,                                                               // A (1): N° Caso OP
+    c.vendorId || c.vendor_id || '',                                     // B (2): ID
+    c.tienda || '',                                                      // C (3): Tienda
+    c.pais || '',                                                        // D (4): País
+    c.kam || '',                                                         // E (5): Kam
+    c.integracion || '',                                                 // F (6): Integración
+    sponsorship,                                                         // G (7): Descuentos bajo estructura Sponsorship
+    c.oportunidad || '',                                                 // H (8): Oportunidad
+    c.asset || '',                                                       // I (9): Asset
+    c.propietarioOportunidad || '',                                      // J (10): Propietario Oportunidad
+    c.propietarioTicket || c.agente || '',                               // K (11): Propietario de Ticket HeroCare
+    c.casoSeguimiento || '',                                             // L (12): N° Caso Seguimiento
+    c.tieneCasoInicio || 'Si',                                           // M (13): ¿Tiene caso de onboarding en el inicio de seguimiento?
+    c.comentarios || '',                                                 // N (14): Comentarios del Onboarding
+    c.estado || 'En progreso',                                           // O (15): Estado del caso de onboarding
+    c.etapa || 'Validación del Onboarding',                              // P (16): Etapa del onboarding
+    estadoTicketVal,                                                     // Q (17): Estado del ticket de seguimiento
+    fechaCreacionStr,                                                    // R (18): Fecha de creación de la OP
+    slaInicioStr,                                                        // S (19): Fecha de inicio de seguimiento de OP
+    fechaCierreStr,                                                      // T (20): Fecha de cierre de OP
+    fechaCierreSeguimientoStr,                                           // U (21): Fecha de cierre de seguimiento
+    fechaInicioPosStr,                                                   // V (22): Fecha de inicio de seguimiento - Datos Faltantes POS API
+    fechaPushPosStr,                                                     // W (23): Fecha de push de seguimiento - Datos Faltantes POS API
+    c.respuestaPos || '',                                                // X (24): ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
+    pushKamPosStr,                                                       // Y (25): Push KAM - Datos Faltantes POS API
+    fechaInicioCatStr,                                                   // Z (26): Fecha de inicio de seguimiento - Catálogo
+    fechaPushCatStr,                                                     // AA (27): Fecha de push de seguimiento - Catálogo
+    c.respuestaCat || '',                                                // AB (28): ¿Existe respuesta en el roadmap Catálogo?
+    pushKamCatStr                                                        // AC (29): Push KAM - Catálogo
   ];
 }
 
@@ -256,8 +261,8 @@ export default async function handler(req: any, res: any) {
       }
 
       const filaValores = mapearCasoAColumnasSheet(casoData);
-      const valoresAF = filaValores.slice(0, 6);   // Columnas A:F
-      const valoresHAA = filaValores.slice(7, 27); // Columnas H:AA (Columna G Sponsorship omitida)
+      const valoresAF = filaValores.slice(0, 6);   // Columnas A:F (Índices 0..5)
+      const valoresHAC = filaValores.slice(7, 29); // Columnas H:AC (Índices 7..28 = 22 columnas, Columna G Sponsorship omitida)
       const valFreezePos = casoData.fechaFreezePos || casoData.freezePos || '';
       const valFreezeCat = casoData.fechaFreezeCat || casoData.freezeCat || '';
 
@@ -270,16 +275,18 @@ export default async function handler(req: any, res: any) {
             values: [valoresAF]
           },
           {
-            range: `'Onboarding_New'!H${filaTarget}:AA${filaTarget}`,
-            values: [valoresHAA]
+            range: `'Onboarding_New'!H${filaTarget}:AC${filaTarget}`,
+            values: [valoresHAC]
           }
         ];
 
-        // Sincronizar AN:AO (Freeze)
-        dataUpdates.push({
-          range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
-          values: [[valFreezePos, valFreezeCat]]
-        });
+        // Sincronizar AP:AQ (Freeze POS y Catálogo)
+        if (valFreezePos || valFreezeCat) {
+          dataUpdates.push({
+            range: `'Onboarding_New'!AP${filaTarget}:AQ${filaTarget}`,
+            values: [[valFreezePos, valFreezeCat]]
+          });
+        }
 
         const apiRes = await fetchConReintento(urlBatch, {
           method: 'POST',
@@ -352,14 +359,14 @@ export default async function handler(req: any, res: any) {
             values: [valoresAF]
           },
           {
-            range: `'Onboarding_New'!H${nuevaFila}:AA${nuevaFila}`,
-            values: [valoresHAA]
+            range: `'Onboarding_New'!H${nuevaFila}:AC${nuevaFila}`,
+            values: [valoresHAC]
           }
         ];
 
         if (valFreezePos || valFreezeCat) {
           dataUpdatesNuevo.push({
-            range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
+            range: `'Onboarding_New'!AP${nuevaFila}:AQ${nuevaFila}`,
             values: [[valFreezePos, valFreezeCat]]
           });
         }

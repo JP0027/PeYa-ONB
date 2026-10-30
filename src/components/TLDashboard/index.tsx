@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
-import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto } from '../../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto, esCasoEnProgreso, esCasoActivoGlobal } from '../../utils/onboardingRules';
 import { esEstadoActivoOficial, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 
 const AGENTES_OFICIALES = [
@@ -88,7 +88,7 @@ export default function TLDashboard({
   const casosProcesados = useMemo(() => {
     return casos.map(c => {
       const alertas = analizarAlertasCaso(c);
-      const agenteACargo = c.propietarioTicket || c.propietarioOportunidad || c.agente || 'Sin Asignar';
+      const agenteACargo = c.propietarioOportunidad || c.propietarioTicket || c.agente || 'Sin Asignar';
       
       let normalizedAgent = agenteACargo;
       AGENTES_OFICIALES.forEach(ao => {
@@ -97,8 +97,10 @@ export default function TLDashboard({
         }
       });
 
-      const estadoLower = String(c.estado || '').toLowerCase().trim();
-      const esActivo = !estadoLower.match(/cerrad|fallid|cancel/);
+      const esEnProgreso = esCasoEnProgreso(c);
+      const esSegAbierto = esCasoHcAbierto(c);
+      // Un caso es activo si tiene la OP en progreso O si tiene ticket de seguimiento abierto
+      const esActivo = esEnProgreso || esSegAbierto;
 
       // Evaluación estricta de seguimiento POS API y Catálogo según regla oficial
       // ¿A cuál le falta el push?: Si tiene fecha de inicio y fecha de push y en existe respuesta dice NO y Push KAM no está hecho
@@ -183,7 +185,7 @@ export default function TLDashboard({
         const esSinOp = estLower.includes('sin oportunidad') || etapaLower.includes('sin oportunidad');
         
         if (filtroKpi === 'en_progreso') {
-          if (esSinOp || !c.esActivo) return false;
+          if (!esCasoEnProgreso(c)) return false;
         } else if (filtroKpi === 'sin_op') {
           if (!esSinOp) return false;
         } else if (filtroKpi === 'fuera_sla') {
@@ -212,6 +214,8 @@ export default function TLDashboard({
     let base: any[] = [];
     if (filtroKpi === 'hc_abiertos') {
       base = casosFiltrados.filter(c => esCasoHcAbierto(c));
+    } else if (filtroKpi === 'en_progreso') {
+      base = casosFiltrados.filter(c => esCasoEnProgreso(c));
     } else if (filtroEstado === 'todos' && filtroKpi === 'todos') {
       base = casosFiltrados.filter(c => c.esActivo);
     } else {
@@ -328,20 +332,24 @@ export default function TLDashboard({
   let kamPushTotal = 0;
   let fueraDeSla = 0;
   let proximosVencer = 0;
+  let segAbiertosTotal = 0;
 
   casosProcesados.forEach(c => {
     const estado = String(c.estado || '').toLowerCase().trim();
     const etapa = String(c.etapa || '').toLowerCase().trim();
-    const esSinOp = estado.includes('sin oportunidad') || etapa.includes('sin oportunidad');
+    const esSinOp = estado.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '';
 
-    if (estado.includes('satisfactori')) {
-      closedSat++;
-    } else if (estado.includes('fallid') || estado.includes('cancel')) {
-      closedFail++;
-    } else if (esSinOp) {
-      inProgressSinOp++;
-    } else if (c.esActivo) {
+    // Casos en progreso: casos con la columna Estado del caso = En progreso
+    if (esCasoEnProgreso(c)) {
       inProgressNormal++;
+      if (esSinOp) {
+        inProgressSinOp++;
+      }
+    }
+
+    // Casos con seguimiento abiertos: casos con la columna Estado del ticket de seguimiento = Abierto sin importar el Estado del caso actual
+    if (esCasoHcAbierto(c)) {
+      segAbiertosTotal++;
     }
 
     if (c.esActivo) {
@@ -620,6 +628,16 @@ export default function TLDashboard({
                 <h2 className="text-sm font-bold text-white">
                   {filtroKpi === 'hc_abiertos' 
                     ? 'Casos con Seguimiento Abierto' 
+                    : filtroKpi === 'en_progreso'
+                    ? 'Casos En Progreso'
+                    : filtroKpi === 'sin_op'
+                    ? 'Casos Sin OP'
+                    : filtroKpi === 'fuera_sla'
+                    ? 'Casos Fuera de SLA (≥96h)'
+                    : filtroKpi === 'proximos'
+                    ? 'Casos Próximos a Vencer (72-96h)'
+                    : filtroKpi === 'req_kam_push'
+                    ? 'Casos que Requieren KAM Push'
                     : (filtroKpi === 'todos' && filtroEstado === 'todos' ? 'Casos Activos' : 'Casos Filtrados')} ({casosActivosOrdenados.length})
                 </h2>
                 <span className="text-[11px] text-[#B3B3B3] bg-[#2C2C32]/80 px-2 py-0.5 rounded-full">

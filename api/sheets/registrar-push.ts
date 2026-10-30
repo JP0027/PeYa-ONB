@@ -80,11 +80,11 @@ export default async function handler(req: any, res: any) {
 
     const token = await getToken();
 
-    // 1. Consultar hoja completa A2:AO para detectar la fila y los valores actuales
+    // 1. Consultar hoja completa A2:AQ para detectar la fila y los valores actuales
     let filaTarget = (typeof filaNumero === 'number' && filaNumero >= 2) ? filaNumero : 0;
     let targetRowData: any[] = [];
 
-    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AO?valueRenderOption=FORMATTED_VALUE`;
+    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AQ?valueRenderOption=FORMATTED_VALUE`;
     const resCols = await fetchConReintento(urlCols, {
       headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
     });
@@ -150,17 +150,17 @@ export default async function handler(req: any, res: any) {
         freezePosFinal = '';
       }
 
-      const inicioActual = String(targetRowData[19] || '').trim();
+      const inicioActual = String(targetRowData[21] || '').trim();
       const tieneInicio = inicioActual && inicioActual !== '-' && inicioActual !== 'S/V';
-      const fInicioFinal = tieneInicio ? inicioActual : (fechaInicioPos || targetRowData[17] || targetRowData[16] || fechaHoraPush);
+      const fInicioFinal = tieneInicio ? inicioActual : (fechaInicioPos || targetRowData[18] || targetRowData[17] || fechaHoraPush);
 
       dataUpdates.push({
-        range: `'Onboarding_New'!T${filaTarget}:W${filaTarget}`,
+        range: `'Onboarding_New'!V${filaTarget}:Y${filaTarget}`,
         values: [[fInicioFinal, fechaHoraPush, respPosFinal, pushKamPosStr]]
       });
 
       dataUpdates.push({
-        range: `'Onboarding_New'!AN${filaTarget}`,
+        range: `'Onboarding_New'!AP${filaTarget}`,
         values: [[freezePosFinal]]
       });
 
@@ -186,28 +186,28 @@ export default async function handler(req: any, res: any) {
         freezeCatFinal = '';
       }
 
-      const inicioActualCat = String(targetRowData[23] || '').trim();
+      const inicioActualCat = String(targetRowData[25] || '').trim();
       const tieneInicioCat = inicioActualCat && inicioActualCat !== '-' && inicioActualCat !== 'S/V';
-      const fInicioCatFinal = tieneInicioCat ? inicioActualCat : (fechaInicioCat || targetRowData[17] || targetRowData[16] || fechaHoraPush);
+      const fInicioCatFinal = tieneInicioCat ? inicioActualCat : (fechaInicioCat || targetRowData[18] || targetRowData[17] || fechaHoraPush);
 
       dataUpdates.push({
-        range: `'Onboarding_New'!X${filaTarget}:AA${filaTarget}`,
+        range: `'Onboarding_New'!Z${filaTarget}:AC${filaTarget}`,
         values: [[fInicioCatFinal, fechaHoraPush, respCatFinal, pushKamCatStr]]
       });
 
       dataUpdates.push({
-        range: `'Onboarding_New'!AO${filaTarget}`,
+        range: `'Onboarding_New'!AQ${filaTarget}`,
         values: [[freezeCatFinal]]
       });
 
     } else if (tipo === 'kam_pos') {
       dataUpdates.push({
-        range: `'Onboarding_New'!W${filaTarget}`,
+        range: `'Onboarding_New'!Y${filaTarget}`,
         values: [['TRUE']]
       });
     } else if (tipo === 'kam_cat') {
       dataUpdates.push({
-        range: `'Onboarding_New'!AA${filaTarget}`,
+        range: `'Onboarding_New'!AC${filaTarget}`,
         values: [['TRUE']]
       });
     } else {

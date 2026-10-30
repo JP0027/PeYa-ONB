@@ -81,13 +81,16 @@ export const APPS_SCRIPT_TEMPLATE = `/**
  * 3. doPost(e): Actualización y creación de casos en tiempo real desde PeYa ONB.
  */
 
-// --- CONFIGURACIÓN DE COLUMNAS (Coincide con la hoja Onboarding) ---
-const START_ROW = 6;       // Fila donde inician los datos (fila 5 son los títulos)
-const COL_ENVIO = 6;       // Columna F (6): Fecha de Envío
-const COL_CIERRE = 7;      // Columna G (7): Fecha de Cierre
-const COL_STATUS = 19;     // Columna S (19): Estado del onboarding
-const COL_COMENTARIO = 20; // Columna T (20): Detalle / Comentario del onboarding
-const COL_ESTADO = 21;     // Columna U (21): Estado del caso ("En progreso", "Nuevo", "Fallido", etc.)
+// --- CONFIGURACIÓN DE COLUMNAS (Coincide con la hoja Onboarding_New) ---
+const START_ROW = 3;       // Fila donde inician los datos (fila 1 categorías, fila 2 encabezados)
+const COL_COMENTARIO = 14; // Columna N (14): Comentarios del Onboarding
+const COL_ESTADO = 15;     // Columna O (15): Estado del caso de onboarding
+const COL_STATUS = 16;     // Columna P (16): Etapa del onboarding
+const COL_ESTADO_TICKET = 17; // Columna Q (17): Estado del ticket de seguimiento
+const COL_CREACION = 18;   // Columna R (18): Fecha de creación de la OP
+const COL_ENVIO = 19;      // Columna S (19): Fecha de inicio de seguimiento de OP
+const COL_CIERRE = 20;     // Columna T (20): Fecha de cierre de OP
+const COL_CIERRE_SEG = 21; // Columna U (21): Fecha de cierre de seguimiento
 
 // --- MAPA DE COMENTARIOS AUTOMÁTICOS ---
 const comentariosMap = { 

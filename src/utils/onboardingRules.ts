@@ -637,22 +637,31 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
  * Detecta si un caso corresponde a "Casos HC Abiertos" / "Seguimiento Abierto":
  * Casos donde el ticket de seguimiento HeroCare está Abierto o en seguimiento
  * (ej. "Abierto", "Abierto (sin oportunidad)", "Esperando por el cliente", "Transferido"),
- * independientemente de si la OP ya cerró como satisfactoria o sigue en progreso.
- * Los casos fallidos o cancelados NO aplican.
+/**
+ * Casos en progreso: casos con la columna Estado del caso = En progreso
+ */
+export function esCasoEnProgreso(caso: any): boolean {
+  if (!caso) return false;
+  const est = String(caso.estado || '').toLowerCase().trim();
+  return est === 'en progreso' || est.includes('en progreso');
+}
+
+/**
+ * Casos con seguimiento abiertos: casos con la columna Estado del ticket de seguimiento = Abierto
+ * sin importar el Estado del caso actual (regla estricta oficial)
  */
 export function esCasoHcAbierto(caso: any): boolean {
   if (!caso) return false;
-  const est = String(caso.estado || '').toLowerCase().trim();
   const estTicket = String(caso.estadoTicketSeguimiento || '').toLowerCase().trim();
-  
-  // Los casos fallidos o cancelados no aplican
-  if (est.includes('fallid') || est.includes('cancel')) return false;
+  // Coincide con Abierto (o variantes como 'abierto (sin oportunidad)') y descarta resuelto o sin ticket
+  return estTicket.startsWith('abierto') || (estTicket.includes('abierto') && !estTicket.includes('resuelto'));
+}
 
-  // El ticket de seguimiento HeroCare está abierto si NO está resuelto, NO es "sin ticket", y NO está vacío/guión
-  const esTicketCerrado = estTicket.includes('resuelto') || estTicket.includes('sin ticket') || estTicket === '' || estTicket === '-';
-  const esTicketAbierto = !esTicketCerrado;
-
-  return esTicketAbierto;
+/**
+ * Casos activos globales: aquellos que tienen la OP en progreso O tienen el ticket de seguimiento abierto
+ */
+export function esCasoActivoGlobal(caso: any): boolean {
+  return esCasoEnProgreso(caso) || esCasoHcAbierto(caso);
 }
 
 /**

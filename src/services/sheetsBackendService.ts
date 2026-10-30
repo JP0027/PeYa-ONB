@@ -696,43 +696,46 @@ export class SheetsService {
 
     let idx = -1;
 
-    // 1. Si se proporciona filaNumero, buscar SIEMPRE por posición exacta en memoria
-    if (filaHint && filaHint >= 3) {
-      idx = this.cachedCasosMemoria.findIndex(c => Number(c.filaNumero) === filaHint);
-    }
+    // Solo buscar fila existente si NO es un registro nuevo
+    if (!esNuevo) {
+      // 1. Si se proporciona filaNumero, buscar SIEMPRE por posición exacta en memoria
+      if (filaHint && filaHint >= 3) {
+        idx = this.cachedCasosMemoria.findIndex(c => Number(c.filaNumero) === filaHint);
+      }
 
-    // 2. Si no encontró por filaNumero, buscar por Caso OP real
-    if (idx === -1) {
-      const opBuscado = String((casoActualizado as any).casoOp || '').trim();
-      const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
-      if (esOpValido) {
+      // 2. Si no encontró por filaNumero, buscar por Caso OP real
+      if (idx === -1) {
+        const opBuscado = String((casoActualizado as any).casoOp || '').trim();
+        const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+        if (esOpValido) {
+          for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
+            if (String(this.cachedCasosMemoria[i].casoOp || '').trim() === opBuscado) {
+              idx = i;
+              break;
+            }
+          }
+        }
+      }
+
+      // 3. Coincidencia por ID interno
+      if (idx === -1 && idBusqueda && idBusqueda !== 'Sin caso OP') {
         for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
-          if (String(this.cachedCasosMemoria[i].casoOp || '').trim() === opBuscado) {
+          if (String(this.cachedCasosMemoria[i].id || '').trim() === idBusqueda) {
             idx = i;
             break;
           }
         }
       }
-    }
 
-    // 3. Coincidencia por ID interno
-    if (idx === -1 && idBusqueda && idBusqueda !== 'Sin caso OP') {
-      for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
-        if (String(this.cachedCasosMemoria[i].id || '').trim() === idBusqueda) {
-          idx = i;
-          break;
-        }
-      }
-    }
-
-    // 4. Coincidencia por vendorId (para casos sin OP)
-    if (idx === -1) {
-      const venBuscado = String((casoActualizado as any).vendorId || (casoActualizado as any).vendor_id || '').trim();
-      if (venBuscado) {
-        for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
-          if (String(this.cachedCasosMemoria[i].vendorId || this.cachedCasosMemoria[i].vendor_id || '').trim() === venBuscado) {
-            idx = i;
-            break;
+      // 4. Coincidencia por vendorId (para casos sin OP)
+      if (idx === -1) {
+        const venBuscado = String((casoActualizado as any).vendorId || (casoActualizado as any).vendor_id || '').trim();
+        if (venBuscado) {
+          for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
+            if (String(this.cachedCasosMemoria[i].vendorId || this.cachedCasosMemoria[i].vendor_id || '').trim() === venBuscado) {
+              idx = i;
+              break;
+            }
           }
         }
       }
@@ -1257,6 +1260,7 @@ export class SheetsService {
 
         // Si se encontró la fila en Sheets (a partir de la fila 3): ACTUALIZAR IN-PLACE
         if (filaTarget >= 3) {
+          await this.asegurarCapacidadFilas(filaTarget);
           const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
           const dataUpdates: any[] = [
             {
