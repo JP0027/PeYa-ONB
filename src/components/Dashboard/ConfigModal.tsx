@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { 
+  generarScriptAppsScriptParaFirebase 
+} from '../../services/firebaseCasosService';
+import { 
   guardarCuentaServicio,
   obtenerGasUrl,
   guardarGasUrl,
@@ -21,7 +24,7 @@ interface NotificacionState {
 }
 
 export default function ConfigModal({ visible, onCerrar, onSincronizar, casosCount }: ConfigModalProps) {
-  const [tipoConexionModal, setTipoConexionModal] = useState<'csv' | 'gas' | 'sa'>('csv');
+  const [tipoConexionModal, setTipoConexionModal] = useState<'firebase' | 'csv' | 'gas' | 'sa'>('firebase');
   const [gasUrlInput, setGasUrlInput] = useState<string>(obtenerGasUrl() || "");
   const [probandoGas, setProbandoGas] = useState<boolean>(false);
   const [csvTextInput, setCsvTextInput] = useState<string>('');
@@ -149,6 +152,17 @@ export default function ConfigModal({ visible, onCerrar, onSincronizar, casosCou
         <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-[#3A3A3E] mb-4 pb-2.5 shrink-0">
           <button 
             type="button"
+            onClick={() => setTipoConexionModal('firebase')} 
+            className={`text-xs px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+              tipoConexionModal === 'firebase' 
+                ? 'bg-[#E85A80] text-white shadow-md shadow-pink-900/30' 
+                : 'bg-slate-100 dark:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#3A3A3E] border border-slate-300 dark:border-[#3A3A3E]'
+            }`}
+          >
+            🔥 1. Sheets ➔ Firebase
+          </button>
+          <button 
+            type="button"
             onClick={() => setTipoConexionModal('csv')} 
             className={`text-xs px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
               tipoConexionModal === 'csv' 
@@ -156,7 +170,7 @@ export default function ConfigModal({ visible, onCerrar, onSincronizar, casosCou
                 : 'bg-slate-100 dark:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#3A3A3E] border border-slate-300 dark:border-[#3A3A3E]'
             }`}
           >
-            📥 1. Cargar CSV
+            📥 2. Cargar CSV
           </button>
           <button 
             type="button"
@@ -167,7 +181,7 @@ export default function ConfigModal({ visible, onCerrar, onSincronizar, casosCou
                 : 'bg-slate-100 dark:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#3A3A3E] border border-slate-300 dark:border-[#3A3A3E]'
             }`}
           >
-            🔗 2. Enlace Web App
+            🔗 3. Enlace Web App
           </button>
           <button 
             type="button"
@@ -178,11 +192,32 @@ export default function ConfigModal({ visible, onCerrar, onSincronizar, casosCou
                 : 'bg-slate-100 dark:bg-[#2C2C32] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#3A3A3E] border border-slate-300 dark:border-[#3A3A3E]'
             }`}
           >
-            ⚙️ 3. Google Cloud JSON
+            ⚙️ 4. Google Cloud JSON
           </button>
         </div>
 
         <div className="overflow-y-auto pr-1 flex-1 text-sm text-slate-800 dark:text-gray-200">
+          {tipoConexionModal === 'firebase' && (
+            <div>
+              <p className="mb-2 text-xs font-semibold text-slate-700 dark:text-gray-300">Pega el siguiente código en Extensiones &gt; Apps Script de tu Google Sheet:</p>
+              <div className="flex justify-end mb-2">
+                <button 
+                  type="button"
+                  onClick={() => { 
+                    navigator.clipboard.writeText(generarScriptAppsScriptParaFirebase()); 
+                    setCodigoFirebaseCopiado(true); 
+                    setTimeout(() => setCodigoFirebaseCopiado(false), 3000); 
+                  }} 
+                  className="bg-[#E85A80] hover:bg-pink-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold cursor-pointer shadow-md shadow-pink-900/20"
+                >
+                  {codigoFirebaseCopiado ? '✅ Copiado' : '📋 Copiar Script'}
+                </button>
+              </div>
+              <pre className="bg-slate-100 dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] p-3 rounded-xl text-[10px] font-mono h-48 overflow-y-auto text-slate-900 dark:text-gray-200 font-medium select-all">
+                {generarScriptAppsScriptParaFirebase()}
+              </pre>
+            </div>
+          )}
           {tipoConexionModal === 'csv' && (
             <div className="space-y-4">
               <p className="text-xs font-semibold text-slate-700 dark:text-gray-300">Sube un archivo CSV exportado desde Google Sheets (Onboarding_New).</p>

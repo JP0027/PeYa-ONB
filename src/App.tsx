@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { signInWithPopup, onAuthStateChanged, signOut, User } from "firebase/auth";
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from "firebase/firestore"; 
+import { auth, provider, db } from './firebase';
 import Dashboard from './components/Dashboard/index';
-import { obtenerPerfilPorCorreo, validarAccesoUsuario, USUARIOS_CODIGO_BASE } from './utils/userPermissions';
+import { obtenerPerfilPorCorreo, validarAccesoUsuario, RolUsuario } from './utils/userPermissions';
 
 const LOCAL_SESSION_KEY = 'peya_session_user';
 const LOCAL_ROLE_KEY = 'peya_session_role';
@@ -14,25 +17,22 @@ export default function App() {
   const [user, setUser] = useState<UserSession | null>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_SESSION_KEY);
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      return saved ? JSON.parse(saved) : null;
     } catch {
-      // Ignorar
+      return null;
     }
-    return null;
   });
 
   const [role, setRole] = useState<string | null>(() => {
     try {
-      const savedRole = localStorage.getItem(LOCAL_ROLE_KEY);
-      if (savedRole) return savedRole;
-    } catch {}
-    return null;
+      return localStorage.getItem(LOCAL_ROLE_KEY) || null;
+    } catch {
+      return null;
+    }
   });
 
-  const [error, setError] = useState<string>('');
-  const [cargandoGoogle, setCargandoGoogle] = useState<boolean>(false);
+  const [loading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     if (user?.email) {
@@ -63,101 +63,247 @@ export default function App() {
     }
   };
 
-  const loginConCorreo = (correoStr: string, nombreReal?: string) => {
-    setError("");
-    const emailLower = correoStr.toLowerCase().trim();
-    if (!emailLower) {
-      setError("No se pudo obtener el correo de Google.");
-      return;
-    }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser: User | null) => {
+      if (currentUser) {
+        const emailLower = (currentUser.email || '').toLowerCase().trim();
 
-    const autorizado = validarAccesoUsuario(emailLower);
-    if (autorizado) {
-      guardarSesion({
-        email: autorizado.correo,
-        displayName: nombreReal || autorizado.nombre
-      }, autorizado.rol || 'Agente');
-      return;
-    }
+        // 1. Validar contra la base en código y usuarios autorizados
+        const autorizado = validarAccesoUsuario(emailLower);
+        if (autorizado) {
+          const userData: UserSession = {
+            email: autorizado.correo,
+            displayName: autorizado.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+          };
+          guardarSesion(userData, autorizado.rol || 'Agente');
+          return;
+        }
 
-    const perfil = obtenerPerfilPorCorreo(emailLower);
-    if (perfil) {
-      guardarSesion({
-        email: emailLower,
-        displayName: nombreReal || perfil.nombre
-      }, perfil.rol);
-      return;
-    }
+        // 2. Validar contra Firestore (usuarios_permitidos) si existiera
+        try {
+          const docRef = doc(db, "usuarios_permitidos", emailLower);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const userData: UserSession = {
+              email: currentUser.email,
+              displayName: data.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+            };
+            guardarSesion(userData, data.rol || 'Agente');
+            return;
+          }
 
-    // Permitir cualquier correo corporativo @pedidosya.com como Agente por defecto
-    if (emailLower.endsWith('@pedidosya.com') || emailLower.endsWith('@gmail.com')) {
-      const nombrePart = emailLower.split('@')[0];
-      const nombreBonito = nombreReal || (nombrePart.charAt(0).toUpperCase() + nombrePart.slice(1));
-      guardarSesion({
-        email: emailLower,
-        displayName: nombreBonito
-      }, 'Agente');
-      return;
-    }
+          // Intento B: Query por campo 'correo'
+          const q = query(collection(db, "usuarios_permitidos"), where("correo", "==", emailLower));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            const data = querySnapshot.docs[0].data();
+            const userData: UserSession = {
+              email: currentUser.email,
+              displayName: data.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+            };
+            guardarSesion(userData, data.rol || 'Agente');
+            return;
+          }
+        } catch (err) {
+          console.warn("Consulta Firestore usuarios_permitidos falló:", err);
+        }
 
-    setError(`Acceso denegado. El correo ${correoStr} no está autorizado en PedidosYa Onboarding.`);
-  };
-
-  const iniciarSesionGoogle = () => {
-    setError('');
-    setCargandoGoogle(true);
-
-    try {
-      if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
-        const client = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: '718141235471-7v9309m8d12o9q7v5h9a6u4l1f3k2j1p.apps.googleusercontent.com', // Google Sign-In Client ID
-          scope: 'email profile openid',
-          callback: async (response: any) => {
-            if (response && response.access_token) {
-              try {
-                const resUser = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                  headers: { Authorization: `Bearer ${response.access_token}` }
-                });
-                if (resUser.ok) {
-                  const dataUser = await resUser.json();
-                  if (dataUser && dataUser.email) {
-                    loginConCorreo(dataUser.email, dataUser.name);
-                    setCargandoGoogle(false);
-                    return;
-                  }
-                }
-              } catch (e) {
-                console.warn('Error obteniendo userinfo de Google:', e);
+        // 2. Validar contra el Backend persistente de la aplicación
+        try {
+          const resp = await fetch('/api/admin/usuarios');
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.success && Array.isArray(data.usuarios)) {
+              const uEncontrado = data.usuarios.find((u: any) => (u.correo || '').toLowerCase().trim() === emailLower);
+              if (uEncontrado) {
+                const userData: UserSession = {
+                  email: currentUser.email,
+                  displayName: uEncontrado.nombre || currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Usuario')
+                };
+                guardarSesion(userData, uEncontrado.rol || 'Agente');
+                return;
               }
             }
-            setCargandoGoogle(false);
-            setError('No se pudo autenticar con Google. Inténtalo de nuevo.');
           }
-        });
-        client.requestAccessToken();
+        } catch (errApi) {
+          console.warn("Consulta API /api/admin/usuarios falló:", errApi);
+        }
+
+        // 3. Fallback a la lista blanca oficial de PedidosYa
+        if (currentUser.email) {
+          const perfil = obtenerPerfilPorCorreo(currentUser.email);
+          if (perfil) {
+            const userData: UserSession = {
+              email: currentUser.email,
+              displayName: perfil.nombre || currentUser.displayName || currentUser.email.split('@')[0]
+            };
+            // Guardar automáticamente en Firestore para persistencia
+            try {
+              await setDoc(doc(db, "usuarios_permitidos", emailLower), {
+                correo: emailLower,
+                nombre: perfil.nombre,
+                rol: perfil.rol,
+                pestanas: ['admin', 'inicio', 'nuevo', ...(perfil.rol.includes('Supervisor') ? ['tl', 'usuarios'] : [])],
+                actualizadoEn: new Date().toISOString()
+              }, { merge: true });
+            } catch (_) {}
+
+            guardarSesion(userData, perfil.rol);
+            return;
+          }
+        }
+
+        await signOut(auth);
+        guardarSesion(null, null);
+        setError(`Acceso denegado. El correo ${currentUser.email} no se encuentra registrado en la base de usuarios de Onboarding. Solicita a un supervisor que te dé de alta.`);
       } else {
-        // Fallback interactivo si Google GIS script no ha cargado
-        setTimeout(() => {
-          setCargandoGoogle(false);
-          // Permitir inicio de sesión rápido con la cuenta predeterminada de prueba o solicitar correo corporativo Google
-          const correoPrueba = 'yadira.flores_dyn.ext@pedidosya.com';
-          loginConCorreo(correoPrueba, 'Yadira Flores');
-        }, 800);
+        // Si no hay sesión en Firebase Auth, verificar si el usuario tiene sesión manual local activa
+        try {
+          const sesionActiva = localStorage.getItem(LOCAL_SESSION_KEY);
+          if (!sesionActiva) {
+            setUser(null);
+            setRole(null);
+          }
+        } catch {
+          setUser(null);
+          setRole(null);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const login = async () => {
+    setError("");
+    try {
+      const result = await signInWithPopup(auth, provider);
+      if (result?.user) {
+        const email = result.user.email || '';
+        const emailLower = email.toLowerCase().trim();
+
+        // 1. Validar contra la base en código y usuarios autorizados
+        const autorizado = validarAccesoUsuario(emailLower);
+        if (autorizado) {
+          guardarSesion({
+            email,
+            displayName: autorizado.nombre || result.user.displayName || email.split('@')[0]
+          }, autorizado.rol || 'Agente');
+          return;
+        }
+
+        // 2. Validar contra Firestore (usuarios_permitidos) si existiera
+        try {
+          const docRef = doc(db, "usuarios_permitidos", emailLower);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            guardarSesion({
+              email,
+              displayName: data.nombre || result.user.displayName || email.split('@')[0]
+            }, data.rol || 'Agente');
+            return;
+          }
+
+          // Intento B: Query por campo 'correo'
+          const q = query(collection(db, "usuarios_permitidos"), where("correo", "==", emailLower));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            const data = querySnapshot.docs[0].data();
+            guardarSesion({
+              email,
+              displayName: data.nombre || result.user.displayName || email.split('@')[0]
+            }, data.rol || 'Agente');
+            return;
+          }
+        } catch (e) {
+          console.warn('Error validando en Firestore en login:', e);
+        }
+
+        // 2. Validar contra el Backend persistente de la aplicación
+        try {
+          const resp = await fetch('/api/admin/usuarios');
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.success && Array.isArray(data.usuarios)) {
+              const uEncontrado = data.usuarios.find((u: any) => (u.correo || '').toLowerCase().trim() === emailLower);
+              if (uEncontrado) {
+                guardarSesion({
+                  email,
+                  displayName: uEncontrado.nombre || result.user.displayName || email.split('@')[0]
+                }, uEncontrado.rol || 'Agente');
+                return;
+              }
+            }
+          }
+        } catch (errApi) {
+          console.warn('Error validando en API backend en login:', errApi);
+        }
+
+        // 3. Fallback a la lista blanca oficial
+        const perfil = obtenerPerfilPorCorreo(email);
+        if (perfil) {
+          try {
+            await setDoc(doc(db, "usuarios_permitidos", emailLower), {
+              correo: emailLower,
+              nombre: perfil.nombre,
+              rol: perfil.rol,
+              pestanas: ['admin', 'inicio', 'nuevo', ...(perfil.rol.includes('Supervisor') ? ['tl', 'usuarios'] : [])],
+              actualizadoEn: new Date().toISOString()
+            }, { merge: true });
+          } catch (_) {}
+
+          guardarSesion({
+            email,
+            displayName: perfil.nombre || result.user.displayName || email.split('@')[0]
+          }, perfil.rol);
+          return;
+        }
+
+        await signOut(auth);
+        guardarSesion(null, null);
+        setError(`Acceso denegado. El correo ${email} no se encuentra registrado en la base de usuarios de Onboarding. Solicita a un supervisor que te dé de alta.`);
       }
     } catch (err: any) {
-      setCargandoGoogle(false);
-      setError(`Error al iniciar sesión con Google: ${err.message || 'Error desconocido'}`);
+      console.error("[Login Google]", err);
+      const codigo = err?.code || "";
+      if (codigo === "auth/unauthorized-domain") {
+        setError(
+          `Dominio no autorizado en Firebase (${window.location.hostname}). Agrégalo en la consola de Firebase: Authentication > Ajustes (Settings) > Dominios autorizados.`
+        );
+      } else if (codigo === "auth/popup-blocked") {
+        setError("El navegador bloqueó la ventana emergente de Google. Permite las ventanas emergentes (pop-ups) para continuar.");
+      } else if (codigo === "auth/popup-closed-by-user") {
+        setError("Inicio de sesión cancelado (cerraste la ventana emergente de Google).");
+      } else if (codigo === "auth/operation-not-allowed") {
+        setError("El proveedor Google no está habilitado en Firebase 'PeYa ONB'. Actívalo en Authentication > Método de inicio de sesión > Google.");
+      } else {
+        setError(`Error al iniciar sesión con Google: ${err.message || "Intenta nuevamente."}`);
+      }
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      // Ignorar
+    }
     guardarSesion(null, null);
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#121212] text-white">
+        Cargando validación...
+      </div>
+    );
+  }
 
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 dark:bg-[#121212] text-slate-900 dark:text-white p-4 py-8 select-none">
-        <div className="w-20 h-20 bg-[#E85A80] rounded-2xl flex items-center justify-center font-black text-white text-4xl mb-4 shadow-xl shadow-pink-900/30">
+        <div className="w-16 h-16 bg-[#E85A80] rounded-2xl flex items-center justify-center font-black text-white text-3xl mb-4 shadow-xl shadow-pink-900/30">
           O
         </div>
         <h1 className="text-3xl sm:text-4xl font-black mb-1 text-[#E85A80] text-center tracking-tight">PeYa ONB</h1>
@@ -165,24 +311,21 @@ export default function App() {
           Sistema de gestión operativa de Onboarding para PedidosYa
         </p>
 
-        <div className="flex flex-col gap-4 w-full max-w-sm bg-white dark:bg-[#1A1A1C] border border-slate-200 dark:border-[#3A3A3E] p-8 rounded-2xl shadow-xl items-center text-center">
-          <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-2">
-            Inicia sesión utilizando tu cuenta corporativa autorizada de Google (@pedidosya.com)
-          </p>
+        <div className="flex flex-col gap-3.5 w-full max-w-sm">
 
+          {/* BOTÓN ÚNICO DE GOOGLE AUTH */}
           <button 
             type="button"
-            onClick={iniciarSesionGoogle}
-            disabled={cargandoGoogle}
-            className="w-full bg-white dark:bg-[#25252C] hover:bg-slate-50 dark:hover:bg-[#303038] text-slate-800 dark:text-white border border-slate-300 dark:border-[#3A3A3E] px-6 py-3.5 rounded-xl font-bold text-xs transition shadow-md flex items-center justify-center gap-3 cursor-pointer"
+            onClick={login} 
+            className="w-full bg-white dark:bg-[#1A1A1C] border border-slate-300 dark:border-[#3A3A3E] hover:border-[#E85A80] px-6 py-3.5 rounded-xl font-bold text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-[#2C2C32] transition flex items-center justify-center gap-3 text-sm shadow-md cursor-pointer min-h-[44px]"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.19v3.15C3.17 21.32 7.23 24 12 24z"/>
-              <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.19C.43 8.1 0 9.8 0 12s.43 3.9 1.19 5.42l4.09-3.15z"/>
-              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.17 2.68 1.19 6.58l4.09 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+              <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"/>
+              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/>
+              <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12 0 14.5s.7 4.8 1.9 7.2l3.7-2.9z"/>
+              <path fill="#34A853" d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2-6.4-4.8L1.9 17c1.8 3.7 5.6 6.5 10.1 6.5z"/>
             </svg>
-            {cargandoGoogle ? 'Conectando con Google...' : 'Iniciar sesión con Google'}
+            <span>Iniciar sesión con cuenta Google</span>
           </button>
         </div>
 

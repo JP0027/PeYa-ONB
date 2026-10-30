@@ -31,7 +31,8 @@ import AdminCatalogoView from '../Admin/AdminCatalogoView';
 import GestionUsuariosView from '../Admin/GestionUsuariosView';
 import PushAlertContainer, { AlertaPush } from './PushAlertToast';
 import { suscribirCatalogos, CATALOGOS_POR_DEFECTO, consultarCatalogosGoogleSheets, guardarCatalogosEnFirestore } from '../../services/catalogoService';
-
+import { doc, onSnapshot, collection } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 export interface DashboardProps {
   role?: string;
@@ -548,8 +549,31 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
     window.addEventListener('peya_usuarios_actualizados', refrescarCorreosLocales);
 
+    const usuariosRef = collection(db, 'usuarios_permitidos');
+    const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
+      const correosSet = new Set<string>(obtenerCorreosOnboardingDinamicos());
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const correo = (data.correo || docSnap.id || '').toLowerCase().trim();
+        // Solo correos corporativos válidos de pedidosya.com (nunca personales ni obsoletos)
+        if (
+          correo && 
+          correo.endsWith('@pedidosya.com') && 
+          !correo.includes('demo') && 
+          !correo.includes('gmail.com') &&
+          !correosExcluidos.has(correo)
+        ) {
+          correosSet.add(correo);
+        }
+      });
+      setCorreosOnboarding(Array.from(correosSet));
+    }, (err) => {
+      console.warn('Error suscribiendo correos onboarding:', err);
+    });
+
     return () => {
       window.removeEventListener('peya_usuarios_actualizados', refrescarCorreosLocales);
+      unsubscribe();
     };
   }, []);
 

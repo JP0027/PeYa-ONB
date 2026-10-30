@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { 
   LISTA_BLANCA_OFICIAL, 
   LISTA_PESTANAS_SISTEMA, 
@@ -132,8 +134,30 @@ export default function GestionUsuariosView({
     cargarBackend();
   }, []);
 
-  // Roles y pestañas
-  useEffect(() => {}, []);
+  // Sincronización en vivo de roles y pestañas por rol desde Firestore (configuracion/catalogos)
+  useEffect(() => {
+    const docRef = doc(db, 'configuracion', 'catalogos');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (Array.isArray(data.roles) && data.roles.length > 0) {
+          setRoles(data.roles);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('peya_roles_personalizados', JSON.stringify(data.roles));
+          }
+        }
+        if (data.pestanasPorRol && typeof data.pestanasPorRol === 'object') {
+          setPestanasPorRol(data.pestanasPorRol);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('peya_pestanas_por_rol', JSON.stringify(data.pestanasPorRol));
+          }
+        }
+      }
+    }, (err) => {
+      console.warn('Error escuchando roles de Firestore:', err);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const esSupervisor = useMemo(() => {
     const r = String(rolUsuario || '').toLowerCase().trim();
@@ -209,8 +233,60 @@ export default function GestionUsuariosView({
     };
     window.addEventListener('peya_usuarios_actualizados', refrescarLocales);
 
+    // 3. Escuchar cambios de Firestore en tiempo real con desduplicación inteligente
+    const usuariosRef = collection(db, 'usuarios_permitidos');
+    const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
+      if (!snapshot.empty) {
+        const correosExcluidos = new Set([
+          'yadirayajaida@gmail.com',
+          'guillermo.gonzales_dyn.ext@pedidosya.com',
+          'jean.changanaqui_dyn.ext@pedidosya.com'
+        ]);
+        const mapaPorCorreo = new Map<string, UsuarioFirestore>();
+        // Base oficial e historia local primero
+        obtenerUsuariosCompletos().forEach(u => mapaPorCorreo.set(u.correo.toLowerCase().trim(), u));
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const correo = (data.correo || docSnap.id).toLowerCase().trim();
+          if (correosExcluidos.has(correo) || !correo.endsWith('@pedidosya.com') || correo.includes('gmail.com')) {
+            return;
+          }
+          const nombre = data.nombre || obtenerNombreSugerido(correo);
+          const rol: RolUsuario = data.rol || 'Agente';
+          const pestanas = Array.isArray(data.pestanas) && data.pestanas.length > 0
+            ? data.pestanas
+            : obtenerPestanasPorDefecto(rol);
+
+          const existente = mapaPorCorreo.get(correo);
+          const fechaFirestore = data.actualizadoEn ? new Date(data.actualizadoEn).getTime() : 0;
+          const fechaExistente = existente?.actualizadoEn ? new Date(existente.actualizadoEn).getTime() : 0;
+
+          // Solo sobreescribir si Firestore tiene información igual o más reciente que la versión local
+          if (!existente || fechaFirestore >= fechaExistente) {
+            mapaPorCorreo.set(correo, {
+              id: docSnap.id,
+              correo,
+              nombre,
+              rol,
+              pestanas,
+              actualizadoEn: data.actualizadoEn || null
+            });
+          }
+        });
+
+        const lista = Array.from(mapaPorCorreo.values());
+        if (lista.length > 0) {
+          setUsuarios(lista);
+        }
+      }
+    }, (err) => {
+      console.warn('Firestore snapshot usuarios_permitidos (usando base de código):', err?.message);
+    });
+
     return () => {
       window.removeEventListener('peya_usuarios_actualizados', refrescarLocales);
+      unsubscribe();
     };
   }, []);
 
