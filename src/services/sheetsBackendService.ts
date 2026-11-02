@@ -66,7 +66,7 @@ const POSIBLES_RUTAS_CREDENTIALS = [
 ];
 
 const CACHE_FILE_PATH = path.resolve(process.cwd(), 'data_cached_casos.json');
-const CATALOGOS_CACHE_FILE = path.resolve(process.cwd(), 'data_cached_catalogos.json');
+const CATALOGOS_CACHE_FILE = fs.existsSync('/tmp') ? path.join('/tmp', 'data_cached_catalogos.json') : path.resolve(process.cwd(), 'data_cached_catalogos.json');
 
 export interface CatalogosSheet {
   integraciones: { nombre: string; sponsorship: string; contactos?: string }[];
