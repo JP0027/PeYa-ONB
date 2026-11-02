@@ -454,8 +454,8 @@ async function startServer() {
   // =========================================================================
   // GESTIÓN DE USUARIOS Y ROLES (Persistencia robusta en disco)
   // =========================================================================
-  const USUARIOS_FILE = path.resolve(process.cwd(), 'data_cached_usuarios.json');
-  const ROLES_FILE = path.resolve(process.cwd(), 'data_cached_roles.json');
+  const USUARIOS_FILE = fs.existsSync('/tmp') ? path.join('/tmp', 'data_cached_usuarios.json') : path.resolve(process.cwd(), 'data_cached_usuarios.json');
+  const ROLES_FILE = fs.existsSync('/tmp') ? path.join('/tmp', 'data_cached_roles.json') : path.resolve(process.cwd(), 'data_cached_roles.json');
 
   const USUARIOS_INICIALES_LISTA: Record<string, any> = {
     'kimberly.silvera_dyn.ext@pedidosya.com': {
