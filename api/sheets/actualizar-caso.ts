@@ -197,8 +197,8 @@ export default async function handler(req: any, res: any) {
     let filaTarget = 0;
     let totalFilasHoja = 0;
 
-    // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
-    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
+    // 1. Consultar 'Onboarding_New'!A:C para detectar el número real de filas con datos en la base antes de escribir
+    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:C?valueRenderOption=FORMATTED_VALUE`;
     const resCols = await fetchConReintento(urlCols, {
       headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
     });
@@ -206,47 +206,67 @@ export default async function handler(req: any, res: any) {
     if (resCols.ok) {
       const dataCols = await resCols.json();
       const rows = dataCols.values || [];
-      totalFilasHoja = rows.length;
+      
+      let ultimaFilaConDatos = 0;
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const r = rows[i] || [];
+        const op = String(r[0] || '').trim();
+        const ven = String(r[1] || '').trim();
+        const tie = String(r[2] || '').trim();
+        if (op || ven || tie) {
+          ultimaFilaConDatos = i + 1;
+          break;
+        }
+      }
+      totalFilasHoja = ultimaFilaConDatos;
 
       const filaHint = Number(casoData.filaNumero);
       const venBuscado = String(casoData.vendorId || casoData.vendor_id || '').trim();
       const opBuscado = String(casoData.casoOp || '').trim();
       const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
 
-      // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
-      if (filaHint >= 3 && filaHint <= rows.length) {
-        const rowAtHint = rows[filaHint - 1] || [];
-        const opAtHint = String(rowAtHint[0] || '').trim();
-        const venAtHint = String(rowAtHint[1] || '').trim();
-        if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+      // Solo buscar filaTarget si estamos EDITANDO un caso existente (!esNuevo)
+      if (!esNuevo) {
+        // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
+        if (filaHint >= 3 && filaHint <= rows.length) {
+          const rowAtHint = rows[filaHint - 1] || [];
+          const opAtHint = String(rowAtHint[0] || '').trim();
+          const venAtHint = String(rowAtHint[1] || '').trim();
+          if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+            filaTarget = filaHint;
+          }
+        }
+
+        // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba tomando el último registrado si se repite casoOp
+        if (!filaTarget && esOpValido) {
+          for (let i = rows.length - 1; i >= 0; i--) {
+            const op = String(rows[i]?.[0] || '').trim();
+            if (op === opBuscado) {
+              filaTarget = i + 1;
+              break;
+            }
+          }
+        }
+
+        // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba
+        if (!filaTarget) {
+          for (let i = rows.length - 1; i >= 0; i--) {
+            const op = String(rows[i]?.[0] || '').trim();
+            const ven = String(rows[i]?.[1] || '').trim();
+            if (
+              (venBuscado && ven === venBuscado) ||
+              (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
+              (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
+            ) {
+              filaTarget = i + 1;
+              break;
+            }
+          }
+        }
+
+        // 4. Si es edición y no se encontró en búsquedas, forzar filaHint
+        if (!filaTarget && filaHint >= 3) {
           filaTarget = filaHint;
-        }
-      }
-
-      // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba tomando el último registrado si se repite casoOp
-      if (!filaTarget && esOpValido) {
-        for (let i = rows.length - 1; i >= 0; i--) {
-          const op = String(rows[i]?.[0] || '').trim();
-          if (op === opBuscado) {
-            filaTarget = i + 1;
-            break;
-          }
-        }
-      }
-
-      // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba
-      if (!filaTarget && !esNuevo) {
-        for (let i = rows.length - 1; i >= 0; i--) {
-          const op = String(rows[i]?.[0] || '').trim();
-          const ven = String(rows[i]?.[1] || '').trim();
-          if (
-            (venBuscado && ven === venBuscado) ||
-            (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
-            (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
-          ) {
-            filaTarget = i + 1;
-            break;
-          }
         }
       }
     }
@@ -271,11 +291,13 @@ export default async function handler(req: any, res: any) {
         }
       ];
 
-      // Sincronizar AN:AO (Freeze)
-      dataUpdates.push({
-        range: `'Onboarding_New'!AP${filaTarget}:AQ${filaTarget}`,
-        values: [[valFreezePos, valFreezeCat]]
-      });
+      // Sincronizar Freeze
+      if (valFreezePos || valFreezeCat) {
+        dataUpdates.push({
+          range: `'Onboarding_New'!AP${filaTarget}:AQ${filaTarget}`,
+          values: [[valFreezePos, valFreezeCat]]
+        });
+      }
 
       const apiRes = await fetchConReintento(urlBatch, {
         method: 'POST',
@@ -301,28 +323,28 @@ export default async function handler(req: any, res: any) {
         message: `Caso actualizado en Google Sheets (Fila #${filaTarget}, Columna G omitida)`
       });
     } else {
-      // INSERTAR nuevo caso detectando exactamente la última fila de la base
-      const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 2020;
+      // INSERTAR nuevo caso detectando exactamente la última fila con datos (0 filas de salto)
+      const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 3;
+      const sheetIdOnboardingNew = 104076048;
 
+      // Asegurar capacidad EXACTA para nuevaFila (0 filas de sobra)
       try {
-        const sheetIdOnboardingNew = 104076048;
-        const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
+        const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets(properties(sheetId,title,gridProperties))`;
         const resMeta = await fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
         if (resMeta.ok) {
           const dataMeta = await resMeta.json();
-          const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
+          const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew || s.properties?.title === 'Onboarding_New');
           const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
-          if (nuevaFila > rowCountActual) {
-            const nuevoRowCount = nuevaFila + 50;
+          const targetSheetId = sheetObj?.properties?.sheetId || sheetIdOnboardingNew;
+
+          if (nuevaFila > rowCountActual && rowCountActual > 0) {
+            const filasAAgregar = nuevaFila - rowCountActual;
             await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
               method: 'POST',
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 requests: [{
-                  updateSheetProperties: {
-                    properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevoRowCount } },
-                    fields: 'gridProperties.rowCount'
-                  }
+                  appendDimension: { sheetId: targetSheetId, dimension: 'ROWS', length: filasAAgregar }
                 }]
               })
             });
@@ -351,7 +373,7 @@ export default async function handler(req: any, res: any) {
         });
       }
 
-      let apiRes = await fetchConReintento(urlBatchNuevo, {
+      const apiRes = await fetchConReintento(urlBatchNuevo, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -365,37 +387,30 @@ export default async function handler(req: any, res: any) {
 
       if (!apiRes.ok) {
         const errText = await apiRes.text();
-        if (errText.includes('exceeds grid limits')) {
-          const sheetIdOnboardingNew = 104076048;
-          await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              requests: [{
-                updateSheetProperties: {
-                  properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevaFila + 200 } },
-                  fields: 'gridProperties.rowCount'
-                }
-              }]
-            })
-          });
-          apiRes = await fetchConReintento(urlBatchNuevo, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataUpdatesNuevo })
-          });
-        }
-        if (!apiRes.ok) {
-          const finalErr = await apiRes.text();
-          throw new Error(`Google Sheets API [${apiRes.status}]: ${finalErr}`);
-        }
+        throw new Error(`Google Sheets API [${apiRes.status}]: ${errText}`);
       }
+
+      // Recortar la cuadrícula para que tenga EXACTAMENTE nuevaFila filas (0 filas vacías sobrantes)
+      try {
+        await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{
+              updateSheetProperties: {
+                properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevaFila } },
+                fields: 'gridProperties.rowCount'
+              }
+            }]
+          })
+        });
+      } catch (_) {}
 
       return res.status(200).json({
         success: true,
-        created: true,
+        inserted: true,
         filaNumero: nuevaFila,
-        message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila}, Columna G omitida)`
+        message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila}, 0 filas vacías)`
       });
     }
   } catch (err: any) {
