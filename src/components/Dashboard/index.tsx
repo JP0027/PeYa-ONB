@@ -978,13 +978,28 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       console.warn("Fallo búsqueda en tiempo real, usando caché local", err);
     }
 
-    const resultadosLocales = casosFrescos.filter(c => 
-      String(c.vendor_id || c.vendorId || '').toLowerCase() === term ||
-      String(c.casoOp || c.id || '').toLowerCase() === term ||
-      String(c.tienda || '').toLowerCase().includes(term)
-    );
     const termTrim = busquedaId.trim();
     const soloDigitos = termTrim.replace(/\D/g, '');
+
+    const resultadosLocales = casosFrescos.filter(c => {
+      const vId = String(c.vendor_id || c.vendorId || '').toLowerCase().trim();
+      const cOp = String(c.casoOp || c.id || '').toLowerCase().trim();
+      const tnda = String(c.tienda || '').toLowerCase().trim();
+
+      const vIdDigits = vId.replace(/\D/g, '');
+      const cOpDigits = cOp.replace(/\D/g, '');
+
+      // 1. Coincidencia exacta o por subcadena
+      if (vId === term || cOp === term) return true;
+      if (cOp && (cOp.includes(term) || term.includes(cOp))) return true;
+      if (tnda && tnda.includes(term)) return true;
+
+      // 2. Coincidencia limpia por dígitos numéricos (ej. 352002996 con OP-352002996)
+      if (soloDigitos.length >= 4) {
+        if (cOpDigits && (cOpDigits === soloDigitos || cOpDigits.includes(soloDigitos) || soloDigitos.includes(cOpDigits))) return true;
+        if (vIdDigits && vIdDigits === soloDigitos) return true;
+      }
+    });
     const esSoloNumeros = /^\d+$/.test(termTrim);
     const tienePrefijoOp = /^op[-_ ]?\d+/i.test(termTrim);
 
