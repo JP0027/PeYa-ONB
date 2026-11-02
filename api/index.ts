@@ -14,6 +14,13 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+
+  // Si Vercel pasó la ruta original en x-matched-path o x-forwarded-uri
+  const matchedPath = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'];
+  if (matchedPath && typeof matchedPath === 'string') {
+    req.url = matchedPath;
+  }
+
   if (req.url && !req.url.startsWith('/api')) {
     req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
   }
@@ -358,4 +365,18 @@ app.post('/api/admin/roles-catalogos', (req, res) => {
   res.json({ success: true, ...req.body });
 });
 
-export default app;
+export default function handler(req: any, res: any) {
+  return new Promise((resolve, reject) => {
+    res.on('finish', resolve);
+    res.on('close', resolve);
+    res.on('error', reject);
+    app(req, res, (err: any) => {
+      if (err) {
+        res.status(500).json({ success: false, error: err.message });
+      } else {
+        res.status(404).json({ success: false, error: `Endpoint no encontrado: ${req.url}` });
+      }
+      resolve(null);
+    });
+  });
+}
