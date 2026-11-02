@@ -9,8 +9,6 @@ import {
   eliminarUsuarioDelSistema,
   sincronizarUsuariosConFirestore
 } from '../../utils/userPermissions';
-import { db } from '../../firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 function obtenerNombreSugerido(correo: string): string {
   if (!correo) return '';
@@ -303,23 +301,6 @@ export default function GestionUsuariosView({
       });
       setUsuarios(listaActualizada);
 
-      // 2. Intentar replicar en Firestore en segundo plano (si hay permisos)
-      try {
-        if (esEdicion && usuarioEditando && usuarioEditando.id && usuarioEditando.id !== docId) {
-          await deleteDoc(doc(db, 'usuarios_permitidos', usuarioEditando.id.trim())).catch(() => {});
-        }
-
-        await setDoc(doc(db, 'usuarios_permitidos', docId), {
-          correo: correoLimpio,
-          nombre: nombreLimpio,
-          rol: formulario.rol,
-          pestanas: pestanasFinales,
-          actualizadoEn: new Date().toISOString()
-        }, { merge: true });
-      } catch (errFirestore: any) {
-        console.warn('Firestore no disponible o denegado (guardado local asegurado):', errFirestore?.message);
-      }
-
       setModoModalAbierto(false);
       setUsuarioEditando(null);
       if (typeof window !== 'undefined') {
@@ -351,22 +332,9 @@ export default function GestionUsuariosView({
       setCargandoOperacion(`Eliminando usuario "${nombreMostrar}"...`);
     }
     try {
-      // 1. Eliminar inmediatamente del sistema
+      // Eliminar del sistema (local y backend API)
       const listaActualizada = eliminarUsuarioDelSistema(usuario.correo);
       setUsuarios(listaActualizada);
-
-      // 2. Intentar eliminar en Firestore en segundo plano
-      try {
-        if (usuario.id) {
-          await deleteDoc(doc(db, 'usuarios_permitidos', usuario.id.trim())).catch(() => {});
-        }
-        const correoDocId = (usuario.correo || '').toLowerCase().trim();
-        if (correoDocId && correoDocId !== usuario.id) {
-          await deleteDoc(doc(db, 'usuarios_permitidos', correoDocId)).catch(() => {});
-        }
-      } catch (errFirestore) {
-        console.warn('Error eliminando en Firestore (eliminado en local):', errFirestore);
-      }
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('peya_usuarios_actualizados'));
@@ -419,18 +387,6 @@ export default function GestionUsuariosView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roles: nuevosRoles, pestanasPorRol: mapaFinalPestanas })
       }).catch(e => console.warn('Error guardando roles en backend:', e));
-
-      // 2. Intentar guardar en Firestore como réplica
-      try {
-        const docRef = doc(db, 'configuracion', 'catalogos');
-        await setDoc(docRef, { 
-          roles: nuevosRoles,
-          pestanasPorRol: mapaFinalPestanas,
-          actualizadoEn: new Date().toISOString()
-        }, { merge: true });
-      } catch (errFirestore: any) {
-        console.warn('Firestore denegó guardado de roles:', errFirestore?.message);
-      }
 
       if (onActualizarRoles) {
         await onActualizarRoles(nuevosRoles);
@@ -496,17 +452,6 @@ export default function GestionUsuariosView({
     nuevoMapaPestanas[rLimpio] = rolEditadoPestanas.length > 0 ? rolEditadoPestanas : ['admin', 'inicio', 'nuevo'];
 
     await persistirRoles(nuevaLista, nuevoMapaPestanas);
-
-    // Actualizar usuarios en Firestore si tenían este rol
-    if (rolAnterior !== rLimpio) {
-      const usuariosAfectados = usuarios.filter(u => u.rol === rolAnterior);
-      if (usuariosAfectados.length > 0) {
-        for (const u of usuariosAfectados) {
-          const docId = (u.id || u.correo).toLowerCase().trim();
-          await setDoc(doc(db, 'usuarios_permitidos', docId), { rol: rLimpio }, { merge: true }).catch(() => {});
-        }
-      }
-    }
 
     setEditandoRolIdx(null);
     setRolEditadoTexto('');

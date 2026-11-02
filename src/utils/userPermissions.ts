@@ -1,6 +1,3 @@
-import { db } from '../firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
-
 export type RolUsuario = 'Agente' | 'Supervisor' | 'Supervisor / TL' | string;
 
 export interface PerfilUsuario {
@@ -207,67 +204,60 @@ export function obtenerUsuariosCompletos(): UsuarioSistema[] {
 }
 
 /**
- * Sincroniza los usuarios permitidos desde Firestore en tiempo real.
+ * Sincroniza los usuarios permitidos desde la API del backend.
  * Permite que cualquier usuario agregado/editado por un supervisor en la pestaña de usuarios
  * tenga acceso inmediato desde cualquier dispositivo o navegador.
  */
-export async function sincronizarUsuariosConFirestore(): Promise<UsuarioSistema[]> {
+export async function sincronizarUsuariosConBackend(): Promise<UsuarioSistema[]> {
   try {
-    const snap = await getDocs(collection(db, 'usuarios_permitidos'));
-    if (!snap.empty) {
-      const eliminadosRaw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_DELETED_KEY) : null;
-      const eliminadosSet = new Set<string>(eliminadosRaw ? JSON.parse(eliminadosRaw) : []);
+    if (typeof fetch !== 'undefined') {
+      const resp = await fetch('/api/admin/usuarios');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && Array.isArray(data.usuarios)) {
+          const eliminadosRaw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_DELETED_KEY) : null;
+          const eliminadosSet = new Set<string>(eliminadosRaw ? JSON.parse(eliminadosRaw) : []);
 
-      const mapa = new Map<string, UsuarioSistema>();
-      // Cargar base en código
-      USUARIOS_CODIGO_BASE.forEach(u => mapa.set(u.correo.toLowerCase().trim(), { ...u }));
+          const mapa = new Map<string, UsuarioSistema>();
+          // Base en código
+          USUARIOS_CODIGO_BASE.forEach(u => mapa.set(u.correo.toLowerCase().trim(), { ...u }));
 
-      // Cargar modificaciones locales
-      try {
-        const raw = localStorage.getItem(STORAGE_CUSTOM_KEY);
-        if (raw) {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) {
-            list.forEach((u: any) => {
-              if (u && u.correo) mapa.set(String(u.correo).toLowerCase().trim(), u);
-            });
+          data.usuarios.forEach((u: any) => {
+            if (u && u.correo) {
+              const key = String(u.correo).toLowerCase().trim();
+              if (!eliminadosSet.has(key)) {
+                mapa.set(key, {
+                  id: key,
+                  correo: key,
+                  nombre: u.nombre || key,
+                  rol: u.rol || 'Agente',
+                  pestanas: Array.isArray(u.pestanas) && u.pestanas.length > 0 ? u.pestanas : obtenerPestanasPorDefecto(u.rol),
+                  actualizadoEn: u.actualizadoEn || new Date().toISOString()
+                });
+              }
+            }
+          });
+
+          const listaFinal = Array.from(mapa.values());
+          localStorage.setItem(STORAGE_CUSTOM_KEY, JSON.stringify(listaFinal));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('peya_usuarios_actualizados'));
           }
         }
-      } catch {}
-
-      // Fusionar documentos de Firestore
-      snap.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data && data.correo) {
-          const key = String(data.correo).toLowerCase().trim();
-          if (!eliminadosSet.has(key)) {
-            mapa.set(key, {
-              id: key,
-              correo: key,
-              nombre: data.nombre || key,
-              rol: data.rol || 'Agente',
-              pestanas: Array.isArray(data.pestanas) && data.pestanas.length > 0 ? data.pestanas : obtenerPestanasPorDefecto(data.rol),
-              actualizadoEn: data.actualizadoEn || new Date().toISOString()
-            });
-          }
-        }
-      });
-
-      const listaFinal = Array.from(mapa.values());
-      localStorage.setItem(STORAGE_CUSTOM_KEY, JSON.stringify(listaFinal));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('peya_usuarios_actualizados'));
       }
     }
   } catch (e) {
-    console.warn('[userPermissions] Error sincronizando con Firestore (usando caché local):', e);
+    console.warn('[userPermissions] Error sincronizando con API backend (usando caché local):', e);
   }
   return obtenerUsuariosCompletos();
 }
 
+// Alias de retrocompatibilidad
+export const sincronizarUsuariosConFirestore = sincronizarUsuariosConBackend;
+
 /**
  * Guarda o modifica un usuario en el sistema con validación de seguridad.
- * Guarda en memoria local y sincroniza en Firestore y backend en segundo plano.
+ * Guarda en memoria local y sincroniza con el backend en segundo plano.
  */
 export function guardarUsuarioEnSistema(usuario: {
   correo: string;
@@ -317,20 +307,7 @@ export function guardarUsuarioEnSistema(usuario: {
     console.error('Error guardando usuario en localStorage:', e);
   }
 
-  // Guardar en Firestore para sincronización global
-  try {
-    setDoc(doc(db, 'usuarios_permitidos', correoLimpio), {
-      correo: correoLimpio,
-      nombre: nombreLimpio,
-      rol: usuario.rol,
-      pestanas: pestanasSanitizadas.length > 0 ? pestanasSanitizadas : obtenerPestanasPorDefecto(usuario.rol),
-      actualizadoEn: new Date().toISOString()
-    }, { merge: true }).catch(err => {
-      console.warn('Firestore setDoc usuario warning:', err);
-    });
-  } catch {}
-
-  // Intentar sincronizar con backend en segundo plano
+  // Sincronizar con backend en segundo plano
   if (typeof fetch !== 'undefined') {
     fetch('/api/admin/usuarios', {
       method: 'POST',
@@ -375,14 +352,7 @@ export function eliminarUsuarioDelSistema(correo: string): UsuarioSistema[] {
     console.error('Error eliminando usuario de localStorage:', e);
   }
 
-  // Eliminar en Firestore
-  try {
-    deleteDoc(doc(db, 'usuarios_permitidos', correoLimpio)).catch(err => {
-      console.warn('Firestore deleteDoc usuario warning:', err);
-    });
-  } catch {}
-
-  // Intentar sincronizar con backend en segundo plano
+  // Sincronizar con backend en segundo plano
   if (typeof fetch !== 'undefined') {
     fetch(`/api/admin/usuarios/${encodeURIComponent(correoLimpio)}`, { method: 'DELETE' }).catch(() => {});
   }
