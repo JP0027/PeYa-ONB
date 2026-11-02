@@ -8,6 +8,8 @@ import {
   guardarUsuarioEnSistema,
   eliminarUsuarioDelSistema 
 } from '../../utils/userPermissions';
+import { db } from '../../firebase';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 function obtenerNombreSugerido(correo: string): string {
   if (!correo) return '';

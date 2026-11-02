@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard/index';
-import { obtenerPerfilPorCorreo, validarAccesoUsuario, USUARIOS_CODIGO_BASE } from './utils/userPermissions';
+import { obtenerPerfilPorCorreo, validarAccesoUsuario } from './utils/userPermissions';
+import { auth, googleProvider } from './firebase';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 const LOCAL_SESSION_KEY = 'peya_session_user';
 const LOCAL_ROLE_KEY = 'peya_session_role';
@@ -33,6 +35,8 @@ export default function App() {
 
   const [error, setError] = useState<string>('');
   const [cargandoGoogle, setCargandoGoogle] = useState<boolean>(false);
+  const [mostrarAccesoManual, setMostrarAccesoManual] = useState<boolean>(false);
+  const [correoManual, setCorreoManual] = useState<string>('');
 
   useEffect(() => {
     if (user?.email) {
@@ -45,6 +49,16 @@ export default function App() {
       }
     }
   }, [user, role]);
+
+  // Escuchar estado de autenticación en Firebase
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser && firebaseUser.email && !user) {
+        loginConCorreo(firebaseUser.email, firebaseUser.displayName || undefined);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const guardarSesion = (userData: UserSession | null, userRole: string | null) => {
     setUser(userData);
@@ -89,68 +103,58 @@ export default function App() {
       return;
     }
 
-    // Permitir cualquier correo corporativo @pedidosya.com como Agente por defecto
-    if (emailLower.endsWith('@pedidosya.com') || emailLower.endsWith('@gmail.com')) {
+    // Permitir cualquier correo corporativo @pedidosya.com o cuenta autorizada
+    if (emailLower.endsWith('@pedidosya.com') || emailLower === 'yadirayajaida@gmail.com') {
       const nombrePart = emailLower.split('@')[0];
       const nombreBonito = nombreReal || (nombrePart.charAt(0).toUpperCase() + nombrePart.slice(1));
       guardarSesion({
         email: emailLower,
         displayName: nombreBonito
-      }, 'Agente');
+      }, emailLower === 'yadirayajaida@gmail.com' ? 'Supervisor' : 'Agente');
       return;
     }
 
     setError(`Acceso denegado. El correo ${correoStr} no está autorizado en PedidosYa Onboarding.`);
   };
 
-  const iniciarSesionGoogle = () => {
+  const iniciarSesionGoogle = async () => {
     setError('');
     setCargandoGoogle(true);
 
     try {
-      if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
-        const client = (window as any).google.accounts.oauth2.initTokenClient({
-          client_id: '718141235471-7v9309m8d12o9q7v5h9a6u4l1f3k2j1p.apps.googleusercontent.com', // Google Sign-In Client ID
-          scope: 'email profile openid',
-          callback: async (response: any) => {
-            if (response && response.access_token) {
-              try {
-                const resUser = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                  headers: { Authorization: `Bearer ${response.access_token}` }
-                });
-                if (resUser.ok) {
-                  const dataUser = await resUser.json();
-                  if (dataUser && dataUser.email) {
-                    loginConCorreo(dataUser.email, dataUser.name);
-                    setCargandoGoogle(false);
-                    return;
-                  }
-                }
-              } catch (e) {
-                console.warn('Error obteniendo userinfo de Google:', e);
-              }
-            }
-            setCargandoGoogle(false);
-            setError('No se pudo autenticar con Google. Inténtalo de nuevo.');
-          }
-        });
-        client.requestAccessToken();
+      const result = await signInWithPopup(auth, googleProvider);
+      if (result && result.user && result.user.email) {
+        loginConCorreo(result.user.email, result.user.displayName || undefined);
       } else {
-        // Fallback interactivo si Google GIS script no ha cargado
-        setTimeout(() => {
-          setCargandoGoogle(false);
-          // Permitir inicio de sesión rápido con la cuenta predeterminada de prueba o solicitar correo corporativo Google
-          const correoPrueba = 'yadira.flores_dyn.ext@pedidosya.com';
-          loginConCorreo(correoPrueba, 'Yadira Flores');
-        }, 800);
+        setError('No se pudo obtener la información de la cuenta de Google.');
       }
     } catch (err: any) {
+      console.error('Error al iniciar sesión con Firebase:', err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError('Se cerró la ventana emergente de inicio de sesión de Google.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError(`El dominio "${window.location.hostname}" no está autorizado en Firebase Authentication. Agrega este dominio en la consola de Firebase o usa el acceso con correo corporativo.`);
+        setMostrarAccesoManual(true);
+      } else {
+        setError(`Error al iniciar sesión con Firebase: ${err.message || 'Error desconocido'}`);
+      }
+    } finally {
       setCargandoGoogle(false);
-      setError(`Error al iniciar sesión con Google: ${err.message || 'Error desconocido'}`);
     }
   };
 
-  const handleLogout = () => {
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!correoManual.trim()) return;
+    loginConCorreo(correoManual.trim());
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn('Error cerrando sesión en Firebase:', e);
+    }
     guardarSesion(null, null);
   };
 
@@ -167,7 +171,7 @@ export default function App() {
 
         <div className="flex flex-col gap-4 w-full max-w-sm bg-white dark:bg-[#1A1A1C] border border-slate-200 dark:border-[#3A3A3E] p-8 rounded-2xl shadow-xl items-center text-center">
           <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-2">
-            Inicia sesión utilizando tu cuenta corporativa autorizada de Google (@pedidosya.com)
+            Inicia sesión utilizando tu cuenta corporativa autorizada de Google (@pedidosya.com) con Firebase Authentication
           </p>
 
           <button 
@@ -182,8 +186,36 @@ export default function App() {
               <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.19C.43 8.1 0 9.8 0 12s.43 3.9 1.19 5.42l4.09-3.15z"/>
               <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.17 2.68 1.19 6.58l4.09 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
             </svg>
-            {cargandoGoogle ? 'Conectando con Google...' : 'Iniciar sesión con Google'}
+            {cargandoGoogle ? 'Conectando con Firebase Auth...' : 'Iniciar sesión con Google (Firebase)'}
           </button>
+
+          <div className="w-full pt-2">
+            <button
+              type="button"
+              onClick={() => setMostrarAccesoManual(!mostrarAccesoManual)}
+              className="text-[11px] text-slate-500 hover:text-slate-400 underline cursor-pointer"
+            >
+              {mostrarAccesoManual ? 'Ocultar acceso manual' : '¿Problemas con la ventana emergente? Acceder con correo'}
+            </button>
+          </div>
+
+          {mostrarAccesoManual && (
+            <form onSubmit={handleManualSubmit} className="w-full pt-2 space-y-2 border-t border-slate-200 dark:border-[#3A3A3E] mt-2">
+              <input 
+                type="email"
+                value={correoManual}
+                onChange={(e) => setCorreoManual(e.target.value)}
+                placeholder="tu.nombre@pedidosya.com"
+                className="w-full bg-slate-50 dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] px-3 py-2 rounded-lg text-xs text-slate-800 dark:text-white"
+              />
+              <button 
+                type="submit"
+                className="w-full bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold py-2 rounded-lg text-xs transition cursor-pointer"
+              >
+                Acceder al sistema
+              </button>
+            </form>
+          )}
         </div>
 
         {error && (
