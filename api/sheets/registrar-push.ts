@@ -1,5 +1,4 @@
 import { JWT } from 'google-auth-library';
-import { sheetsWriteQueue, SheetsWriteQueue } from './sheetsQueue';
 
 const SPREADSHEET_ID = process.env.VITE_GOOGLE_SHEET_ID || '1obGQuhQx0FcxdoHNYUMzGqOzLFalhA63W8ze1tygHkk';
 
@@ -22,6 +21,34 @@ async function getToken(): Promise<string> {
   return cachedToken;
 }
 
+async function fetchConReintento(
+  url: string,
+  options: RequestInit,
+  maxReintentos: number = 4,
+  delayBaseMs: number = 800
+): Promise<Response> {
+  let ultimoError: any = null;
+  for (let intento = 0; intento < maxReintentos; intento++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503) {
+        const jitter = Math.floor(Math.random() * 400);
+        const esperaMs = (delayBaseMs * Math.pow(2, intento)) + jitter;
+        await new Promise(r => setTimeout(r, esperaMs));
+        continue;
+      }
+      return res;
+    } catch (err: any) {
+      ultimoError = err;
+      const jitter = Math.floor(Math.random() * 400);
+      const esperaMs = (delayBaseMs * Math.pow(2, intento)) + jitter;
+      if (intento === maxReintentos - 1) throw err;
+      await new Promise(r => setTimeout(r, esperaMs));
+    }
+  }
+  throw ultimoError || new Error('Google Sheets API no respondió tras varios reintentos');
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -37,6 +64,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    const rawBody = req.body;
+    const body = typeof rawBody === 'string' ? JSON.parse(rawBody) : (rawBody || {});
     const { 
       casoId, 
       casoOp, 
@@ -51,24 +80,24 @@ export default async function handler(req: any, res: any) {
       pushKamCat,
       fechaInicioCat,
       freezeCat
-    } = req.body || {};
+    } = body;
     const idBusqueda = String(casoOp || casoId || '').trim();
 
     if (!idBusqueda) {
       return res.status(400).json({ success: false, error: 'Se requiere casoId o casoOp' });
     }
 
-    const resultado = await sheetsWriteQueue.enqueue(async () => {
-      const token = await getToken();
+    const token = await getToken();
 
-      // 1. Consultar hoja completa A2:AO para detectar la fila y los valores actuales
-      let filaTarget = (typeof filaNumero === 'number' && filaNumero >= 2) ? filaNumero : 0;
-      let targetRowData: any[] = [];
+    // 1. Consultar hoja completa A2:AO para detectar la fila y los valores actuales
+    const fn = Number(filaNumero);
+    let filaTarget = (!isNaN(fn) && fn >= 2) ? fn : 0;
+    let targetRowData: any[] = [];
 
-      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AO?valueRenderOption=FORMATTED_VALUE`;
-      const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
-        headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-      });
+    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AO?valueRenderOption=FORMATTED_VALUE`;
+    const resCols = await fetchConReintento(urlCols, {
+      headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+    });
 
     if (resCols.ok) {
       const dataCols = await resCols.json();
@@ -106,24 +135,19 @@ export default async function handler(req: any, res: any) {
       return res.status(404).json({ success: false, error: `Caso OP ${idBusqueda} no encontrado en Google Sheets.` });
     }
 
-    // 2. Preparar actualizaciones según las 4 reglas oficiales
+    // 2. Preparar actualizaciones según las reglas oficiales
     const dataUpdates: any[] = [];
     const fechaHoraPush = String(fecha || '').trim();
 
     if (tipo === 'pos') {
-      // Index 15 = Etapa (Col P)
       const etapaLower = String(targetRowData[15] || '').toLowerCase().trim();
       const esEsperaPos = etapaLower.includes('sin integración confirmada') || etapaLower.includes('sin integracion confirmada') || etapaLower.includes('en proceso de seteo');
       
-      // Regla 3: Si está en espera y se coloca push -> respuesta = "No"
       let respPosFinal = respuestaPos ? String(respuestaPos).trim() : (esEsperaPos ? 'No' : 'Si');
       if (respPosFinal.toLowerCase() === 'si' || respPosFinal.toLowerCase() === 'sí') respPosFinal = 'Si';
       else if (respPosFinal.toUpperCase() === 'S/V') respPosFinal = 'S/V';
       else respPosFinal = 'No';
 
-      // Regla 4: Si respuesta es "No" -> pushKam = FALSE, freeze = ''
-      //          Si respuesta es "Si" -> pushKam = TRUE, freeze = ancla
-      //          Si respuesta es "S/V" -> pushKam = TRUE, freeze = ''
       let pushKamPosStr = 'FALSE';
       let freezePosFinal = '';
       if (respPosFinal === 'Si') {
@@ -137,18 +161,17 @@ export default async function handler(req: any, res: any) {
         freezePosFinal = '';
       }
 
-      // Fecha de inicio: Col T (Index 19). Si no tenía, se inicializa
-      const inicioActual = String(targetRowData[19] || '').trim();
+      const inicioActual = String(targetRowData[21] || '').trim();
       const tieneInicio = inicioActual && inicioActual !== '-' && inicioActual !== 'S/V';
-      const fInicioFinal = tieneInicio ? inicioActual : (fechaInicioPos || targetRowData[17] || targetRowData[16] || fechaHoraPush);
+      const fInicioFinal = tieneInicio ? inicioActual : (fechaInicioPos || targetRowData[18] || targetRowData[17] || fechaHoraPush);
 
       dataUpdates.push({
-        range: `'Onboarding_New'!T${filaTarget}:W${filaTarget}`,
+        range: `'Onboarding_New'!V${filaTarget}:Y${filaTarget}`,
         values: [[fInicioFinal, fechaHoraPush, respPosFinal, pushKamPosStr]]
       });
 
       dataUpdates.push({
-        range: `'Onboarding_New'!AN${filaTarget}`,
+        range: `'Onboarding_New'!AP${filaTarget}`,
         values: [[freezePosFinal]]
       });
 
@@ -156,7 +179,6 @@ export default async function handler(req: any, res: any) {
       const etapaLower = String(targetRowData[15] || '').toLowerCase().trim();
       const esEsperaCat = etapaLower.includes('verificación de catálogo') || etapaLower.includes('verificacion de catalogo') || etapaLower.includes('carga de catálogo') || etapaLower.includes('carga de catalogo');
 
-      // Regla 3: Si se mantiene en espera de catálogo y se coloca push -> respuesta = "No"
       let respCatFinal = respuestaCat ? String(respuestaCat).trim() : (esEsperaCat ? 'No' : 'Si');
       if (respCatFinal.toLowerCase() === 'si' || respCatFinal.toLowerCase() === 'sí') respCatFinal = 'Si';
       else if (respCatFinal.toUpperCase() === 'S/V') respCatFinal = 'S/V';
@@ -175,38 +197,37 @@ export default async function handler(req: any, res: any) {
         freezeCatFinal = '';
       }
 
-      // Fecha de inicio: Col X (Index 23). Si no tenía, se inicializa
-      const inicioActualCat = String(targetRowData[23] || '').trim();
+      const inicioActualCat = String(targetRowData[25] || '').trim();
       const tieneInicioCat = inicioActualCat && inicioActualCat !== '-' && inicioActualCat !== 'S/V';
-      const fInicioCatFinal = tieneInicioCat ? inicioActualCat : (fechaInicioCat || targetRowData[17] || targetRowData[16] || fechaHoraPush);
+      const fInicioCatFinal = tieneInicioCat ? inicioActualCat : (fechaInicioCat || targetRowData[18] || targetRowData[17] || fechaHoraPush);
 
       dataUpdates.push({
-        range: `'Onboarding_New'!X${filaTarget}:AA${filaTarget}`,
+        range: `'Onboarding_New'!Z${filaTarget}:AC${filaTarget}`,
         values: [[fInicioCatFinal, fechaHoraPush, respCatFinal, pushKamCatStr]]
       });
 
       dataUpdates.push({
-        range: `'Onboarding_New'!AO${filaTarget}`,
+        range: `'Onboarding_New'!AQ${filaTarget}`,
         values: [[freezeCatFinal]]
       });
 
     } else if (tipo === 'kam_pos') {
       dataUpdates.push({
-        range: `'Onboarding_New'!W${filaTarget}`,
+        range: `'Onboarding_New'!Y${filaTarget}`,
         values: [['TRUE']]
       });
     } else if (tipo === 'kam_cat') {
       dataUpdates.push({
-        range: `'Onboarding_New'!AA${filaTarget}`,
+        range: `'Onboarding_New'!AC${filaTarget}`,
         values: [['TRUE']]
       });
     } else {
-      return { statusCode: 400, body: { success: false, error: `Tipo de push desconocido: ${tipo}` } };
+      return res.status(400).json({ success: false, error: `Tipo de push desconocido: ${tipo}` });
     }
 
     // 3. Ejecutar batchUpdate atómico
     const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
-    const apiRes = await SheetsWriteQueue.fetchConReintento(urlBatch, {
+    const apiRes = await fetchConReintento(urlBatch, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -220,25 +241,19 @@ export default async function handler(req: any, res: any) {
 
     if (!apiRes.ok) {
       const errText = await apiRes.text();
-      return { statusCode: apiRes.status, body: { success: false, error: errText } };
+      return res.status(apiRes.status).json({ success: false, error: errText });
     }
 
-    return {
-      statusCode: 200,
-      body: {
-        success: true,
-        filaNumero: filaTarget,
-        tipo,
-        fecha: fechaHoraPush,
-        updates: dataUpdates,
-        message: `Push ${tipo} y reglas automáticas registradas exitosamente en fila #${filaTarget}.`
-      }
-    };
-  });
-
-  return res.status(resultado.statusCode || 200).json(resultado.body || resultado);
-} catch (err: any) {
-  console.error('[API registrar-push] Error:', err);
-  return res.status(500).json({ success: false, error: err.message });
-}
+    return res.status(200).json({
+      success: true,
+      filaNumero: filaTarget,
+      tipo,
+      fecha: fechaHoraPush,
+      updates: dataUpdates,
+      message: `Push ${tipo} registrado exitosamente en fila #${filaTarget}.`
+    });
+  } catch (err: any) {
+    console.error('[API registrar-push] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 }

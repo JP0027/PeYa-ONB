@@ -28,6 +28,8 @@ export interface CasoSheets {
   esActivo: boolean;
   origen: string;
   filaNumero: number;
+  estadoTicketSeguimiento?: string;
+  fechaCierreSeguimiento?: string;
   rangoSlaOp?: string;
   rangoSla?: string;
   tiempoTranscurridoOp?: string;
@@ -380,33 +382,42 @@ export class SheetsService {
     const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')));
     const colTieneInicio = findCol(h => h.includes('onboarding') && h.includes('inicio') && h.includes('?'));
     const colComentarios = findCol(h => h.includes('comentario'));
-    const colEstado = findCol(h => (h.includes('estado') && !h.includes('onboarding')) || h === 'estado del caso' || h === 'estado caso');
-    const colEtapa = findCol(h => h.includes('etapa') || (h.includes('estado') && h.includes('onboarding')));
-    const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
-    const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op'));
-    const colFechaCierre = findCol(h => h.includes('cierre de op') || h.includes('cierre op'));
+    // Col 14 (O): Estado del caso de onboarding
+    const colEstado = findCol(h => (h.includes('estado') && (h.includes('onboarding') || h.includes('caso'))) && !h.includes('ticket'));
+    // Col 15 (P): Etapa del onboarding
+    const colEtapa = findCol(h => h.includes('etapa'));
+    // Col 16 (Q): Estado del ticket de seguimiento (NUEVA COLUMNA)
+    const colEstadoTicket = findCol(h => h.includes('ticket') && h.includes('seguimiento') && h.includes('estado'));
+    // Col 17 (R): Fecha de creación de la OP
+    const colFechaCreacion = findCol(h => (h.includes('creación') || h.includes('creacion')) && h.includes('op'));
+    // Col 18 (S): Fecha de inicio de seguimiento de OP
+    const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op') || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
+    // Col 19 (T): Fecha de cierre de OP
+    const colFechaCierre = findCol(h => (h.includes('cierre de op') || h.includes('cierre op')) && !h.includes('seguimiento'));
+    // Col 20 (U): Fecha de cierre de seguimiento (NUEVA COLUMNA)
+    const colFechaCierreSeguimiento = findCol(h => (h.includes('cierre') && h.includes('seguimiento')) && !h.includes('op'));
 
-    // POS API
+    // POS API (Cols 21..24 = V..Y)
     const colFechaInicioPos = findCol(h => h.includes('inicio') && h.includes('pos'));
     const colFechaPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
-    const colRespPos = findCol(h => h.includes('respuesta') && h.includes('roadmap') && h.includes('pos') && !h.includes('fecha'));
+    const colRespPos = findCol(h => (h.includes('respuesta') || h.includes('roadmap')) && h.includes('pos') && !h.includes('fecha'));
     const colPushKamPos = findCol(h => h.includes('push kam') && h.includes('pos'));
 
-    // Catálogo
+    // Catálogo (Cols 25..28 = Z..AC)
     const colFechaInicioCat = findCol(h => h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo')));
     const colFechaPushCat = findCol(h => h.includes('push') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('push kam'));
-    const colRespCat = findCol(h => h.includes('respuesta') && h.includes('roadmap') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
+    const colRespCat = findCol(h => (h.includes('respuesta') || h.includes('roadmap')) && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
     const colPushKamCat = findCol(h => h.includes('push kam') && (h.includes('catálogo') || h.includes('catalogo')));
 
-    // Tiempos y Rangos
+    // Tiempos y Rangos (Cols 32..38 = AG..AM)
     const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')));
     const colTiempoPos = findCol(h => h.includes('tiempo transcurrido') && h.includes('pos'));
     const colTiempoCat = findCol(h => h.includes('tiempo transcurrido') && (h.includes('catálogo') || h.includes('catalogo')));
-    const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) || h === 'rango sla op');
+    const colRangoSlaOP = findCol(h => h.includes('rango sla') && (h.includes('op') || h.includes('horas de la op') || h.includes('horas) de la op')));
     const colRangoPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
     const colRangoCat = findCol(h => h.includes('rango sla') && (h.includes('catálogo') || h.includes('catalogo')));
 
-    // Respuestas Freeze Roadmap
+    // Respuestas Freeze Roadmap (Cols 41..42 = AP..AQ)
     const colFreezePos = findCol(h => h.includes('fecha de respuesta') && h.includes('pos'));
     const colFreezeCat = findCol(h => h.includes('fecha de respuesta') && (h.includes('catálogo') || h.includes('catalogo')));
 
@@ -483,9 +494,10 @@ export class SheetsService {
       const comentarios = getVal(colComentarios >= 0 ? colComentarios : 13);
       let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'Cerrado por oportunidad satisfactoria');
       let etapa = getVal(bestColEtapa >= 0 ? bestColEtapa : 15, 'Validación del Onboarding');
-      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
+      const estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
+      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17);
       const fechaCreacion = rawFechaCreacion ? formatearFechaHora(rawFechaCreacion) : '';
-      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, rawFechaCreacion || '');
+      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 18, rawFechaCreacion || '');
       const sla_inicio = formatearFechaHora(rawSlaInicio);
 
       // Saneamiento si vino con fecha
@@ -508,35 +520,37 @@ export class SheetsService {
       }
 
       // Fechas y Campos de Push
-      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 18);
+      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 19);
       const fechaCierre = rawFechaCierre && rawFechaCierre !== '-' ? formatearFechaHora(rawFechaCierre) : rawFechaCierre;
-      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 19);
+      const rawFechaCierreSeg = getVal(colFechaCierreSeguimiento >= 0 ? colFechaCierreSeguimiento : 20);
+      const fechaCierreSeguimiento = rawFechaCierreSeg && rawFechaCierreSeg !== '-' ? formatearFechaHora(rawFechaCierreSeg) : rawFechaCierreSeg;
+      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 21);
       const fechaInicioPos = rawInicioPos && rawInicioPos !== 'S/V' ? formatearFechaHora(rawInicioPos) : rawInicioPos;
-      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
+      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 22);
       const fechaPushPos = rawPushPos && rawPushPos !== 'S/V' ? formatearFechaHora(rawPushPos) : rawPushPos;
-      const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 21);
+      const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 23);
       const respuestaPos = (rawRespPos.toLowerCase() === 'si' || rawRespPos.toLowerCase() === 'sí') ? 'Si' : (rawRespPos.toLowerCase() === 'no' ? 'No' : (rawRespPos.toUpperCase() === 'S/V' || rawRespPos.toUpperCase() === 'SV' ? 'S/V' : rawRespPos));
-      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
+      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 24);
       const pushKamPos = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamPos).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
-      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
+      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 25);
       const fechaInicioCat = rawInicioCat && rawInicioCat !== 'S/V' ? formatearFechaHora(rawInicioCat) : rawInicioCat;
-      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
+      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 26);
       const fechaPushCat = rawPushCat && rawPushCat !== 'S/V' ? formatearFechaHora(rawPushCat) : rawPushCat;
-      const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 25);
+      const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 27);
       const respuestaCat = (rawRespCat.toLowerCase() === 'si' || rawRespCat.toLowerCase() === 'sí') ? 'Si' : (rawRespCat.toLowerCase() === 'no' ? 'No' : (rawRespCat.toUpperCase() === 'S/V' || rawRespCat.toUpperCase() === 'SV' ? 'S/V' : rawRespCat));
-      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
+      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 28);
       const pushKamCat = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamCat).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
 
-      const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
-      const tiempoTranscurridoPos = getVal(colTiempoPos >= 0 ? colTiempoPos : 31);
-      const tiempoTranscurridoCat = getVal(colTiempoCat >= 0 ? colTiempoCat : 32);
+      const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 32);
+      const tiempoTranscurridoPos = getVal(colTiempoPos >= 0 ? colTiempoPos : 33);
+      const tiempoTranscurridoCat = getVal(colTiempoCat >= 0 ? colTiempoCat : 34);
 
-      const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 34);
-      const rangoSlaPos = getVal(colRangoPos >= 0 ? colRangoPos : 35);
-      const rangoSlaCat = getVal(colRangoCat >= 0 ? colRangoCat : 36);
+      const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 36);
+      const rangoSlaPos = getVal(colRangoPos >= 0 ? colRangoPos : 37);
+      const rangoSlaCat = getVal(colRangoCat >= 0 ? colRangoCat : 38);
 
-      const fechaFreezePos = getVal(colFreezePos >= 0 ? colFreezePos : 39);
-      const fechaFreezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 40);
+      const fechaFreezePos = getVal(colFreezePos >= 0 ? colFreezePos : 41);
+      const fechaFreezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 42);
 
       // Horas reales = días*24 + horas del texto oficial (los minutos no suman hora completa)
       let horasSLA = 0;
@@ -577,6 +591,8 @@ export class SheetsService {
         fechaCreacion: fechaCreacion || '',
         estado: estado || 'En progreso',
         etapa: etapa || 'Validación del Onboarding',
+        estadoTicketSeguimiento: estadoTicketSeguimiento || 'Abierto',
+        fechaCierreSeguimiento: fechaCierreSeguimiento || '',
         sla_inicio: sla_inicio || new Date().toISOString(),
         rangoSlaOp: rangoSlaOp || '',
         rangoSla: rangoSlaOp || '',
@@ -976,34 +992,38 @@ export class SheetsService {
       !opRaw.includes('_r');
     const opVal = esOpValido ? opRaw : '';
 
+    const fechaCierreSeguimientoStr = c.fechaCierreSeguimiento && c.fechaCierreSeguimiento !== '-' ? formatearFechaHora(c.fechaCierreSeguimiento) : (c.fechaCierreSeguimiento || '');
+
     return [
-      opVal,                                                               // A: N° Caso OP (vacío "" si no tiene OP aún)
-      c.vendorId || c.vendor_id || '',                                     // B: ID
-      c.tienda || '',                                                      // C: Tienda
-      c.pais || '',                                                        // D: País
-      c.kam || '',                                                         // E: Kam
-      c.integracion || '',                                                 // F: Integración
-      sponsorship,                                                         // G: Descuentos bajo estructura Sponsorship
-      c.oportunidad || '',                                                 // H: Oportunidad
-      c.asset || '',                                                       // I: Asset
-      c.propietarioOportunidad || '',                                      // J: Propietario Oportunidad
-      c.propietarioTicket || c.agente || '',                               // K: Propietario de Ticket HeroCare
-      c.casoSeguimiento || '',                                             // L: N° Caso Seguimiento
-      c.tieneCasoInicio || 'Si',                                           // M: ¿Tiene caso de onboarding en el inicio de seguimiento?
-      c.comentarios || '',                                                 // N: Comentarios del Onboarding
-      c.estado || 'En progreso',                                           // O: Estado del caso
-      c.etapa || 'Validación del Onboarding',                              // P: Etapa del onboarding
-      fechaCreacionStr,                                                    // Q: Fecha de creación de la OP
-      slaInicioStr,                                                        // R: Fecha de inicio de seguimiento de OP
-      fechaCierreStr,                                                      // S: Fecha de cierre de OP
-      fechaInicioPosStr,                                                   // T: Fecha de inicio de seguimiento - Datos Faltantes POS API
-      fechaPushPosStr,                                                     // U: Fecha de push de seguimiento - Datos Faltantes POS API
-      c.respuestaPos || '',                                                // V: ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
-      pushKamPosStr,                                                       // W: Push KAM - Datos Faltantes POS API
-      fechaInicioCatStr,                                                   // X: Fecha de inicio de seguimiento - Catálogo
-      fechaPushCatStr,                                                     // Y: Fecha de push de seguimiento - Catálogo
-      c.respuestaCat || '',                                                // Z: ¿Existe respuesta en el roadmap de Catálogo?
-      pushKamCatStr                                                        // AA: Push KAM - Catálogo
+      opVal,                                                               // A (0): N° Caso OP (vacío "" si no tiene OP aún)
+      c.vendorId || c.vendor_id || '',                                     // B (1): ID
+      c.tienda || '',                                                      // C (2): Tienda
+      c.pais || '',                                                        // D (3): País
+      c.kam || '',                                                         // E (4): Kam
+      c.integracion || '',                                                 // F (5): Integración
+      sponsorship,                                                         // G (6): Descuentos bajo estructura Sponsorship
+      c.oportunidad || '',                                                 // H (7): Oportunidad
+      c.asset || '',                                                       // I (8): Asset
+      c.propietarioOportunidad || '',                                      // J (9): Propietario Oportunidad
+      c.propietarioTicket || c.agente || '',                               // K (10): Propietario de Ticket HeroCare
+      c.casoSeguimiento || '',                                             // L (11): N° Caso Seguimiento
+      c.tieneCasoInicio || 'Si',                                           // M (12): ¿Tiene caso de onboarding en el inicio de seguimiento?
+      c.comentarios || '',                                                 // N (13): Comentarios del Onboarding
+      c.estado || 'En progreso',                                           // O (14): Estado del caso de onboarding
+      c.etapa || 'Validación del Onboarding',                              // P (15): Etapa del onboarding
+      c.estadoTicketSeguimiento || c.estadoTicket || 'Abierto',            // Q (16): Estado del ticket de seguimiento
+      fechaCreacionStr,                                                    // R (17): Fecha de creación de la OP
+      slaInicioStr,                                                        // S (18): Fecha de inicio de seguimiento de OP
+      fechaCierreStr,                                                      // T (19): Fecha de cierre de OP
+      fechaCierreSeguimientoStr,                                           // U (20): Fecha de cierre de seguimiento
+      fechaInicioPosStr,                                                   // V (21): Fecha de inicio de seguimiento - Datos Faltantes POS API
+      fechaPushPosStr,                                                     // W (22): Fecha de push de seguimiento - Datos Faltantes POS API
+      c.respuestaPos || '',                                                // X (23): ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
+      pushKamPosStr,                                                       // Y (24): Push KAM - Datos Faltantes POS API
+      fechaInicioCatStr,                                                   // Z (25): Fecha de inicio de seguimiento - Catálogo
+      fechaPushCatStr,                                                     // AA (26): Fecha de push de seguimiento - Catálogo
+      c.respuestaCat || '',                                                // AB (27): ¿Existe respuesta en el roadmap de Catálogo?
+      pushKamCatStr                                                        // AC (28): Push KAM - Catálogo
     ];
   }
 
@@ -1138,7 +1158,7 @@ export class SheetsService {
         const valFreezePos = caso.fechaFreezePos || caso.freezePos || '';
         const valFreezeCat = caso.fechaFreezeCat || caso.freezeCat || '';
         const valoresAF = filaValores.slice(0, 6);   // Columnas A:F (Índices 0..5)
-        const valoresHAA = filaValores.slice(7, 27); // Columnas H:AA (Índices 7..26) - Columna G omitida
+        const valoresHAC = filaValores.slice(7, 29); // Columnas H:AA (Índices 7..26) - Columna G omitida
 
         // Si se encontró la fila en Sheets (a partir de la fila 3): ACTUALIZAR IN-PLACE
         if (filaTarget >= 3) {
@@ -1149,14 +1169,14 @@ export class SheetsService {
               values: [valoresAF]
             },
             {
-              range: `'Onboarding_New'!H${filaTarget}:AA${filaTarget}`,
-              values: [valoresHAA]
+              range: `'Onboarding_New'!H${filaTarget}:AC${filaTarget}`,
+              values: [valoresHAC]
             }
           ];
 
           if (valFreezePos || valFreezeCat) {
             dataUpdates.push({
-              range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
+              range: `'Onboarding_New'!AP${filaTarget}:AQ${filaTarget}`,
               values: [[valFreezePos, valFreezeCat]]
             });
           }
@@ -1180,7 +1200,7 @@ export class SheetsService {
           }
 
           caso.filaNumero = filaTarget;
-          console.log(`[SheetsService] Fila ${filaTarget} (OP ${caso.casoOp}) actualizada en Google Sheets (A:F y H:AA, Columna G preservada para ARRAYFORMULA).`);
+          console.log(`[SheetsService] Fila ${filaTarget} (OP ${caso.casoOp}) actualizada en Google Sheets (A:F y H:AC, Columna G preservada para ARRAYFORMULA).`);
           return { success: true, filaNumero: filaTarget };
         }
 
@@ -1196,14 +1216,14 @@ export class SheetsService {
             values: [valoresAF]
           },
           {
-            range: `'Onboarding_New'!H${nuevaFila}:AA${nuevaFila}`,
-            values: [valoresHAA]
+            range: `'Onboarding_New'!H${nuevaFila}:AC${nuevaFila}`,
+            values: [valoresHAC]
           }
         ];
 
         if (valFreezePos || valFreezeCat) {
           dataUpdatesNuevo.push({
-            range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
+            range: `'Onboarding_New'!AP${nuevaFila}:AQ${nuevaFila}`,
             values: [[valFreezePos, valFreezeCat]]
           });
         }
@@ -1290,19 +1310,19 @@ export class SheetsService {
 
       if (tipo === 'pos') {
         caso.fechaPushPos = ahoraStr;
-        colLetra = 'U';
+        colLetra = 'W';
         nuevoValor = ahoraStr;
       } else if (tipo === 'cat') {
         caso.fechaPushCat = ahoraStr;
-        colLetra = 'Y';
+        colLetra = 'AA';
         nuevoValor = ahoraStr;
       } else if (tipo === 'kam_pos') {
         caso.pushKamPos = 'TRUE';
-        colLetra = 'W';
+        colLetra = 'Y';
         nuevoValor = 'TRUE';
       } else if (tipo === 'kam_cat') {
         caso.pushKamCat = 'TRUE';
-        colLetra = 'AA';
+        colLetra = 'AC';
         nuevoValor = 'TRUE';
       }
 

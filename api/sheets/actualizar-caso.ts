@@ -1,5 +1,4 @@
 import { JWT } from 'google-auth-library';
-import { sheetsWriteQueue, SheetsWriteQueue } from './sheetsQueue';
 
 const SPREADSHEET_ID = process.env.VITE_GOOGLE_SHEET_ID || '1obGQuhQx0FcxdoHNYUMzGqOzLFalhA63W8ze1tygHkk';
 const CREDS_B64 = 'ew0KICAidHlwZSI6ICJzZXJ2aWNlX2FjY291bnQiLA0KICAicHJvamVjdF9pZCI6ICJvbmItZGF0YSIsDQogICJwcml2YXRlX2tleV9pZCI6ICIyODRkZTRiY2ViMWJkNzc2NmEyZjA2NjhmMzU3ODhkZjM4MDFjZTU1IiwNCiAgInByaXZhdGVfa2V5IjogIi0tLS0tQkVHSU4gUFJJVkFURSBLRVktLS0tLVxuTUlJRXZnSUJBREFOQmdrcWhraUc5dzBCQVFFRkFBU0NCS2d3Z2dTa0FnRUFBb0lCQVFEZzFOdk9RNDR6OUtvVVxub0lvZkswRDFiRFBGc3EvS0VoNTRlL01YWGNoajZ4T29jSGZ4am9ONXRpZlA0dmFEN0lyVWhCZVFENlpTZ2R0Q1xuNFVnK3dLUUJqWVA3T1FTQWM2czBYSzBsbnJYNmkzY0o1NDJOWHd2V2RYRXJ5SmVuTDU4WU91WHRoTmIweFM2TFxuYStwa2V1Vk85TVRzYzByanZWMEpUQ1BPK3NaaDFzeGFhcXZzSlVpT3YrSWNHcFo0R2ljVmVtTURWS3FUR3NzWlxubkQyL1FFdkMzR2Rrb3BoNkEvdStDYWw2M1hYdURWeE1oQlNTWnNuV0Rla21pbkV3N2g1cGptNXprYklsQlJodVxuanowYk1oaTlTYjhOYXF5dTZQUXdNY0gveXBCKzF6Rkh2aXB4dDFYK1hWZzJ1N21WM2p0OUg3RnhIYWRuaHlXQVxuWm5Ic3VRZEZBZ01CQUFFQ2dnRUFDRTd3RDlJV1JnYm92Qm9SKzBTTmJNOENwaHAyMHVMOWhrVktVK3c1ZExFaVxuQ1FEeSt4VzI5NzlLcWF6V1N1OXBwL1hPVmNWYm5PNllqQzJvRGsyWnpKdzVWWVlqWVBNbFQxVGlGSGhRMEVFK1xueW1VVFZEZEFIWkk1ekR6b1FjWTBQUXNtMFFnRGdOM0NoN3R3QTN1T2VzUk5KMUc4REQ0YUJlSEVRYWlwdm13YlxuREJtcVZrTng3UFJxS0pWaTVubSt2OFo4YXluK1dsTDdjOGluZm9CeEJuRjh6dTNvaW4xaGtNeHR4Z2hQOWF2clxuMzM5TURTRktVWDJvOHY3bXhoNUk5TnZQb0ZmUkI4eEJ2V0trTWRQWEJUSXp2UDl5YVRJQndUdXI3aGNFa2VveVxuT3BSMnVpZkU4aHNqbUpqajZuNGRtWXZSNlFmOFlEYTBxQUNHK0NaQk1RS0JnUUQ3TWorMzNVdThkUmllOVZFVVxuWTZzRFUvWVlMb0Q5NGgzUEJyV0JDamFsMzVWanJRejg3bFB6WGpUcU4rVjBsdHM0T2ZFSDBSOUlwbGlnTDRtelxuNVJSbUVLYWZjZC9QVExOMVNLVjd1NHJ0bUV4V1JZb2xOSERjeGpoaDBTcEQrbGhFWFgxUXpOOGs2bnhDNmlVTFxuNHl1RWpJQ1dVL2lNYnI5MytValhqSUErZlFLQmdRRGxJWW5yR1NUVEV2bkF6TDFFQXFTSVBuaHpVWEhjUXFISVxuNjNISHhhaGxnZ3VIWWEwWVNkTHgyNWc1TGNpUDV6YkZCRi9Vb2lGMHpvaEMwVWd2WngyN3YvbVJrMkZNcE1aaVxuY1F2MXlmMFdiQ2loeVpvRUZ2QmFsTzd5VHpCWElXTUZrV2ZPSlF3bkZZYThvL2tObzBNSEI1WHFCNU1RNktJOFxubk9PYjlkdmVhUUtCZ0JnemJTUWZzKzVDTWM4T3YzTUJielp3M21MU0NDZHRvNFdRbGVnS3ZkMFpQMkZOQ05WTlxuZU5VWG5HMThXU1QwYThacy9xWE1KZ0Z2MVZZSmZuRFFmemllSGc5NmZ4K1B1akp3ZjFEK2JwSVpmREZMbmRXYlxueWN2YlpRODNnYVR1OTVZT2s4WTNGc0NOdnM4TGsrb2pSc3dNWlU4V1kvblRxYXE3WDZNMHJCNVpBb0dCQUxaYlxuMWdkOVVIaUpEcXNxaDZ1Y0t0U2dXMzcwSUJsOEVvVDFGZTQzMnNsSEVlUGlrai9WYVlUQ0Q4bmFMVmlTWFYyNlxuR0ljRHJucm5jVDAwa1MzZzlLSWJyUVgyZFNicHNWWmh3SElURzFHQUxXcHVLQnovSUxZRytKRnpBdmNsaEVqSFxuTEFXK0tJam1zZ0JxeEduZE9SaGNLaTFEY0FHeUZJVUhISU5nem1lWkFvR0JBSWgrWjhiMUx3V1dIcVBGR1VJblxubWtYN1dONkxRZGI2VnloMU5KVSsrUlR1QzFBTmdpdGt0YmE2c3ZVd1dKbzBNN0pTaFduZ2ZhSlZ0dVhjZEU5b1xuU1d0L2hrZXJOV1hBdURHZTREUDhTY0tiZWI4MVNEcDdteVk1WlR0bTVBRldqbUNYeFBkQmp5M05NSm1GbDNSOFxuVVoxNE5LQzhQVjVKbGVnRWRkZU54UTNoXG4tLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tXG4iLA0KICAiY2xpZW50X2VtYWlsIjogIm9uYi1pbnRlZ3JhY2lvbmVzQG9uYi1kYXRhLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwNCiAgImNsaWVudF9pZCI6ICIxMDQxNjU3MjMyMTE5NjUyNjY5NzQiLA0KICAiYXV0aF91cmkiOiAiaHR0cHM6Ly9hY2NvdW50cy5nb29nbGUuY29tL28vb2F1dGgyL2F1dGgiLA0KICAidG9rZW5fdXJpIjogImh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwNCiAgImF1dGhfcHJvdmlkZXJfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9vYXV0aDIvdjEvY2VydHMiLA0KICAiY2xpZW50X3g1MDlfY2VydF91cmwiOiAiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vcm9ib3QvdjEvbWV0YWRhdGEveDUwOS9vbmItaW50ZWdyYWNpb25lcyU0MG9uYi1kYXRhLmlhbS5nc2VydmljZWFjY291bnQuY29tIiwNCiAgInVuaXZlcnNlX2RvbWFpbiI6ICJnb29nbGVhcGlzLmNvbSINCn0NCg==';
@@ -19,6 +18,34 @@ async function getToken(): Promise<string> {
   cachedToken = res.access_token || '';
   tokenExpiry = (res.expiry_date as number) || (Date.now() + 3500 * 1000);
   return cachedToken;
+}
+
+async function fetchConReintento(
+  url: string,
+  options: RequestInit,
+  maxReintentos: number = 4,
+  delayBaseMs: number = 800
+): Promise<Response> {
+  let ultimoError: any = null;
+  for (let intento = 0; intento < maxReintentos; intento++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503) {
+        const jitter = Math.floor(Math.random() * 400);
+        const esperaMs = (delayBaseMs * Math.pow(2, intento)) + jitter;
+        await new Promise(r => setTimeout(r, esperaMs));
+        continue;
+      }
+      return res;
+    } catch (err: any) {
+      ultimoError = err;
+      const jitter = Math.floor(Math.random() * 400);
+      const esperaMs = (delayBaseMs * Math.pow(2, intento)) + jitter;
+      if (intento === maxReintentos - 1) throw err;
+      await new Promise(r => setTimeout(r, esperaMs));
+    }
+  }
+  throw ultimoError || new Error('Google Sheets API no respondió tras varios reintentos');
 }
 
 function formatearFechaHoraSheet(val: any): string {
@@ -49,7 +76,7 @@ function formatearFechaHoraSheet(val: any): string {
     return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
-  // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual para completar formato dd/mm/aaaa hh:mm
+  // 3. DD/MM/YYYY o DD-MM-YYYY sin hora -> estampa hora actual
   const matchDDMM = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (matchDDMM) {
     const dia = String(parseInt(matchDDMM[1], 10)).padStart(2, '0');
@@ -62,7 +89,7 @@ function formatearFechaHoraSheet(val: any): string {
     return `${dia}/${mes}/${anio} ${hora}:${min}`;
   }
 
-  // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual para completar formato dd/mm/aaaa hh:mm
+  // 4. YYYY-MM-DD o YYYY/MM/DD sin hora -> estampa hora actual
   const matchISO = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
   if (matchISO) {
     const anio = parseInt(matchISO[1], 10);
@@ -109,34 +136,38 @@ function mapearCasoAColumnasSheet(c: any): any[] {
     !opRaw.includes('_r');
   const opVal = esOpValido ? opRaw : '';
 
+  const fechaCierreSeguimientoStr = c.fechaCierreSeguimiento && c.fechaCierreSeguimiento !== '-' ? formatearFechaHoraSheet(c.fechaCierreSeguimiento) : (c.fechaCierreSeguimiento || '');
+
   return [
-    opVal,                                                               // A: N° Caso OP (vacío "" si no tiene OP aún)
-    c.vendorId || c.vendor_id || '',                                     // B: ID
-    c.tienda || '',                                                      // C: Tienda
-    c.pais || '',                                                        // D: País
-    c.kam || '',                                                         // E: Kam
-    c.integracion || '',                                                 // F: Integración
-    sponsorship,                                                         // G: Descuentos bajo estructura Sponsorship
-    c.oportunidad || '',                                                 // H: Oportunidad
-    c.asset || '',                                                       // I: Asset
-    c.propietarioOportunidad || '',                                      // J: Propietario Oportunidad
-    c.propietarioTicket || c.agente || '',                               // K: Propietario de Ticket HeroCare
-    c.casoSeguimiento || '',                                             // L: N° Caso Seguimiento
-    c.tieneCasoInicio || 'Si',                                           // M: ¿Tiene caso de onboarding en el inicio de seguimiento?
-    c.comentarios || '',                                                 // N: Comentarios del Onboarding
-    c.estado || 'En progreso',                                           // O: Estado del caso
-    c.etapa || 'Validación del Onboarding',                              // P: Etapa del onboarding
-    fechaCreacionStr,                                                    // Q: Fecha de creación de la OP
-    slaInicioStr,                                                        // R: Fecha de inicio de seguimiento de OP
-    fechaCierreStr,                                                      // S: Fecha de cierre de OP
-    fechaInicioPosStr,                                                   // T: Fecha de inicio de seguimiento - Datos Faltantes POS API
-    fechaPushPosStr,                                                     // U: Fecha de push de seguimiento - Datos Faltantes POS API
-    c.respuestaPos || '',                                                // V: ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
-    pushKamPosStr,                                                       // W: Push KAM - Datos Faltantes POS API
-    fechaInicioCatStr,                                                   // X: Fecha de inicio de seguimiento - Catálogo
-    fechaPushCatStr,                                                     // Y: Fecha de push de seguimiento - Catálogo
-    c.respuestaCat || '',                                                // Z: ¿Existe respuesta en el roadmap de Catálogo?
-    pushKamCatStr                                                        // AA: Push KAM - Catálogo
+    opVal,                                                               // A (0): N° Caso OP (vacío "" si no tiene OP aún)
+    c.vendorId || c.vendor_id || '',                                     // B (1): ID
+    c.tienda || '',                                                      // C (2): Tienda
+    c.pais || '',                                                        // D (3): País
+    c.kam || '',                                                         // E (4): Kam
+    c.integracion || '',                                                 // F (5): Integración
+    sponsorship,                                                         // G (6): Descuentos bajo estructura Sponsorship
+    c.oportunidad || '',                                                 // H (7): Oportunidad
+    c.asset || '',                                                       // I (8): Asset
+    c.propietarioOportunidad || '',                                      // J (9): Propietario Oportunidad
+    c.propietarioTicket || c.agente || '',                               // K (10): Propietario de Ticket HeroCare
+    c.casoSeguimiento || '',                                             // L (11): N° Caso Seguimiento
+    c.tieneCasoInicio || 'Si',                                           // M (12): ¿Tiene caso de onboarding en el inicio de seguimiento?
+    c.comentarios || '',                                                 // N (13): Comentarios del Onboarding
+    c.estado || 'En progreso',                                           // O (14): Estado del caso de onboarding
+    c.etapa || 'Validación del Onboarding',                              // P (15): Etapa del onboarding
+    c.estadoTicketSeguimiento || c.estadoTicket || 'Abierto',            // Q (16): Estado del ticket de seguimiento
+    fechaCreacionStr,                                                    // R (17): Fecha de creación de la OP
+    slaInicioStr,                                                        // S (18): Fecha de inicio de seguimiento de OP
+    fechaCierreStr,                                                      // T (19): Fecha de cierre de OP
+    fechaCierreSeguimientoStr,                                           // U (20): Fecha de cierre de seguimiento
+    fechaInicioPosStr,                                                   // V (21): Fecha de inicio de seguimiento - Datos Faltantes POS API
+    fechaPushPosStr,                                                     // W (22): Fecha de push de seguimiento - Datos Faltantes POS API
+    c.respuestaPos || '',                                                // X (23): ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
+    pushKamPosStr,                                                       // Y (24): Push KAM - Datos Faltantes POS API
+    fechaInicioCatStr,                                                   // Z (25): Fecha de inicio de seguimiento - Catálogo
+    fechaPushCatStr,                                                     // AA (26): Fecha de push de seguimiento - Catálogo
+    c.respuestaCat || '',                                                // AB (27): ¿Existe respuesta en el roadmap de Catálogo?
+    pushKamCatStr                                                        // AC (28): Push KAM - Catálogo
   ];
 }
 
@@ -154,227 +185,219 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const casoData = req.body;
+    const rawBody = req.body;
+    const casoData = typeof rawBody === 'string' ? JSON.parse(rawBody) : (rawBody || {});
     if (!casoData || (!casoData.id && !casoData.casoOp && !casoData.vendorId)) {
       return res.status(400).json({ success: false, error: 'Se requiere id, casoOp o vendorId' });
     }
 
-    const resultado = await sheetsWriteQueue.enqueue(async () => {
-      const token = await getToken();
-      const idBusqueda = String(casoData.casoOp || casoData.id || casoData.vendorId || '').trim();
-      const esNuevo = Boolean(casoData.esNuevo);
-      let filaTarget = 0;
-      let totalFilasHoja = 0;
+    const token = await getToken();
+    const idBusqueda = String(casoData.casoOp || casoData.id || casoData.vendorId || '').trim();
+    const esNuevo = Boolean(casoData.esNuevo);
+    let filaTarget = 0;
+    let totalFilasHoja = 0;
 
-      // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
-      const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
-      const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
-        headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
-      });
-      if (resCols.ok) {
-        const dataCols = await resCols.json();
-        const rows = dataCols.values || [];
-        totalFilasHoja = rows.length;
+    // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
+    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
+    const resCols = await fetchConReintento(urlCols, {
+      headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+    });
 
-        const filaHint = Number(casoData.filaNumero);
-        const venBuscado = String(casoData.vendorId || casoData.vendor_id || '').trim();
-        const opBuscado = String(casoData.casoOp || '').trim();
-        const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+    if (resCols.ok) {
+      const dataCols = await resCols.json();
+      const rows = dataCols.values || [];
+      totalFilasHoja = rows.length;
 
-        // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
-        if (filaHint >= 3 && filaHint <= rows.length) {
-          const rowAtHint = rows[filaHint - 1] || [];
-          const opAtHint = String(rowAtHint[0] || '').trim();
-          const venAtHint = String(rowAtHint[1] || '').trim();
-          if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
-            filaTarget = filaHint;
-          }
+      const filaHint = Number(casoData.filaNumero);
+      const venBuscado = String(casoData.vendorId || casoData.vendor_id || '').trim();
+      const opBuscado = String(casoData.casoOp || '').trim();
+      const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+
+      // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
+      if (filaHint >= 3 && filaHint <= rows.length) {
+        const rowAtHint = rows[filaHint - 1] || [];
+        const opAtHint = String(rowAtHint[0] || '').trim();
+        const venAtHint = String(rowAtHint[1] || '').trim();
+        if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+          filaTarget = filaHint;
         }
+      }
 
-        // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba tomando el último registrado si se repite casoOp
-        if (!filaTarget && esOpValido) {
-          for (let i = rows.length - 1; i >= 0; i--) {
-            const op = String(rows[i]?.[0] || '').trim();
-            if (op === opBuscado) {
-              filaTarget = i + 1;
-              break;
-            }
-          }
-        }
-
-        // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba
-        if (!filaTarget && !esNuevo) {
-          for (let i = rows.length - 1; i >= 0; i--) {
-            const op = String(rows[i]?.[0] || '').trim();
-            const ven = String(rows[i]?.[1] || '').trim();
-            if (
-              (venBuscado && ven === venBuscado) ||
-              (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
-              (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
-            ) {
-              filaTarget = i + 1;
-              break;
-            }
+      // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba tomando el último registrado si se repite casoOp
+      if (!filaTarget && esOpValido) {
+        for (let i = rows.length - 1; i >= 0; i--) {
+          const op = String(rows[i]?.[0] || '').trim();
+          if (op === opBuscado) {
+            filaTarget = i + 1;
+            break;
           }
         }
       }
 
-      const filaValores = mapearCasoAColumnasSheet(casoData);
-      const valoresAF = filaValores.slice(0, 6);   // Columnas A:F
-      const valoresHAA = filaValores.slice(7, 27); // Columnas H:AA (Columna G Sponsorship omitida)
-      const valFreezePos = casoData.fechaFreezePos || casoData.freezePos || '';
-      const valFreezeCat = casoData.fechaFreezeCat || casoData.freezeCat || '';
-
-      if (filaTarget >= 3) {
-        // ACTUALIZAR fila existente omitiendo Columna G
-        const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
-        const dataUpdates: any[] = [
-          {
-            range: `'Onboarding_New'!A${filaTarget}:F${filaTarget}`,
-            values: [valoresAF]
-          },
-          {
-            range: `'Onboarding_New'!H${filaTarget}:AA${filaTarget}`,
-            values: [valoresHAA]
+      // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba
+      if (!filaTarget && !esNuevo) {
+        for (let i = rows.length - 1; i >= 0; i--) {
+          const op = String(rows[i]?.[0] || '').trim();
+          const ven = String(rows[i]?.[1] || '').trim();
+          if (
+            (venBuscado && ven === venBuscado) ||
+            (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
+            (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
+          ) {
+            filaTarget = i + 1;
+            break;
           }
-        ];
-
-        // Sincronizar AN:AO (Freeze)
-        dataUpdates.push({
-          range: `'Onboarding_New'!AN${filaTarget}:AO${filaTarget}`,
-          values: [[valFreezePos, valFreezeCat]]
-        });
-
-        const apiRes = await SheetsWriteQueue.fetchConReintento(urlBatch, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            valueInputOption: 'USER_ENTERED',
-            data: dataUpdates
-          })
-        });
-
-        if (!apiRes.ok) {
-          const errText = await apiRes.text();
-          throw new Error(`Google Sheets API [${apiRes.status}]: ${errText}`);
         }
+      }
+    }
 
-        return {
-          statusCode: 200,
-          body: {
-            success: true,
-            updated: true,
-            filaNumero: filaTarget,
-            message: `Caso actualizado en Google Sheets (Fila #${filaTarget}, Columna G omitida)`
-          }
-        };
-      } else {
-        // INSERTAR nuevo caso detectando exactamente la última fila de la base
-        const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 1878;
+    const filaValores = mapearCasoAColumnasSheet(casoData);
+    const valoresAF = filaValores.slice(0, 6);   // Columnas A:F
+    const valoresHAC = filaValores.slice(7, 29); // Columnas H:AA (Columna G Sponsorship omitida)
+    const valFreezePos = casoData.fechaFreezePos || casoData.freezePos || '';
+    const valFreezeCat = casoData.fechaFreezeCat || casoData.freezeCat || '';
 
-        try {
-          const sheetIdOnboardingNew = 104076048;
-          const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
-          const resMeta = await SheetsWriteQueue.fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
-          if (resMeta.ok) {
-            const dataMeta = await resMeta.json();
-            const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
-            const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
-            if (nuevaFila > rowCountActual) {
-              const nuevoRowCount = nuevaFila + 50;
-              await SheetsWriteQueue.fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  requests: [{
-                    updateSheetProperties: {
-                      properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevoRowCount } },
-                      fields: 'gridProperties.rowCount'
-                    }
-                  }]
-                })
-              });
-            }
-          }
-        } catch (eMeta) {
-          console.warn('Error verificando gridProperties:', eMeta);
+    if (filaTarget >= 3) {
+      // ACTUALIZAR fila existente omitiendo Columna G
+      const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+      const dataUpdates: any[] = [
+        {
+          range: `'Onboarding_New'!A${filaTarget}:F${filaTarget}`,
+          values: [valoresAF]
+        },
+        {
+          range: `'Onboarding_New'!H${filaTarget}:AC${filaTarget}`,
+          values: [valoresHAC]
         }
+      ];
 
-        const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
-        const dataUpdatesNuevo: any[] = [
-          {
-            range: `'Onboarding_New'!A${nuevaFila}:F${nuevaFila}`,
-            values: [valoresAF]
-          },
-          {
-            range: `'Onboarding_New'!H${nuevaFila}:AA${nuevaFila}`,
-            values: [valoresHAA]
-          }
-        ];
+      // Sincronizar AN:AO (Freeze)
+      dataUpdates.push({
+        range: `'Onboarding_New'!AP${filaTarget}:AQ${filaTarget}`,
+        values: [[valFreezePos, valFreezeCat]]
+      });
 
-        if (valFreezePos || valFreezeCat) {
-          dataUpdatesNuevo.push({
-            range: `'Onboarding_New'!AN${nuevaFila}:AO${nuevaFila}`,
-            values: [[valFreezePos, valFreezeCat]]
-          });
-        }
+      const apiRes = await fetchConReintento(urlBatch, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          valueInputOption: 'USER_ENTERED',
+          data: dataUpdates
+        })
+      });
 
-        let apiRes = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            valueInputOption: 'USER_ENTERED',
-            data: dataUpdatesNuevo
-          })
-        });
+      if (!apiRes.ok) {
+        const errText = await apiRes.text();
+        throw new Error(`Google Sheets API [${apiRes.status}]: ${errText}`);
+      }
 
-        if (!apiRes.ok) {
-          const errText = await apiRes.text();
-          if (errText.includes('exceeds grid limits')) {
-            const sheetIdOnboardingNew = 104076048;
-            await SheetsWriteQueue.fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+      return res.status(200).json({
+        success: true,
+        updated: true,
+        filaNumero: filaTarget,
+        message: `Caso actualizado en Google Sheets (Fila #${filaTarget}, Columna G omitida)`
+      });
+    } else {
+      // INSERTAR nuevo caso detectando exactamente la última fila de la base
+      const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : 2020;
+
+      try {
+        const sheetIdOnboardingNew = 104076048;
+        const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,gridProperties.rowCount)`;
+        const resMeta = await fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
+        if (resMeta.ok) {
+          const dataMeta = await resMeta.json();
+          const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.sheetId === sheetIdOnboardingNew);
+          const rowCountActual = sheetObj?.properties?.gridProperties?.rowCount || 0;
+          if (nuevaFila > rowCountActual) {
+            const nuevoRowCount = nuevaFila + 50;
+            await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
               method: 'POST',
               headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 requests: [{
                   updateSheetProperties: {
-                    properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevaFila + 200 } },
+                    properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevoRowCount } },
                     fields: 'gridProperties.rowCount'
                   }
                 }]
               })
             });
-            apiRes = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataUpdatesNuevo })
-            });
-          }
-          if (!apiRes.ok) {
-            const finalErr = await apiRes.text();
-            throw new Error(`Google Sheets API [${apiRes.status}]: ${finalErr}`);
           }
         }
-
-        return {
-          statusCode: 200,
-          body: {
-            success: true,
-            created: true,
-            filaNumero: nuevaFila,
-            message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila}, Columna G omitida)`
-          }
-        };
+      } catch (eMeta) {
+        console.warn('Error verificando gridProperties:', eMeta);
       }
-    });
 
-    return res.status(resultado.statusCode || 200).json(resultado.body || resultado);
+      const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
+      const dataUpdatesNuevo: any[] = [
+        {
+          range: `'Onboarding_New'!A${nuevaFila}:F${nuevaFila}`,
+          values: [valoresAF]
+        },
+        {
+          range: `'Onboarding_New'!H${nuevaFila}:AC${nuevaFila}`,
+          values: [valoresHAC]
+        }
+      ];
+
+      if (valFreezePos || valFreezeCat) {
+        dataUpdatesNuevo.push({
+          range: `'Onboarding_New'!AP${nuevaFila}:AQ${nuevaFila}`,
+          values: [[valFreezePos, valFreezeCat]]
+        });
+      }
+
+      let apiRes = await fetchConReintento(urlBatchNuevo, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          valueInputOption: 'USER_ENTERED',
+          data: dataUpdatesNuevo
+        })
+      });
+
+      if (!apiRes.ok) {
+        const errText = await apiRes.text();
+        if (errText.includes('exceeds grid limits')) {
+          const sheetIdOnboardingNew = 104076048;
+          await fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              requests: [{
+                updateSheetProperties: {
+                  properties: { sheetId: sheetIdOnboardingNew, gridProperties: { rowCount: nuevaFila + 200 } },
+                  fields: 'gridProperties.rowCount'
+                }
+              }]
+            })
+          });
+          apiRes = await fetchConReintento(urlBatchNuevo, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: dataUpdatesNuevo })
+          });
+        }
+        if (!apiRes.ok) {
+          const finalErr = await apiRes.text();
+          throw new Error(`Google Sheets API [${apiRes.status}]: ${finalErr}`);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        created: true,
+        filaNumero: nuevaFila,
+        message: `Nuevo caso insertado en Google Sheets (Fila #${nuevaFila}, Columna G omitida)`
+      });
+    }
   } catch (err: any) {
     console.error('Error en /api/sheets/actualizar-caso:', err);
     return res.status(500).json({ success: false, error: err.message });

@@ -139,27 +139,44 @@ export default async function handler(req: any, res: any) {
     const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')));
     const colTieneInicio = findCol(h => h.includes('onboarding') && h.includes('inicio') && h.includes('?'));
     const colComentarios = findCol(h => h.includes('comentario'));
-    const colEstado = findCol(h => (h.includes('estado') && !h.includes('onboarding')) || h === 'estado del caso' || h === 'estado caso');
-    const colEtapa = findCol(h => h.includes('etapa') || (h.includes('estado') && h.includes('onboarding')));
-    const colFechaCreacion = findCol(h => h.includes('creación') || h.includes('creacion'));
-    const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op'));
-    const colFechaCierre = findCol(h => h.includes('cierre de op') || h.includes('cierre op'));
+    // Col 14 (O): Estado del caso de onboarding
+    const colEstado = findCol(h => (h.includes('estado') && (h.includes('onboarding') || h.includes('caso'))) && !h.includes('ticket'));
+    // Col 15 (P): Etapa del onboarding
+    const colEtapa = findCol(h => h.includes('etapa'));
+    // Col 16 (Q): Estado del ticket de seguimiento (NUEVA COLUMNA)
+    const colEstadoTicket = findCol(h => h.includes('ticket') && h.includes('seguimiento') && h.includes('estado'));
+    // Col 17 (R): Fecha de creación de la OP
+    const colFechaCreacion = findCol(h => (h.includes('creación') || h.includes('creacion')) && h.includes('op'));
+    // Col 18 (S): Fecha de inicio de seguimiento de OP
+    const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op') || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
+    // Col 19 (T): Fecha de cierre de OP
+    const colFechaCierre = findCol(h => (h.includes('cierre de op') || h.includes('cierre op')) && !h.includes('seguimiento'));
+    // Col 20 (U): Fecha de cierre de seguimiento (NUEVA COLUMNA)
+    const colFechaCierreSeguimiento = findCol(h => (h.includes('cierre') && h.includes('seguimiento')) && !h.includes('op'));
+
+    // POS API (Cols 21..24 = V..Y)
     const colFechaInicioPos = findCol(h => h.includes('inicio') && h.includes('pos'));
     const colFechaPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
-    const colRespPos = findCol(h => (h.includes('respuesta') || h.includes('resp')) && h.includes('pos'));
+    const colRespPos = findCol(h => (h.includes('respuesta') || h.includes('roadmap')) && h.includes('pos') && !h.includes('fecha'));
     const colPushKamPos = findCol(h => h.includes('push kam') && h.includes('pos'));
+
+    // Catálogo (Cols 25..28 = Z..AC)
     const colFechaInicioCat = findCol(h => h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo')));
     const colFechaPushCat = findCol(h => h.includes('push') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('push kam'));
-    const colRespCat = findCol(h => (h.includes('respuesta') || h.includes('resp')) && (h.includes('catálogo') || h.includes('catalogo')));
+    const colRespCat = findCol(h => (h.includes('respuesta') || h.includes('roadmap')) && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
     const colPushKamCat = findCol(h => h.includes('push kam') && (h.includes('catálogo') || h.includes('catalogo')));
-    const colFreezePos = findCol(h => (h.includes('freeze') || h.includes('congelado')) && h.includes('pos'));
-    const colFreezeCat = findCol(h => (h.includes('freeze') || h.includes('congelado')) && (h.includes('catálogo') || h.includes('catalogo')));
+
+    // Tiempos y Rangos (Cols 32..38 = AG..AM)
     const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')));
     const colTiempoPos = findCol(h => h.includes('tiempo transcurrido') && h.includes('pos'));
     const colTiempoCat = findCol(h => h.includes('tiempo transcurrido') && (h.includes('catálogo') || h.includes('catalogo')));
-    const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) || h === 'rango sla op');
+    const colRangoSlaOP = findCol(h => h.includes('rango sla') && (h.includes('op') || h.includes('horas de la op') || h.includes('horas) de la op')));
     const colRangoPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
     const colRangoCat = findCol(h => h.includes('rango sla') && (h.includes('catálogo') || h.includes('catalogo')));
+
+    // Respuestas Freeze Roadmap (Cols 41..42 = AP..AQ)
+    const colFreezePos = findCol(h => h.includes('fecha de respuesta') && h.includes('pos'));
+    const colFreezeCat = findCol(h => h.includes('fecha de respuesta') && (h.includes('catálogo') || h.includes('catalogo')));
     const dataRows = rows.slice(headerRowIdx + 1);
     const casos: any[] = [];
 
@@ -189,36 +206,39 @@ export default async function handler(req: any, res: any) {
       const comentarios = getVal(colComentarios >= 0 ? colComentarios : 13);
       let estado = getVal(colEstado >= 0 ? colEstado : 14, 'Cerrado por oportunidad satisfactoria');
       let etapa = getVal(colEtapa >= 0 ? colEtapa : 15, 'Validación del Onboarding');
-      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 16);
+      const estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
+      const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17);
       const fechaCreacion = formatearFechaHoraSheet(rawFechaCreacion);
-      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 17, rawFechaCreacion || '');
+      const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 18, rawFechaCreacion || '');
       const sla_inicio = formatearFechaHoraSheet(rawSlaInicio);
-      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 18);
+      const rawFechaCierre = getVal(colFechaCierre >= 0 ? colFechaCierre : 19);
       const fechaCierre = rawFechaCierre && rawFechaCierre !== '-' ? formatearFechaHoraSheet(rawFechaCierre) : rawFechaCierre;
-      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 19);
+      const rawFechaCierreSeg = getVal(colFechaCierreSeguimiento >= 0 ? colFechaCierreSeguimiento : 20);
+      const fechaCierreSeguimiento = rawFechaCierreSeg && rawFechaCierreSeg !== '-' ? formatearFechaHoraSheet(rawFechaCierreSeg) : rawFechaCierreSeg;
+      const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 21);
       const fechaInicioPos = rawInicioPos && rawInicioPos !== 'S/V' ? formatearFechaHoraSheet(rawInicioPos) : rawInicioPos;
-      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 20);
+      const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 22);
       const fechaPushPos = rawPushPos && rawPushPos !== 'S/V' ? formatearFechaHoraSheet(rawPushPos) : rawPushPos;
-      const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 21, 'No');
+      const rawRespPos = getVal(colRespPos >= 0 ? colRespPos : 23, 'No');
       const respuestaPos = (rawRespPos.toLowerCase() === 'si' || rawRespPos.toLowerCase() === 'sí') ? 'Si' : (rawRespPos.toLowerCase() === 'no' ? 'No' : (rawRespPos.toUpperCase() === 'S/V' ? 'S/V' : rawRespPos));
-      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 22);
+      const rawPushKamPos = getVal(colPushKamPos >= 0 ? colPushKamPos : 24);
       const pushKamPos = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamPos).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
-      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 23);
+      const rawInicioCat = getVal(colFechaInicioCat >= 0 ? colFechaInicioCat : 25);
       const fechaInicioCat = rawInicioCat && rawInicioCat !== 'S/V' ? formatearFechaHoraSheet(rawInicioCat) : rawInicioCat;
-      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 24);
+      const rawPushCat = getVal(colFechaPushCat >= 0 ? colFechaPushCat : 26);
       const fechaPushCat = rawPushCat && rawPushCat !== 'S/V' ? formatearFechaHoraSheet(rawPushCat) : rawPushCat;
-      const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 25, 'No');
+      const rawRespCat = getVal(colRespCat >= 0 ? colRespCat : 27, 'No');
       const respuestaCat = (rawRespCat.toLowerCase() === 'si' || rawRespCat.toLowerCase() === 'sí') ? 'Si' : (rawRespCat.toLowerCase() === 'no' ? 'No' : (rawRespCat.toUpperCase() === 'S/V' ? 'S/V' : rawRespCat));
-      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 26);
+      const rawPushKamCat = getVal(colPushKamCat >= 0 ? colPushKamCat : 28);
       const pushKamCat = ['TRUE', 'VERDADERO', 'SI', 'SÍ', '1'].includes(String(rawPushKamCat).trim().toUpperCase()) ? 'TRUE' : 'FALSE';
-      const freezePos = getVal(colFreezePos >= 0 ? colFreezePos : 39);
-      const freezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 40);
-      const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 30);
-      const tiempoTranscurridoPos = getVal(colTiempoPos >= 0 ? colTiempoPos : -1);
-      const tiempoTranscurridoCat = getVal(colTiempoCat >= 0 ? colTiempoCat : -1);
-      const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 34);
-      const rangoSlaPos = getVal(colRangoPos >= 0 ? colRangoPos : 35);
-      const rangoSlaCat = getVal(colRangoCat >= 0 ? colRangoCat : 36);
+      const freezePos = getVal(colFreezePos >= 0 ? colFreezePos : 41);
+      const freezeCat = getVal(colFreezeCat >= 0 ? colFreezeCat : 42);
+      const tiempoTranscurridoOp = getVal(colTiempoLV >= 0 ? colTiempoLV : 32);
+      const tiempoTranscurridoPos = getVal(colTiempoPos >= 0 ? colTiempoPos : 33);
+      const tiempoTranscurridoCat = getVal(colTiempoCat >= 0 ? colTiempoCat : 34);
+      const rangoSlaOp = getVal(colRangoSlaOP >= 0 ? colRangoSlaOP : 36);
+      const rangoSlaPos = getVal(colRangoPos >= 0 ? colRangoPos : 37);
+      const rangoSlaCat = getVal(colRangoCat >= 0 ? colRangoCat : 38);
 
       let horasSLA = 0;
       if (tiempoTranscurridoOp) {
@@ -255,6 +275,8 @@ export default async function handler(req: any, res: any) {
         fechaCreacion,
         estado,
         etapa,
+        estadoTicketSeguimiento: estadoTicketSeguimiento || 'Abierto',
+        fechaCierreSeguimiento: fechaCierreSeguimiento || '',
         sla_inicio,
         esActivo,
         origen: 'Google Sheets (API)',
