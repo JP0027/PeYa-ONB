@@ -30,10 +30,10 @@ export default function ReportDownloader({
       "Tienda": c.tienda || '',
       "ID": c.vendorId || c.vendor_id || '',
       "KAM": c.kam || '',
-      "Etapa del Onboarding": c.etapa || '',
+      "Estado del ONB": c.estado || '',
       "Propietario de Oportunidad": c.propietarioOportunidad || c.agente || c.propietarioTicket || '',
       "Agente (Actual)": c.agenteACargo || '',
-      "Estado": c.estado || '',
+      "Etapa del Onboarding": c.etapa || '',
       "SLA / Rango": c.rangoSlaOp || `${c.horasSLA}h`,
       "N° Caso Seguimiento": c.casoSeguimiento || ''
     }));
@@ -46,10 +46,10 @@ export default function ReportDownloader({
       { wch: 35 }, // Tienda
       { wch: 12 }, // ID
       { wch: 32 }, // KAM
-      { wch: 34 }, // Etapa del Onboarding
+      { wch: 25 }, // Estado del ONB
       { wch: 26 }, // Propietario de Oportunidad
       { wch: 20 }, // Agente (Actual)
-      { wch: 20 }, // Estado
+      { wch: 34 }, // Etapa del Onboarding
       { wch: 15 }, // SLA
       { wch: 42 }  // N° Caso Seguimiento
     ];

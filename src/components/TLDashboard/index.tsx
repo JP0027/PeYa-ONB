@@ -433,7 +433,7 @@ export default function TLDashboard({
           )}
           <ReportDownloader 
             casos={casosProcesados.filter(c => esCasoHcAbierto(c))} 
-            label="Reporte Seguimiento" 
+            label="Reporte tickets activos" 
             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 cursor-pointer"
           />
           <ReportDownloader 
