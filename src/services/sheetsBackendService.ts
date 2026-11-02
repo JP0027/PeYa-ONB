@@ -27,9 +27,7 @@ export interface CasoSheets {
   sla_inicio: string;
   esActivo: boolean;
   origen: string;
-  filaNumero: number;
-  estadoTicketSeguimiento?: string;
-  fechaCierreSeguimiento?: string;
+  filaNumero?: number;
   rangoSlaOp?: string;
   rangoSla?: string;
   tiempoTranscurridoOp?: string;
@@ -1034,9 +1032,6 @@ export class SheetsService {
       !opRaw.startsWith('SIN_OP_') && 
       !opRaw.includes('_r');
     const opVal = esOpValido ? opRaw : '';
-
-    const fechaCierreSeguimientoStr = c.fechaCierreSeguimiento && c.fechaCierreSeguimiento !== '-' ? formatearFechaHora(c.fechaCierreSeguimiento) : (c.fechaCierreSeguimiento || '');
-
     return [
       opVal,                                                               // A: N° Caso OP (vacío "" si no tiene OP aún)
       c.vendorId || c.vendor_id || '',                                     // B: ID
