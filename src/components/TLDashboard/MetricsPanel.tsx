@@ -20,7 +20,7 @@ export default function MetricsPanel({ casos, mesActual }: MetricsPanelProps) {
 
     casos.forEach(c => {
       const estado = String(c.estado || '').toLowerCase().trim();
-      const esActivo = !estado.match(/cerrad|fallid|cancel/) && (estado.includes('progreso') || c.esActivo);
+      const esActivo = !estado.match(/cerrad|fallid|cancel/);
 
       if (!esActivo) return;
 

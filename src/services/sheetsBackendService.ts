@@ -40,6 +40,9 @@ export interface CasoSheets {
   rangoSlaCat?: string;
   horasSLA?: number;
   fechaCierre?: string;
+  estadoTicketSeguimiento?: string;
+  fechaCierreSeguimiento?: string;
+  fechaInicioSeguimientoOP?: string;
   fechaInicioPos?: string;
   fechaPushPos?: string;
   respuestaPos?: string;
@@ -65,7 +68,7 @@ const POSIBLES_RUTAS_CREDENTIALS = [
 ];
 
 const CACHE_FILE_PATH = path.resolve(process.cwd(), 'data_cached_casos.json');
-const CATALOGOS_CACHE_FILE = path.resolve(process.cwd(), 'data_cached_catalogos.json');
+const CATALOGOS_CACHE_FILE = fs.existsSync('/tmp') ? path.join('/tmp', 'data_cached_catalogos.json') : path.resolve(process.cwd(), 'data_cached_catalogos.json');
 
 export interface CatalogosSheet {
   integraciones: { nombre: string; sponsorship: string; contactos?: string }[];
@@ -75,6 +78,7 @@ export interface CatalogosSheet {
   agentes: string[];
   estados: string[];
   etapas: string[];
+  estadosTicketSeguimiento?: string[];
 }
 
 export class SheetsService {
@@ -369,51 +373,49 @@ export class SheetsService {
       return headers.findIndex(h => predicate(h.toLowerCase()));
     };
 
-    const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op');
+    const colCasoOp = findCol(h => (h.includes('caso') && h.includes('op')) || h === 'n° caso op' || h === 'caso op');
     const colVendorId = findCol(h => h === 'id' || h.includes('vendor'));
     const colTienda = findCol(h => h.includes('tienda'));
     const colPais = findCol(h => h.includes('país') || h.includes('pais'));
-    const colKam = findCol(h => h.includes('kam'));
+    const colKam = findCol(h => (h === 'kam' || h.includes('kam')) && !h.includes('push') && !h.includes('propietario'));
     const colIntegracion = findCol(h => h.includes('integrac'));
+    const colSponsorship = findCol(h => h.includes('sponsorship') || h.includes('descuentos'));
     const colOportunidad = findCol(h => h.includes('oportunidad') && !h.includes('propietario'));
     const colAsset = findCol(h => h.includes('asset'));
     const colPropOp = findCol(h => h.includes('propietario') && h.includes('oportunidad'));
     const colPropTicket = findCol(h => h.includes('herocare') || (h.includes('propietario') && h.includes('ticket')));
-    const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')));
-    const colTieneInicio = findCol(h => h.includes('onboarding') && h.includes('inicio') && h.includes('?'));
+    const colSeguimiento = findCol(h => h.includes('caso seguimiento') || (h.includes('caso') && h.includes('seguimiento')) || h === 'n° caso seguimiento');
+    const colTieneInicio = findCol(h => (h.includes('inicio') && h.includes('seguimiento') && h.includes('?')) || h.includes('¿tiene') || h.includes('tiene caso'));
     const colComentarios = findCol(h => h.includes('comentario'));
-    // Col 14 (O): Estado del caso de onboarding
-    const colEstado = findCol(h => (h.includes('estado') && (h.includes('onboarding') || h.includes('caso'))) && !h.includes('ticket'));
-    // Col 15 (P): Etapa del onboarding
-    const colEtapa = findCol(h => h.includes('etapa'));
-    // Col 16 (Q): Estado del ticket de seguimiento (NUEVA COLUMNA)
-    const colEstadoTicket = findCol(h => h.includes('ticket') && h.includes('seguimiento') && h.includes('estado'));
-    // Col 17 (R): Fecha de creación de la OP
-    const colFechaCreacion = findCol(h => (h.includes('creación') || h.includes('creacion')) && h.includes('op'));
-    // Col 18 (S): Fecha de inicio de seguimiento de OP
-    const colSlaInicio = findCol(h => h.includes('inicio de seguimiento de op') || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
-    // Col 19 (T): Fecha de cierre de OP
-    const colFechaCierre = findCol(h => (h.includes('cierre de op') || h.includes('cierre op')) && !h.includes('seguimiento'));
-    // Col 20 (U): Fecha de cierre de seguimiento (NUEVA COLUMNA)
-    const colFechaCierreSeguimiento = findCol(h => (h.includes('cierre') && h.includes('seguimiento')) && !h.includes('op'));
 
-    // POS API (Cols 21..24 = V..Y)
-    const colFechaInicioPos = findCol(h => h.includes('inicio') && h.includes('pos'));
+    // Estados y Etapa
+    const colEstadoTicket = findCol(h => h === 'estado del ticket de seguimiento' || h === 'estado del ticket' || h === 'estado del caso hc' || (h.includes('estado') && (h.includes('ticket') || h.includes('hc'))));
+    const colEstado = findCol(h => h === 'estado del caso de onboarding' || h === 'estado del caso' || h === 'estado caso' || (h.includes('estado') && h.includes('caso') && !h.includes('ticket') && !h.includes('hc') && !h.includes('seguimiento')));
+    const colEtapa = findCol(h => h === 'etapa del onboarding' || h === 'etapa onboarding' || (h.includes('etapa') && !h.includes('inicio')));
+
+    const colFechaCreacion = findCol(h => h === 'fecha de creación de la op' || h === 'fecha de creacion de la op' || (h.includes('creación') || h.includes('creacion')));
+    const colSlaInicio = findCol(h => h === 'fecha de inicio de seguimiento de op' || (h.includes('inicio') && h.includes('seguimiento') && h.includes('op')));
+    const colFechaCierre = findCol(h => h === 'fecha de cierre de op' || h === 'fecha de cierre op' || (h.includes('cierre') && h.includes('op')));
+    const colFechaCierreSeguimiento = findCol(h => h === 'fecha de cierre de seguimiento' || (h.includes('cierre') && h.includes('seguimiento') && !h.includes('op')));
+
+    // POS API
+    const colFechaInicioPos = findCol(h => (h.includes('inicio') && h.includes('pos')) || h.includes('datos faltantes pos'));
     const colFechaPushPos = findCol(h => h.includes('push') && h.includes('pos') && !h.includes('push kam'));
-    const colRespPos = findCol(h => (h.includes('respuesta') || h.includes('roadmap')) && h.includes('pos') && !h.includes('fecha'));
+    const colRespPos = findCol(h => h.includes('respuesta') && h.includes('pos') && !h.includes('fecha'));
     const colPushKamPos = findCol(h => h.includes('push kam') && h.includes('pos'));
 
-    // Catálogo (Cols 25..28 = Z..AC)
-    const colFechaInicioCat = findCol(h => h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo')));
+    // Catálogo
+    const colFechaInicioCat = findCol(h => (h.includes('inicio') && (h.includes('catálogo') || h.includes('catalogo'))) || h.includes('datos faltantes catálogo'));
     const colFechaPushCat = findCol(h => h.includes('push') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('push kam'));
-    const colRespCat = findCol(h => (h.includes('respuesta') || h.includes('roadmap')) && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
+    const colRespCat = findCol(h => h.includes('respuesta') && (h.includes('catálogo') || h.includes('catalogo')) && !h.includes('fecha'));
     const colPushKamCat = findCol(h => h.includes('push kam') && (h.includes('catálogo') || h.includes('catalogo')));
 
-    // Tiempos y Rangos (Cols 32..38 = AG..AM)
-    const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')));
+    // Tiempos y Rangos
+    const colTiempoLV = findCol(h => h.includes('tiempo transcurrido') && (h.includes('op') || h.includes('l-v') || h.includes('l v')) && !h.includes('pos') && !h.includes('cat'));
     const colTiempoPos = findCol(h => h.includes('tiempo transcurrido') && h.includes('pos'));
     const colTiempoCat = findCol(h => h.includes('tiempo transcurrido') && (h.includes('catálogo') || h.includes('catalogo')));
-    const colRangoSlaOP = findCol(h => h.includes('rango sla') && (h.includes('op') || h.includes('horas de la op') || h.includes('horas) de la op')));
+    const colRangoSlaOP = findCol(h => (h.includes('rango sla') && (h.includes('op') || h.includes('horas'))) && !h.includes('pos') && !h.includes('cat'));
+
     const colRangoPos = findCol(h => h.includes('rango sla') && h.includes('pos'));
     const colRangoCat = findCol(h => h.includes('rango sla') && (h.includes('catálogo') || h.includes('catalogo')));
 
@@ -435,35 +437,38 @@ export class SheetsService {
       'en proceso para pruebas (baja de integración)', 'en proceso para pruebas (baja de integracion)',
       'pedido de prueba realizado (baja de integración)', 'pedido de prueba realizado (baja de integracion)',
       'solicitud de creación de oportunidad admin (sin go)', 'solicitud de creacion de oportunidad admin (sin go)',
-      'sin configuraciones a nivel integración', 'sin configuraciones a nivel integracion'
+      'sin configuraciones a level integración', 'sin configuraciones a nivel integracion'
     ];
     const estadosConocidos = [
-      'en progreso', 'nuevo', 'ticket hc', 'abierto',
-      'cerrado por oportunidad satisfactoria', 
-      'cerrado por kam', 'cerrado por api vendor', 'fallido', 'cerrado'
+      'en progreso',
+      'cerrado por oportunidad satisfactoria', 'cerrado por onb (satisfactorio)', 'cerrado por onb (fallido)',
+      'cerrado por kam (satisfactorio)', 'cerrado por kam (fallido)', 'cerrado por api vendor', 'fallido'
     ];
 
     let bestColEstado = colEstado >= 0 ? colEstado : 14;
     let bestColEtapa = colEtapa >= 0 ? colEtapa : 15;
 
-    let maxEstadoHits = 0;
-    let maxEtapaHits = 0;
+    // Solo usar muestreo como fallback si el encabezado no fue encontrado
+    if (colEstado < 0 || colEtapa < 0) {
+      let maxEstadoHits = 0;
+      let maxEtapaHits = 0;
 
-    for (let c = 12; c < Math.min(headers.length, 26); c++) {
-      let estadoHits = 0;
-      let etapaHits = 0;
-      for (let r = 0; r < Math.min(30, rows.length); r++) {
-        const v = String((rows[r] && rows[r][c]) || '').toLowerCase().trim();
-        if (estadosConocidos.some(est => v === est || v.includes(est))) estadoHits++;
-        if (etapasConocidas.some(et => v === et || v.includes(et))) etapaHits++;
-      }
-      if (estadoHits > maxEstadoHits) {
-        maxEstadoHits = estadoHits;
-        bestColEstado = c;
-      }
-      if (etapaHits > maxEtapaHits) {
-        maxEtapaHits = etapaHits;
-        bestColEtapa = c;
+      for (let c = 12; c < Math.min(headers.length, 26); c++) {
+        let estadoHits = 0;
+        let etapaHits = 0;
+        for (let r = 0; r < Math.min(30, rows.length); r++) {
+          const v = String((rows[r] && rows[r][c]) || '').toLowerCase().trim();
+          if (estadosConocidos.some(est => v === est || v.includes(est))) estadoHits++;
+          if (etapasConocidas.some(et => v === et || v.includes(et))) etapaHits++;
+        }
+        if (colEstado < 0 && estadoHits > maxEstadoHits) {
+          maxEstadoHits = estadoHits;
+          bestColEstado = c;
+        }
+        if (colEtapa < 0 && etapaHits > maxEtapaHits) {
+          maxEtapaHits = etapaHits;
+          bestColEtapa = c;
+        }
       }
     }
 
@@ -492,9 +497,12 @@ export class SheetsService {
       const casoSeguimiento = getVal(colSeguimiento >= 0 ? colSeguimiento : 11);
       const tieneCasoInicio = getVal(colTieneInicio >= 0 ? colTieneInicio : 12, 'Si');
       const comentarios = getVal(colComentarios >= 0 ? colComentarios : 13);
-      let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'Cerrado por oportunidad satisfactoria');
+      let estado = getVal(bestColEstado >= 0 ? bestColEstado : 14, 'En progreso');
       let etapa = getVal(bestColEtapa >= 0 ? bestColEtapa : 15, 'Validación del Onboarding');
-      const estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
+      let estadoTicketSeguimiento = getVal(colEstadoTicket >= 0 ? colEstadoTicket : 16, 'Abierto');
+      if (/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(estadoTicketSeguimiento) || estadoTicketSeguimiento.includes('GMT') || !estadoTicketSeguimiento) {
+        estadoTicketSeguimiento = 'Abierto';
+      }
       const rawFechaCreacion = getVal(colFechaCreacion >= 0 ? colFechaCreacion : 17);
       const fechaCreacion = rawFechaCreacion ? formatearFechaHora(rawFechaCreacion) : '';
       const rawSlaInicio = getVal(colSlaInicio >= 0 ? colSlaInicio : 18, rawFechaCreacion || '');
@@ -513,7 +521,7 @@ export class SheetsService {
       }
 
       if (estado.includes('GMT') || !estado) {
-        estado = 'Cerrado por oportunidad satisfactoria';
+        estado = 'En progreso';
       }
       if (etapa.includes('GMT') || !etapa) {
         etapa = 'Validación del Onboarding';
@@ -524,6 +532,7 @@ export class SheetsService {
       const fechaCierre = rawFechaCierre && rawFechaCierre !== '-' ? formatearFechaHora(rawFechaCierre) : rawFechaCierre;
       const rawFechaCierreSeg = getVal(colFechaCierreSeguimiento >= 0 ? colFechaCierreSeguimiento : 20);
       const fechaCierreSeguimiento = rawFechaCierreSeg && rawFechaCierreSeg !== '-' ? formatearFechaHora(rawFechaCierreSeg) : rawFechaCierreSeg;
+
       const rawInicioPos = getVal(colFechaInicioPos >= 0 ? colFechaInicioPos : 21);
       const fechaInicioPos = rawInicioPos && rawInicioPos !== 'S/V' ? formatearFechaHora(rawInicioPos) : rawInicioPos;
       const rawPushPos = getVal(colFechaPushPos >= 0 ? colFechaPushPos : 22);
@@ -563,9 +572,8 @@ export class SheetsService {
       }
 
       const estadoLower = estado.toLowerCase();
-      const etapaLower = etapa.toLowerCase();
-      const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel') || etapaLower.includes('pedido de prueba realizado');
-      const esActivo = !esCerrado && (estadoLower.includes('en progreso') || estadoLower.includes('nuevo') || estadoLower.includes('ticket hc') || estadoLower === 'abierto' || estadoLower.includes('sin oportunidad'));
+      const esCerrado = estadoLower.includes('cerrad') || estadoLower.includes('fallid') || estadoLower.includes('cancel');
+      const esActivo = !esCerrado;
 
       // En Onboarding_New: Fila 1 = categoría, Fila 2 = encabezados. Los casos inician en la fila 3
       const filaNum = idx + 3;
@@ -585,7 +593,7 @@ export class SheetsService {
         casoSeguimiento: casoSeguimiento || '',
         propietarioOportunidad: propietarioOportunidad || '',
         propietarioTicket: propietarioTicket || '',
-        agente: propietarioTicket || propietarioOportunidad || 'Sin asignación',
+        agente: propietarioTicket || 'Sin asignación',
         tieneCasoInicio: tieneCasoInicio || 'Si',
         comentarios: comentarios || '',
         fechaCreacion: fechaCreacion || '',
@@ -593,6 +601,7 @@ export class SheetsService {
         etapa: etapa || 'Validación del Onboarding',
         estadoTicketSeguimiento: estadoTicketSeguimiento || 'Abierto',
         fechaCierreSeguimiento: fechaCierreSeguimiento || '',
+        fechaInicioSeguimientoOP: sla_inicio || '',
         sla_inicio: sla_inicio || new Date().toISOString(),
         rangoSlaOp: rangoSlaOp || '',
         rangoSla: rangoSlaOp || '',
@@ -691,43 +700,46 @@ export class SheetsService {
 
     let idx = -1;
 
-    // 1. Si se proporciona filaNumero, buscar SIEMPRE por posición exacta en memoria
-    if (filaHint && filaHint >= 3) {
-      idx = this.cachedCasosMemoria.findIndex(c => Number(c.filaNumero) === filaHint);
-    }
+    // Solo buscar fila existente si NO es un registro nuevo
+    if (!esNuevo) {
+      // 1. Si se proporciona filaNumero, buscar SIEMPRE por posición exacta en memoria
+      if (filaHint && filaHint >= 3) {
+        idx = this.cachedCasosMemoria.findIndex(c => Number(c.filaNumero) === filaHint);
+      }
 
-    // 2. Si no encontró por filaNumero, buscar por Caso OP real
-    if (idx === -1) {
-      const opBuscado = String((casoActualizado as any).casoOp || '').trim();
-      const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
-      if (esOpValido) {
+      // 2. Si no encontró por filaNumero, buscar por Caso OP real
+      if (idx === -1) {
+        const opBuscado = String((casoActualizado as any).casoOp || '').trim();
+        const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+        if (esOpValido) {
+          for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
+            if (String(this.cachedCasosMemoria[i].casoOp || '').trim() === opBuscado) {
+              idx = i;
+              break;
+            }
+          }
+        }
+      }
+
+      // 3. Coincidencia por ID interno
+      if (idx === -1 && idBusqueda && idBusqueda !== 'Sin caso OP') {
         for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
-          if (String(this.cachedCasosMemoria[i].casoOp || '').trim() === opBuscado) {
+          if (String(this.cachedCasosMemoria[i].id || '').trim() === idBusqueda) {
             idx = i;
             break;
           }
         }
       }
-    }
 
-    // 3. Coincidencia por ID interno
-    if (idx === -1 && idBusqueda && idBusqueda !== 'Sin caso OP') {
-      for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
-        if (String(this.cachedCasosMemoria[i].id || '').trim() === idBusqueda) {
-          idx = i;
-          break;
-        }
-      }
-    }
-
-    // 4. Coincidencia por vendorId (para casos sin OP)
-    if (idx === -1) {
-      const venBuscado = String((casoActualizado as any).vendorId || (casoActualizado as any).vendor_id || '').trim();
-      if (venBuscado) {
-        for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
-          if (String(this.cachedCasosMemoria[i].vendorId || this.cachedCasosMemoria[i].vendor_id || '').trim() === venBuscado) {
-            idx = i;
-            break;
+      // 4. Coincidencia por vendorId (para casos sin OP)
+      if (idx === -1) {
+        const venBuscado = String((casoActualizado as any).vendorId || (casoActualizado as any).vendor_id || '').trim();
+        if (venBuscado) {
+          for (let i = this.cachedCasosMemoria.length - 1; i >= 0; i--) {
+            if (String(this.cachedCasosMemoria[i].vendorId || this.cachedCasosMemoria[i].vendor_id || '').trim() === venBuscado) {
+              idx = i;
+              break;
+            }
           }
         }
       }
@@ -815,6 +827,9 @@ export class SheetsService {
         fechaCreacion: casoActualizado.fechaCreacion ? formatearFechaHora(casoActualizado.fechaCreacion) : '',
         estado: casoActualizado.estado || 'Nuevo',
         etapa: casoActualizado.etapa || 'Validación del Onboarding',
+        estadoTicketSeguimiento: (casoActualizado as any).estadoTicketSeguimiento || 'Abierto',
+        fechaCierreSeguimiento: (casoActualizado as any).fechaCierreSeguimiento || '',
+        fechaInicioSeguimientoOP: formatearFechaHora((casoActualizado as any).fechaInicioSeguimientoOP || (casoActualizado as any).sla_inicio || casoActualizado.fechaCreacion),
         sla_inicio: formatearFechaHora((casoActualizado as any).sla_inicio || casoActualizado.fechaCreacion),
         esActivo: true,
         origen: 'Manual / Nuevo',
@@ -869,9 +884,19 @@ export class SheetsService {
           }
         } catch (e) { }
 
+        // Extraer número de fila del idStr si viene formateado ("_r30" o "_30")
+        let rowFromId = 0;
+        const matchRow = idStr.match(/_r?(\d+)$/);
+        if (matchRow) {
+          rowFromId = parseInt(matchRow[1], 10);
+        }
+        if ((!filaTarget || filaTarget < 2) && rowFromId >= 3) {
+          filaTarget = rowFromId;
+        }
+
         // 1. Si tenemos filaTarget, verificar rápidamente si coincide
-        if (filaTarget >= 2 && idStr) {
-          const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
+        if (filaTarget >= 2) {
+          const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:C${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
           const resCheck = await fetch(urlCheck, {
             headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
           });
@@ -880,15 +905,23 @@ export class SheetsService {
             const row = dataCheck.values?.[0] || [];
             const opVal = String(row[0] || '').trim();
             const venVal = String(row[1] || '').trim();
-            if (opVal !== idStr && venVal !== idStr && !idStr.includes(opVal)) {
+            const tieVal = String(row[2] || '').trim();
+
+            const targetLow = idStr.toLowerCase();
+            const matchesOp = opVal && opVal !== '-' && targetLow.includes(opVal.toLowerCase());
+            const matchesVen = venVal && targetLow.includes(venVal.toLowerCase());
+            const matchesTie = tieVal && targetLow.includes(tieVal.toLowerCase());
+            const isExactRow = (rowFromId && rowFromId === filaTarget);
+
+            if (!matchesOp && !matchesVen && !matchesTie && !isExactRow) {
               filaTarget = 0; // Desfasada, buscar posición exacta
             }
           }
         }
 
-        // 2. Si no encontramos la fila exacta en memoria o se desfasó, buscar en A2:B
+        // 2. Si no encontramos la fila exacta o se desfasó, buscar en A2:C
         if (!filaTarget || filaTarget < 2) {
-          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:B?valueRenderOption=FORMATTED_VALUE`;
+          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:C?valueRenderOption=FORMATTED_VALUE`;
           const resCols = await fetch(urlCols, {
             headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
           });
@@ -896,13 +929,21 @@ export class SheetsService {
             const dataCols = await resCols.json();
             const rows = dataCols.values || [];
             for (let i = 0; i < rows.length; i++) {
+              const sheetRow = i + 2;
               const op = String(rows[i]?.[0] || '').trim();
               const ven = String(rows[i]?.[1] || '').trim();
+              const tie = String(rows[i]?.[2] || '').trim();
+
+              if (rowFromId && sheetRow === rowFromId) {
+                filaTarget = sheetRow;
+                break;
+              }
               if (
-                (op && (op === idStr || idStr.startsWith(op + '_'))) ||
-                (ven && (ven === idStr || idStr.startsWith(ven + '_')))
+                (op && (op === idStr || idStr.startsWith(op + '_') || idStr.includes(op))) ||
+                (ven && (ven === idStr || idStr.startsWith(ven + '_') || idStr.includes(ven))) ||
+                (tie && (tie === idStr || idStr.includes(tie)))
               ) {
-                filaTarget = i + 2;
+                filaTarget = sheetRow;
                 break;
               }
             }
@@ -967,18 +1008,20 @@ export class SheetsService {
   }
 
   /**
-   * Convierte un objeto CasoSheets en el array de 27 valores de columnas A:AA de Onboarding_New
+   * Convierte un objeto CasoSheets en el array de 29 valores de columnas A:AC de Onboarding_New
    */
   public mapearCasoAColumnasSheet(c: any): any[] {
     const pushKamPosStr = c.pushKamPos === true || String(c.pushKamPos).toUpperCase() === 'TRUE' || String(c.pushKamPos).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamPos === false || String(c.pushKamPos).toUpperCase() === 'FALSE' || String(c.pushKamPos).toUpperCase() === 'FALSO' ? 'FALSE' : '');
     const pushKamCatStr = c.pushKamCat === true || String(c.pushKamCat).toUpperCase() === 'TRUE' || String(c.pushKamCat).toUpperCase() === 'VERDADERO' ? 'TRUE' : (c.pushKamCat === false || String(c.pushKamCat).toUpperCase() === 'FALSE' || String(c.pushKamCat).toUpperCase() === 'FALSO' ? 'FALSE' : '');
     const sponsorship = c.sponsorship || c.descuentosBajoEstructuraSponsorship || 'NO';
 
-    // Q: Fecha de creación de la OP -> se respeta vacía si el usuario no la ingresó (casos sin OP)
     const fechaCreacionRaw = String(c.fechaCreacion || '').trim();
     const fechaCreacionStr = fechaCreacionRaw && fechaCreacionRaw !== '-' ? formatearFechaHora(fechaCreacionRaw) : '';
     const slaInicioStr = formatearFechaHora(c.sla_inicio || c.fechaInicioSeguimientoOP || c.fechaCreacion || new Date());
     const fechaCierreStr = c.fechaCierre && c.fechaCierre !== '-' ? formatearFechaHora(c.fechaCierre) : (c.fechaCierre || '');
+    const estadoTicketVal = c.estadoTicketSeguimiento || 'Abierto';
+    const fechaCierreSeguimientoStr = c.fechaCierreSeguimiento && c.fechaCierreSeguimiento !== '-' ? formatearFechaHora(c.fechaCierreSeguimiento) : (c.fechaCierreSeguimiento || '');
+
     const fechaInicioPosStr = c.fechaInicioPos && c.fechaInicioPos !== 'S/V' ? formatearFechaHora(c.fechaInicioPos) : (c.fechaInicioPos || '');
     const fechaPushPosStr = c.fechaPushPos && c.fechaPushPos !== 'S/V' ? formatearFechaHora(c.fechaPushPos) : (c.fechaPushPos || '');
     const fechaInicioCatStr = c.fechaInicioCat && c.fechaInicioCat !== 'S/V' ? formatearFechaHora(c.fechaInicioCat) : (c.fechaInicioCat || '');
@@ -995,35 +1038,36 @@ export class SheetsService {
     const fechaCierreSeguimientoStr = c.fechaCierreSeguimiento && c.fechaCierreSeguimiento !== '-' ? formatearFechaHora(c.fechaCierreSeguimiento) : (c.fechaCierreSeguimiento || '');
 
     return [
-      opVal,                                                               // A (0): N° Caso OP (vacío "" si no tiene OP aún)
-      c.vendorId || c.vendor_id || '',                                     // B (1): ID
-      c.tienda || '',                                                      // C (2): Tienda
-      c.pais || '',                                                        // D (3): País
-      c.kam || '',                                                         // E (4): Kam
-      c.integracion || '',                                                 // F (5): Integración
-      sponsorship,                                                         // G (6): Descuentos bajo estructura Sponsorship
-      c.oportunidad || '',                                                 // H (7): Oportunidad
-      c.asset || '',                                                       // I (8): Asset
-      c.propietarioOportunidad || '',                                      // J (9): Propietario Oportunidad
-      c.propietarioTicket || c.agente || '',                               // K (10): Propietario de Ticket HeroCare
-      c.casoSeguimiento || '',                                             // L (11): N° Caso Seguimiento
-      c.tieneCasoInicio || 'Si',                                           // M (12): ¿Tiene caso de onboarding en el inicio de seguimiento?
-      c.comentarios || '',                                                 // N (13): Comentarios del Onboarding
-      c.estado || 'En progreso',                                           // O (14): Estado del caso de onboarding
-      c.etapa || 'Validación del Onboarding',                              // P (15): Etapa del onboarding
-      c.estadoTicketSeguimiento || c.estadoTicket || 'Abierto',            // Q (16): Estado del ticket de seguimiento
-      fechaCreacionStr,                                                    // R (17): Fecha de creación de la OP
-      slaInicioStr,                                                        // S (18): Fecha de inicio de seguimiento de OP
-      fechaCierreStr,                                                      // T (19): Fecha de cierre de OP
-      fechaCierreSeguimientoStr,                                           // U (20): Fecha de cierre de seguimiento
-      fechaInicioPosStr,                                                   // V (21): Fecha de inicio de seguimiento - Datos Faltantes POS API
-      fechaPushPosStr,                                                     // W (22): Fecha de push de seguimiento - Datos Faltantes POS API
-      c.respuestaPos || '',                                                // X (23): ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
-      pushKamPosStr,                                                       // Y (24): Push KAM - Datos Faltantes POS API
-      fechaInicioCatStr,                                                   // Z (25): Fecha de inicio de seguimiento - Catálogo
-      fechaPushCatStr,                                                     // AA (26): Fecha de push de seguimiento - Catálogo
-      c.respuestaCat || '',                                                // AB (27): ¿Existe respuesta en el roadmap de Catálogo?
-      pushKamCatStr                                                        // AC (28): Push KAM - Catálogo
+      opVal,                                                               // A: N° Caso OP (vacío "" si no tiene OP aún)
+      c.vendorId || c.vendor_id || '',                                     // B: ID
+      c.tienda || '',                                                      // C: Tienda
+      c.pais || '',                                                        // D: País
+      c.kam || '',                                                         // E: Kam
+      c.integracion || '',                                                 // F: Integración
+      sponsorship,                                                         // G: Descuentos bajo estructura Sponsorship
+      c.oportunidad || '',                                                 // H: Oportunidad
+      c.asset || '',                                                       // I: Asset
+      c.propietarioOportunidad || '',                                      // J: Propietario Oportunidad
+      c.propietarioTicket || c.agente || '',                               // K: Propietario de Ticket HeroCare
+      c.casoSeguimiento || '',                                             // L: N° Caso Seguimiento
+      c.tieneCasoInicio || 'Si',                                           // M: ¿Tiene caso de onboarding en el inicio de seguimiento?
+      c.comentarios || '',                                                 // N: Comentarios del Onboarding
+      c.estado || 'En progreso',                                           // O: Estado del caso de onboarding
+      c.etapa || 'Validación del Onboarding',                              // P: Etapa del onboarding
+      estadoTicketVal,                                                     // Q: Estado del ticket de seguimiento
+      fechaCreacionStr,                                                    // R: Fecha de creación de la OP
+      slaInicioStr,                                                        // S: Fecha de inicio de seguimiento de OP
+      fechaCierreStr,                                                      // T: Fecha de cierre de OP
+      fechaCierreSeguimientoStr,                                           // U: Fecha de cierre de seguimiento
+      fechaInicioPosStr,                                                   // V: Fecha de inicio de seguimiento - Datos Faltantes POS API
+      fechaPushPosStr,                                                     // W: Fecha de push de seguimiento - Datos Faltantes POS API
+      c.respuestaPos || '',                                                // X: ¿Existe respuesta en el roadmap de Datos Faltantes POS API?
+      pushKamPosStr,                                                       // Y: Push KAM - Datos Faltantes POS API
+      fechaInicioCatStr,                                                   // Z: Fecha de inicio de seguimiento - Catálogo
+      fechaPushCatStr,                                                     // AA: Fecha de push de seguimiento - Catálogo
+      c.respuestaCat || '',                                                // AB: ¿Existe respuesta en el roadmap Catálogo?
+      pushKamCatStr                                                        // AC: Push KAM - Catálogo
+
     ];
   }
 
@@ -1047,10 +1091,11 @@ export class SheetsService {
       const sheetIdOnboardingNew = sheetObj.properties.sheetId;
       const rowCountActual = sheetObj.properties?.gridProperties?.rowCount || 0;
 
-      if (filaRequerida > rowCountActual) {
-        // Expandir EXACTAMENTE la cantidad de filas requeridas (1 fila para el nuevo caso)
-        const nuevoRowCount = filaRequerida;
-        console.log(`[SheetsService] Expandiendo cuadrícula de Onboarding_New de ${rowCountActual} a ${nuevoRowCount} filas (exactamente 1 fila nueva)...`);
+      if (rowCountActual < filaRequerida + 2) {
+        // Asegurar que la cuadrícula tenga espacio de sobra (+2 filas) ANTES de escribir
+        // para evitar que Google Sheets USER_ENTERED auto-agregue 50 filas vacías
+        const nuevoRowCount = filaRequerida + 2;
+        console.log(`[SheetsService] Asegurando margen en cuadrícula de Onboarding_New de ${rowCountActual} a ${nuevoRowCount} filas...`);
         const urlUpdate = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
         await fetch(urlUpdate, {
           method: 'POST',
@@ -1081,6 +1126,51 @@ export class SheetsService {
   }
 
   /**
+   * Recorta la cuadrícula de Onboarding_New para que tenga EXACTAMENTE filaFinal filas (0 filas vacías sobrantes)
+   */
+  public async recortarFilasExactas(filaFinal: number): Promise<void> {
+    try {
+      const token = await this.obtenerAuthToken();
+      const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(title,sheetId,gridProperties.rowCount)`;
+      const resMeta = await fetch(urlMeta, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!resMeta.ok) return;
+
+      const dataMeta = await resMeta.json();
+      const sheetObj = dataMeta.sheets?.find((s: any) => s.properties?.title === 'Onboarding_New');
+      if (!sheetObj) return;
+      const sheetIdOnboardingNew = sheetObj.properties.sheetId;
+
+      const urlUpdate = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`;
+      await fetch(urlUpdate, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          requests: [
+            {
+              updateSheetProperties: {
+                properties: {
+                  sheetId: sheetIdOnboardingNew,
+                  gridProperties: {
+                    rowCount: filaFinal
+                  }
+                },
+                fields: 'gridProperties.rowCount'
+              }
+            }
+          ]
+        })
+      });
+    } catch (e) {
+      console.warn('[SheetsService] Error recortando filas exactas:', e);
+    }
+  }
+
+  /**
    * Guarda o actualiza un caso directamente en el Google Sheet oficial vía API
    */
   public async sincronizarCasoConGoogleSheets(caso: CasoSheets): Promise<{ success: boolean; filaNumero?: number; error?: string }> {
@@ -1098,56 +1188,71 @@ export class SheetsService {
         let filaTarget = 0;
         let totalFilasHoja = 0;
 
-        // 1. Consultar 'Onboarding_New'!A:B para detectar el número real de filas en la base antes de escribir
+        // 1. Consultar 'Onboarding_New'!A:C para detectar el número real de filas con datos en la base antes de escribir
         try {
-          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:B?valueRenderOption=FORMATTED_VALUE`;
+          const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:C?valueRenderOption=FORMATTED_VALUE`;
           const resCols = await SheetsWriteQueue.fetchConReintento(urlCols, {
             headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
           });
           if (resCols.ok) {
             const dataCols = await resCols.json();
             const rows = dataCols.values || [];
-            totalFilasHoja = rows.length;
+            
+            let ultimaFilaConDatos = 0;
+            for (let i = rows.length - 1; i >= 0; i--) {
+              const r = rows[i] || [];
+              const op = String(r[0] || '').trim();
+              const ven = String(r[1] || '').trim();
+              const tie = String(r[2] || '').trim();
+              if (op || ven || tie) {
+                ultimaFilaConDatos = i + 1;
+                break;
+              }
+            }
+            totalFilasHoja = ultimaFilaConDatos;
 
             const filaHint = Number(caso.filaNumero);
             const venBuscado = String(caso.vendorId || (caso as any).vendor_id || '').trim();
             const opBuscado = String(caso.casoOp || '').trim();
             const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
 
-            // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
-            if (filaHint >= 3 && filaHint <= rows.length) {
-              const rowAtHint = rows[filaHint - 1] || [];
-              const opAtHint = String(rowAtHint[0] || '').trim();
-              const venAtHint = String(rowAtHint[1] || '').trim();
-              if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
+            // Solo buscar filaTarget si estamos EDITANDO un caso existente (!esNuevo)
+            if (!esNuevo) {
+              // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
+              if (filaHint >= 3) {
                 filaTarget = filaHint;
               }
-            }
 
-            // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba por casoOp real
-            if (!filaTarget && esOpValido) {
-              for (let i = rows.length - 1; i >= 0; i--) {
-                const op = String(rows[i]?.[0] || '').trim();
-                if (op === opBuscado) {
-                  filaTarget = i + 1; // En A:B, rows[0] es fila 1, por tanto la fila es i + 1
-                  break;
+              // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba por casoOp real
+              if (!filaTarget && esOpValido) {
+                for (let i = rows.length - 1; i >= 0; i--) {
+                  const op = String(rows[i]?.[0] || '').trim();
+                  if (op === opBuscado) {
+                    filaTarget = i + 1; // En A:C, rows[0] es fila 1, por tanto la fila es i + 1
+                    break;
+                  }
                 }
               }
-            }
 
-            // 3. Si no encontró por casoOp, buscar por vendorId o id
-            if (!filaTarget && !esNuevo) {
-              const idBusqueda = String(caso.id || '').trim();
-              for (let i = rows.length - 1; i >= 0; i--) {
-                const op = String(rows[i]?.[0] || '').trim();
-                const ven = String(rows[i]?.[1] || '').trim();
-                if (
-                  (venBuscado && ven === venBuscado) ||
-                  (op && idBusqueda && (op === idBusqueda || idBusqueda.startsWith(op + '_')))
-                ) {
-                  filaTarget = i + 1;
-                  break;
+              // 3. Si no encontró por casoOp, buscar por vendorId o id
+              if (!filaTarget) {
+                const idBusqueda = String(caso.id || '').trim();
+                for (let i = rows.length - 1; i >= 0; i--) {
+                  const op = String(rows[i]?.[0] || '').trim();
+                  const ven = String(rows[i]?.[1] || '').trim();
+                  if (
+                    (venBuscado && ven === venBuscado) ||
+                    (op && idBusqueda && (op === idBusqueda || idBusqueda.startsWith(op + '_')))
+                  ) {
+                    filaTarget = i + 1;
+                    break;
+                  }
                 }
+              }
+
+              // 4. Si es edición de un caso existente y no se encontró en búsquedas, forzar filaHint
+              if (!filaTarget && filaHint >= 3) {
+                filaTarget = filaHint;
               }
             }
           }
@@ -1158,10 +1263,11 @@ export class SheetsService {
         const valFreezePos = caso.fechaFreezePos || caso.freezePos || '';
         const valFreezeCat = caso.fechaFreezeCat || caso.freezeCat || '';
         const valoresAF = filaValores.slice(0, 6);   // Columnas A:F (Índices 0..5)
-        const valoresHAC = filaValores.slice(7, 29); // Columnas H:AA (Índices 7..26) - Columna G omitida
+        const valoresHAC = filaValores.slice(7, 29); // Columnas H:AC (Índices 7..28) - Columna G omitida
 
         // Si se encontró la fila en Sheets (a partir de la fila 3): ACTUALIZAR IN-PLACE
         if (filaTarget >= 3) {
+          await this.asegurarCapacidadFilas(filaTarget);
           const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
           const dataUpdates: any[] = [
             {
@@ -1207,7 +1313,42 @@ export class SheetsService {
         // 2. Si es NUEVO CASO (o no se encontró en filas existentes):
         const nuevaFila = totalFilasHoja > 0 ? (totalFilasHoja + 1) : (this.cachedCasosMemoria.length + 3);
 
-        await this.asegurarCapacidadFilas(nuevaFila);
+        // Asegurar que la cuadrícula de Sheets tenga capacidad exacta para la nueva fila
+        try {
+          const sheetIdOnboardingNew = 104076048;
+          const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets(properties(sheetId,title,gridProperties))`;
+          const resMeta = await SheetsWriteQueue.fetchConReintento(urlMeta, { headers: { Authorization: `Bearer ${token}` } });
+          if (resMeta.ok) {
+            const meta = await resMeta.json();
+            const sheetObj = meta.sheets?.find((s: any) => s.properties?.title === 'Onboarding_New' || s.properties?.sheetId === sheetIdOnboardingNew);
+            const rowCount = sheetObj?.properties?.gridProperties?.rowCount || 0;
+            const targetSheetId = sheetObj?.properties?.sheetId || sheetIdOnboardingNew;
+
+            if (nuevaFila > rowCount && rowCount > 0) {
+              const filasAAgregar = nuevaFila - rowCount;
+              await SheetsWriteQueue.fetchConReintento(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}:batchUpdate`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  requests: [
+                    {
+                      appendDimension: {
+                        sheetId: targetSheetId,
+                        dimension: 'ROWS',
+                        length: filasAAgregar
+                      }
+                    }
+                  ]
+                })
+              });
+            }
+          }
+        } catch (errCap) {
+          console.warn('[SheetsService] Advertencia asegurando capacidad para nueva fila:', errCap);
+        }
 
         const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
         const dataUpdatesNuevo: any[] = [
@@ -1228,7 +1369,7 @@ export class SheetsService {
           });
         }
 
-        let resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
+        const resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1241,27 +1382,9 @@ export class SheetsService {
         });
 
         if (!resNuevo.ok) {
-          const errText = await resNuevo.text();
-          if (errText.includes('exceeds grid limits')) {
-            console.log(`[SheetsService] Reintentando tras expandir cuadrícula para fila ${nuevaFila}...`);
-            await this.asegurarCapacidadFilas(nuevaFila + 100);
-            resNuevo = await SheetsWriteQueue.fetchConReintento(urlBatchNuevo, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                valueInputOption: 'USER_ENTERED',
-                data: dataUpdatesNuevo
-              })
-            });
-          }
-          if (!resNuevo.ok) {
-            const finalErrText = await resNuevo.text();
-            console.warn(`[SheetsService] Error al insertar nueva fila ${nuevaFila} vía batchUpdate:`, finalErrText);
-            return { success: false, error: finalErrText };
-          }
+          const finalErrText = await resNuevo.text();
+          console.warn(`[SheetsService] Error al insertar nueva fila ${nuevaFila} vía batchUpdate:`, finalErrText);
+          return { success: false, error: finalErrText };
         }
 
         caso.filaNumero = nuevaFila;
@@ -1442,7 +1565,7 @@ export class SheetsService {
     if (creds) {
       try {
         const token = await this.obtenerAuthToken();
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:O")}?valueRenderOption=FORMATTED_VALUE`;
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:Q")}?valueRenderOption=FORMATTED_VALUE`;
         const res = await fetch(url, {
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -1463,9 +1586,10 @@ export class SheetsService {
           const agentes: string[] = [];
           const estados: string[] = [];
           const etapas: string[] = [];
+          const estadosTicketSeguimiento: string[] = [];
 
           // Estructura actual de la hoja (con columna de Contactos en C):
-          // A: Integración | B: Sponsorship | C: Contactos | E: País | G: Oportunidad | I: Asset | K: Agente | M: Estado | O: Etapa
+          // A: Integración | B: Sponsorship | C: Contactos | E: País | G: Oportunidad | I: Asset | K: Agente | M: Estado | O: Etapa | Q: Estado del caso HC
           // La fila 0 es cabecera; a partir de la fila 1 son datos
           for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
@@ -1509,6 +1633,22 @@ export class SheetsService {
             // Col O (14): Etapa del onboarding
             const et = row[14] ? String(row[14]).trim() : '';
             if (et && !etapas.some(x => x.toLowerCase() === et.toLowerCase())) etapas.push(et);
+
+            // Col Q (16): Estado del caso HC / Estado del ticket de seguimiento
+            const estHC = row[16] ? String(row[16]).trim() : '';
+            if (estHC && !estadosTicketSeguimiento.some(x => x.toLowerCase() === estHC.toLowerCase())) estadosTicketSeguimiento.push(estHC);
+          }
+
+          if (estadosTicketSeguimiento.length === 0) {
+            estadosTicketSeguimiento.push(
+              "Abierto",
+              "Abierto (sin oportunidad)",
+              "Resuelto (bloquear respuesta)",
+              "Resuelto (sin bloquear respuesta)",
+              "Esperando por el cliente",
+              "Transferido",
+              "Sin ticket HC"
+            );
           }
 
           const resultado: CatalogosSheet = {
@@ -1518,13 +1658,14 @@ export class SheetsService {
             assets,
             agentes,
             estados,
-            etapas
+            etapas,
+            estadosTicketSeguimiento
           };
 
           try {
             const targetPath = process.env.VERCEL ? path.join('/tmp', 'data_cached_catalogos.json') : CATALOGOS_CACHE_FILE;
             fs.writeFileSync(targetPath, JSON.stringify(resultado, null, 2), 'utf-8');
-            console.log(`[SheetsService] Catálogos cargados desde hoja Integraciones_Sponsorship (${integraciones.length} integraciones, ${paises.length} países, etc.)`);
+            console.log(`[SheetsService] Catálogos cargados desde hoja Integraciones_Sponsorship (${integraciones.length} integraciones, ${paises.length} países, ${estadosTicketSeguimiento.length} estados ticket HC, etc.)`);
           } catch (e) {
             console.warn('[SheetsService] Error guardando cache de catálogos (ignorado en serverless):', e);
           }
@@ -1553,7 +1694,8 @@ export class SheetsService {
       assets: [],
       agentes: [],
       estados: [],
-      etapas: []
+      etapas: [],
+      estadosTicketSeguimiento: []
     };
   }
 
@@ -1629,6 +1771,17 @@ export class SheetsService {
         case 'etapas':
           rangoClear = "Integraciones_Sponsorship!O2:O";
           rangoUpdate = `Integraciones_Sponsorship!O2:O${Math.max(items.length + 1, 2)}`;
+          values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
+          break;
+
+        case 'estadosticketseguimiento':
+        case 'estados_ticket_seguimiento':
+        case 'estadosticket':
+        case 'estadoshc':
+        case 'estados_hc':
+        case 'estados_ticket':
+          rangoClear = "Integraciones_Sponsorship!Q2:Q";
+          rangoUpdate = `Integraciones_Sponsorship!Q2:Q${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
 

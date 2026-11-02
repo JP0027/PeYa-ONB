@@ -6,17 +6,16 @@
  * sin tener que modificar el código fuente.
  */
 
-import { doc, getDoc, setDoc, onSnapshot, Unsubscribe, DocumentData } from 'firebase/firestore';
-import { db } from '../firebase';
 import {
   LISTA_PAISES,
   LISTA_OPORTUNIDADES,
   LISTA_ASSETS,
   LISTA_ESTADOS,
   LISTA_ETAPAS,
+  LISTA_ESTADOS_TICKET_SEGUIMIENTO,
+  LISTA_AGENTES,
   MAPA_INTEGRACIONES_SPONSORSHIP
 } from '../data/catalogoOnboarding';
-import CATALOGOS_CACHE from '../../data_cached_catalogos.json';
 
 const STORAGE_KEY = 'peya_catalogos_personalizados';
 const FIRESTORE_DOC_PATH = ['configuracion', 'catalogos'];
@@ -35,28 +34,21 @@ export interface CatalogosPorDefecto {
   estados: string[];
   etapas: string[];
   integraciones: IntegracionSponsorship[];
+  estadosTicketSeguimiento?: string[];
   agentes?: string[];
   roles?: string[];
 }
 
 export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
-  paises: CATALOGOS_CACHE?.paises || [...LISTA_PAISES],
-  oportunidades: CATALOGOS_CACHE?.oportunidades || [...LISTA_OPORTUNIDADES],
-  assets: CATALOGOS_CACHE?.assets || [...LISTA_ASSETS],
-  estados: CATALOGOS_CACHE?.estados || [...LISTA_ESTADOS],
-  etapas: CATALOGOS_CACHE?.etapas || [...LISTA_ETAPAS],
+  paises: [...LISTA_PAISES],
+  oportunidades: [...LISTA_OPORTUNIDADES],
+  assets: [...LISTA_ASSETS],
+  estados: [...LISTA_ESTADOS],
+  etapas: [...LISTA_ETAPAS],
+  estadosTicketSeguimiento: [...LISTA_ESTADOS_TICKET_SEGUIMIENTO],
   roles: ['Agente', 'Supervisor', 'Supervisor / TL'],
-  agentes: (CATALOGOS_CACHE?.agentes && CATALOGOS_CACHE.agentes.length > 0) ? CATALOGOS_CACHE.agentes : [
-    'Prisila Leon',
-    'Joel Tocas',
-    'Yadira Flores',
-    'Comercial',
-    'Sin asignación',
-    'Jean Palomino',
-    'Jean Changanaqui',
-    'Guillermo Gonzales'
-  ],
-  integraciones: (CATALOGOS_CACHE?.integraciones as any) || Object.entries(MAPA_INTEGRACIONES_SPONSORSHIP).map(([nombre, sponsorship]) => ({
+  agentes: [...LISTA_AGENTES],
+  integraciones: Object.entries(MAPA_INTEGRACIONES_SPONSORSHIP).map(([nombre, sponsorship]) => ({
     nombre,
     sponsorship: String(sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO'
   }))
@@ -66,11 +58,19 @@ export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
  * Obtiene los catálogos en caché local o por defecto
  */
 export function obtenerCatalogosLocales(): CatalogosPorDefecto {
+  let rolesLocales = CATALOGOS_POR_DEFECTO.roles;
+  try {
+    const savedRoles = localStorage.getItem('peya_roles_personalizados');
+    if (savedRoles) {
+      const parsedR = JSON.parse(savedRoles);
+      if (Array.isArray(parsedR) && parsedR.length > 0) rolesLocales = parsedR;
+    }
+  } catch {}
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Si la caché local tiene menos integraciones que los datos actualizados embebidos, actualizarla
       const integracionesLocales = (parsed.integraciones?.length && parsed.integraciones.length >= CATALOGOS_POR_DEFECTO.integraciones.length)
         ? parsed.integraciones
         : CATALOGOS_POR_DEFECTO.integraciones;
@@ -81,26 +81,23 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
         assets: parsed.assets?.length ? parsed.assets : CATALOGOS_POR_DEFECTO.assets,
         estados: parsed.estados?.length ? parsed.estados : CATALOGOS_POR_DEFECTO.estados,
         etapas: parsed.etapas?.length ? parsed.etapas : CATALOGOS_POR_DEFECTO.etapas,
+        estadosTicketSeguimiento: parsed.estadosTicketSeguimiento?.length ? parsed.estadosTicketSeguimiento : CATALOGOS_POR_DEFECTO.estadosTicketSeguimiento,
         integraciones: integracionesLocales,
         agentes: (Array.isArray(parsed.agentes) && parsed.agentes.length > 0) ? parsed.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
-        roles: (Array.isArray(parsed.roles) && parsed.roles.length > 0) ? parsed.roles : (CATALOGOS_POR_DEFECTO.roles || [])
+        roles: (Array.isArray(parsed.roles) && parsed.roles.length > 0) ? parsed.roles : rolesLocales
       };
     }
   } catch (err) {
     console.warn('[catalogoService] Error leyendo localStorage:', err);
   }
-  return { ...CATALOGOS_POR_DEFECTO };
+  return { ...CATALOGOS_POR_DEFECTO, roles: rolesLocales };
 }
 
 /**
  * Consulta los catálogos en vivo directamente desde la hoja Integraciones_Sponsorship
  */
 export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefecto | null> {
-  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
-
-  const urlsAIntentar = isNetlify
-    ? ['https://pe-ya-onb.vercel.app/api/sheets/catalogos', '/api/sheets/catalogos']
-    : ['/api/sheets/catalogos', 'https://pe-ya-onb.vercel.app/api/sheets/catalogos'];
+  const urlsAIntentar = ['/api/sheets/catalogos'];
 
   for (const baseUrl of urlsAIntentar) {
     try {
@@ -138,21 +135,7 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
  * Guarda una sección específica del catálogo impactando directamente en la hoja Integraciones_Sponsorship
  */
 export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]): Promise<any> {
-  const isNetlify = typeof window !== 'undefined' && window.location.hostname.includes('netlify');
-
-  const urlsAIntentar = isNetlify
-    ? [
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
-        '/api/sheets/catalogos/guardar-seccion',
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos',
-        '/api/sheets/catalogos'
-      ]
-    : [
-        '/api/sheets/catalogos/guardar-seccion',
-        '/api/sheets/catalogos',
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos/guardar-seccion',
-        'https://pe-ya-onb.vercel.app/api/sheets/catalogos'
-      ];
+  const urlsAIntentar = ['/api/sheets/catalogos'];
 
   let ultimoError: any = null;
 
@@ -193,6 +176,8 @@ export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]
 /**
  * Se suscribe a los cambios del catálogo en Firestore y Google Sheets
  */
+export type Unsubscribe = () => void;
+
 export function suscribirCatalogos(callback: (catalogos: CatalogosPorDefecto) => void): Unsubscribe {
   // 1. Entregar inmediatamente lo que haya en caché local
   callback(obtenerCatalogosLocales());
@@ -204,35 +189,7 @@ export function suscribirCatalogos(callback: (catalogos: CatalogosPorDefecto) =>
     }
   });
 
-  try {
-    const docRef = doc(db, FIRESTORE_DOC_PATH[0], FIRESTORE_DOC_PATH[1]);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as DocumentData;
-        const combinados: CatalogosPorDefecto = {
-          paises: Array.isArray(data.paises) && data.paises.length ? data.paises : CATALOGOS_POR_DEFECTO.paises,
-          oportunidades: Array.isArray(data.oportunidades) && data.oportunidades.length ? data.oportunidades : CATALOGOS_POR_DEFECTO.oportunidades,
-          assets: Array.isArray(data.assets) && data.assets.length ? data.assets : CATALOGOS_POR_DEFECTO.assets,
-          agentes: Array.isArray(data.agentes) && data.agentes.length ? data.agentes : (CATALOGOS_POR_DEFECTO.agentes || []),
-          estados: Array.isArray(data.estados) && data.estados.length ? data.estados : CATALOGOS_POR_DEFECTO.estados,
-          etapas: Array.isArray(data.etapas) && data.etapas.length ? data.etapas : CATALOGOS_POR_DEFECTO.etapas,
-          roles: Array.isArray(data.roles) && data.roles.length ? data.roles : (CATALOGOS_POR_DEFECTO.roles || []),
-          integraciones: Array.isArray(data.integraciones) && data.integraciones.length ? data.integraciones : CATALOGOS_POR_DEFECTO.integraciones
-        };
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(combinados));
-        } catch (_) {}
-        callback(combinados);
-      }
-    }, (error) => {
-      console.warn('[catalogoService] Error en suscripción Firestore:', error);
-    });
-
-    return unsubscribe;
-  } catch (err) {
-    console.warn('[catalogoService] No se pudo inicializar listener Firestore:', err);
-    return () => {};
-  }
+  return () => {};
 }
 
 /**
@@ -242,18 +199,7 @@ export async function guardarCatalogosEnFirestore(nuevosCatalogos: CatalogosPorD
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nuevosCatalogos));
   } catch (_) {}
-
-  try {
-    const docRef = doc(db, FIRESTORE_DOC_PATH[0], FIRESTORE_DOC_PATH[1]);
-    await setDoc(docRef, {
-      ...nuevosCatalogos,
-      actualizadoEn: new Date().toISOString()
-    }, { merge: true });
-    return { success: true };
-  } catch (error) {
-    console.error('[catalogoService] Error guardando en Firestore:', error);
-    throw error;
-  }
+  return { success: true };
 }
 
 /**

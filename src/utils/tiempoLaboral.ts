@@ -227,15 +227,19 @@ export function obtenerRangoSLA(totalHoras: number | null | undefined): string {
 
 /**
  * Evalúa si el SLA de un seguimiento (Catálogo AK, POS AJ) o de la OP (AI) alcanzó o superó las 4 horas (≥ 4h).
- * Respeta estrictamente los rangos de Google Sheets:
- * - Si el rango oficial indica "0h a <4h": false.
- * - Si el rango oficial indica "≥4h a ≤6h", ">6h", "≥24h", "≥96h": true.
- * - Si no hay rango oficial o dice '-', evalúa que las horas sean >= 4.
+ * Regla de oro:
+ * 1. Si las horas numéricas transcurridas son >= 4, es DEFINITIVAMENTE VERDADERO (el tiempo real ya cruzó las 4 horas).
+ * 2. Si las horas numéricas son < 4 o no numéricas, se revisa el rango oficial de Google Sheets por si indica ≥4h.
  */
 export function esSlaMayorOIgualA4(horas: number | null | undefined, rangoOficial?: string): boolean {
+  // 1. Si las horas transcurridas en vivo son >= 4, siempre es >= 4h sin importar textos desactualizados de Sheets
+  if (typeof horas === 'number' && !isNaN(horas) && horas >= 4) {
+    return true;
+  }
+
+  // 2. Si no hay horas calculadas >= 4, evaluar texto oficial de Google Sheets
   const r = String(rangoOficial || '').toLowerCase().trim();
   if (r && r !== '-' && r !== 's/v') {
-    if (r.includes('<4') || r.includes('0h a <4h') || r.includes('0h a')) return false;
     if (
       r.includes('≥4') || r.includes('>=4') || r.includes('4h a') ||
       r.includes('≤6') || r.includes('<=6') ||
@@ -245,8 +249,12 @@ export function esSlaMayorOIgualA4(horas: number | null | undefined, rangoOficia
     ) {
       return true;
     }
+    if (r.includes('<4') || r.includes('0h a <4h') || r.includes('0h a')) {
+      return false;
+    }
   }
-  return typeof horas === 'number' && !isNaN(horas) && horas >= 4;
+
+  return false;
 }
 
 /**
@@ -267,17 +275,17 @@ export function obtenerColorRangoSLA(totalHoras: number | null | undefined, esAc
   const r = String(rangoOficial || '').toLowerCase().trim();
 
   // 1. Regla Roja oficial: Crítico (≥ 96h)
-  if (r.includes('96') || totalHoras >= 96) {
+  if (totalHoras >= 96 || r.includes('96')) {
     return 'bg-rose-950/80 text-rose-300 border-rose-800 font-bold animate-pulse';
   }
 
   // 2. Regla Naranja oficial: Atención / KAM (≥ 24h a < 96h)
-  if ((r.includes('24h') && !r.includes('<24')) || (r.includes('72h') && !r.includes('<72')) || totalHoras >= 24) {
+  if (totalHoras >= 24 || (r.includes('24h') && !r.includes('<24')) || (r.includes('72h') && !r.includes('<72'))) {
     return 'bg-amber-950/80 text-amber-300 border-amber-800 font-bold';
   }
 
   // 3. Regla Amarilla oficial: Alerta Push / SLA (≥ 4h a < 24h: "≥4h a ≤6h", ">6h a <24h")
-  if (esSlaMayorOIgualA4(totalHoras, r)) {
+  if (totalHoras >= 4 || esSlaMayorOIgualA4(totalHoras, r)) {
     return 'bg-yellow-950/80 text-yellow-300 border-yellow-800 font-semibold';
   }
 
@@ -306,6 +314,24 @@ export function analizarTiemposCaso(caso: any): any {
     return { horas: 0, texto: '-' };
   };
 
+  // Helper para resolver rango oficial considerando horas reales dinámicas (evita quedar bloqueado por "0h a <4h" estático)
+  const resolverRangoEfectivo = (rangoSheets: any, totalH: number | null | undefined): string => {
+    const rangoCalc = obtenerRangoSLA(totalH);
+    if (typeof totalH === 'number' && !isNaN(totalH) && totalH >= 4) {
+      const rLower = String(rangoSheets || '').toLowerCase().trim();
+      if (!rangoSheets || rLower.includes('<4') || rLower.includes('0h a') || rLower === '-' || rLower === 's/v') {
+        return rangoCalc;
+      }
+    }
+    return (rangoSheets && String(rangoSheets).trim() !== '' && String(rangoSheets).trim() !== '-') 
+      ? String(rangoSheets).trim() 
+      : rangoCalc;
+  };
+
+  const etapaLower = String(caso.etapa || '').toLowerCase().trim();
+  const esEtapaCat = etapaLower.includes('catálogo') || etapaLower.includes('catalogo');
+  const esEtapaPos = etapaLower.includes('sin integración') || etapaLower.includes('sin integracion') || etapaLower.includes('seteo');
+
   // 1. SLA General de la OP
   const fInicioOp = caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion;
   const fCierreOp = !esActivo && caso.fechaCierre ? caso.fechaCierre : null;
@@ -317,13 +343,13 @@ export function analizarTiemposCaso(caso: any): any {
   );
   const totalHorasOp = opRes.horas;
   const tiempoTextoOp = opRes.texto;
-  const rangoSlaOp = caso.rangoSlaOp && String(caso.rangoSlaOp).trim() !== '' 
-    ? String(caso.rangoSlaOp).trim() 
-    : (caso.rangoSla && String(caso.rangoSla).trim() !== '' ? String(caso.rangoSla).trim() : obtenerRangoSLA(totalHorasOp));
+  const rangoSlaOp = resolverRangoEfectivo(caso.rangoSlaOp || caso.rangoSla, totalHorasOp);
   const colorClassOp = obtenerColorRangoSLA(totalHorasOp, esActivo, rangoSlaOp);
 
   // 2. SLA Seguimiento POS API (Columna AJ en Sheets)
-  const fInicioPos = caso.fechaInicioPos && caso.fechaInicioPos !== 'S/V' && caso.fechaInicioPos !== '-' ? caso.fechaInicioPos : null;
+  const fInicioPos = (caso.fechaInicioPos && caso.fechaInicioPos !== 'S/V' && caso.fechaInicioPos !== '-') 
+    ? caso.fechaInicioPos 
+    : (esEtapaPos ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
   const respPosLimpia = String(caso.respuestaPos || '').trim().toLowerCase();
   const freezeValPos = caso.fechaFreezePos || caso.freezePos || null;
   const estaCongeladoPos = respPosLimpia === 'si' || respPosLimpia === 'sí' || Boolean(freezeValPos);
@@ -335,11 +361,13 @@ export function analizarTiemposCaso(caso: any): any {
   const totalHorasPos = posRes.horas;
   const tiempoTextoPos = fInicioPos ? posRes.texto : (caso.fechaInicioPos === 'S/V' ? 'S/V' : '-');
   const rangoSlaPos = fInicioPos 
-    ? (caso.rangoSlaPos && String(caso.rangoSlaPos).trim() !== '' ? String(caso.rangoSlaPos).trim() : obtenerRangoSLA(totalHorasPos)) 
+    ? resolverRangoEfectivo(caso.rangoSlaPos, totalHorasPos) 
     : '';
 
   // 3. SLA Seguimiento Catálogo (Columna AK en Sheets)
-  const fInicioCat = caso.fechaInicioCat && caso.fechaInicioCat !== 'S/V' && caso.fechaInicioCat !== '-' ? caso.fechaInicioCat : null;
+  const fInicioCat = (caso.fechaInicioCat && caso.fechaInicioCat !== 'S/V' && caso.fechaInicioCat !== '-') 
+    ? caso.fechaInicioCat 
+    : (esEtapaCat ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
   const respCatLimpia = String(caso.respuestaCat || '').trim().toLowerCase();
   const freezeValCat = caso.fechaFreezeCat || caso.freezeCat || null;
   const estaCongeladoCat = respCatLimpia === 'si' || respCatLimpia === 'sí' || Boolean(freezeValCat);
@@ -351,17 +379,13 @@ export function analizarTiemposCaso(caso: any): any {
   const totalHorasCat = catRes.horas;
   const tiempoTextoCat = fInicioCat ? catRes.texto : (caso.fechaInicioCat === 'S/V' ? 'S/V' : '-');
   const rangoSlaCat = fInicioCat 
-    ? (caso.rangoSlaCat && String(caso.rangoSlaCat).trim() !== '' ? String(caso.rangoSlaCat).trim() : obtenerRangoSLA(totalHorasCat)) 
+    ? resolverRangoEfectivo(caso.rangoSlaCat, totalHorasCat) 
     : '';
 
   // 4. Determinar cuál seguimiento está ACTIVO:
   //    - Catálogo (AK): Si la etapa es de Catálogo o tiene inicio real de Catálogo y NO está congelado
   //    - POS API (AJ): Si la etapa es de POS o tiene inicio real de POS y NO está congelado (y no está en Catálogo)
   //    - Si no tiene seguimiento activo (o ambos concluyeron/congelados): corresponde al SLA de la OP (AI)
-  const etapaLower = String(caso.etapa || '').toLowerCase().trim();
-  const esEtapaCat = etapaLower.includes('catálogo') || etapaLower.includes('catalogo');
-  const esEtapaPos = etapaLower.includes('sin integración') || etapaLower.includes('sin integracion') || etapaLower.includes('seteo');
-
   const tieneInicioRealCat = Boolean(fInicioCat && fInicioCat !== 'S/V' && fInicioCat !== '-');
   const tieneInicioRealPos = Boolean(fInicioPos && fInicioPos !== 'S/V' && fInicioPos !== '-');
 

@@ -10,3 +10,5 @@ services:
         value: 20
       - key: VITE_GOOGLE_SHEET_ID
         value: 1obGQuhQx0FcxdoHNYUMzGqOzLFalhA63W8ze1tygHkk
+      - key: VITE_GOOGLE_CLIENT_ID
+        value: 384068416952-rjjkdcdl1s0st67j9pclsf3uegojv8g6.apps.googleusercontent.com

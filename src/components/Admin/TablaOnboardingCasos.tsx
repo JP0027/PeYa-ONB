@@ -2,13 +2,21 @@ import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
 import { LISTA_ASSETS } from '../../data/catalogoOnboarding';
+import ModalCambiosMasivosOnboarding from './ModalCambiosMasivosOnboarding';
+import { actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
 
 export interface TablaOnboardingCasosProps {
   casos?: any[];
+  catalogos?: Record<string, any[]>;
+  nombreUsuarioAutenticado?: string;
   onEditarCaso?: (caso: any) => void;
   onEliminarCaso?: (caso: any) => Promise<void> | void;
+  onActualizarCasosMasivo?: (casos: any[]) => Promise<void>;
+  onEliminarCasosMasivo?: (casos: any[]) => Promise<void>;
+  onAgregarCasosMasivo?: (casosNuevos: any[]) => Promise<void>;
   mostrarNotificacion?: (texto: string, tipo?: string) => void;
   cargando?: boolean;
+  temaClaro?: boolean;
 }
 
 /**
@@ -18,11 +26,18 @@ export interface TablaOnboardingCasosProps {
  */
 export default function TablaOnboardingCasos({
   casos = [],
+  catalogos,
+  nombreUsuarioAutenticado = 'Agente',
+  temaClaro,
   onEditarCaso,
   onEliminarCaso,
+  onActualizarCasosMasivo,
+  onEliminarCasosMasivo,
+  onAgregarCasosMasivo,
   mostrarNotificacion,
   cargando = false
 }: TablaOnboardingCasosProps) {
+  const [modalMasivoAbierto, setModalMasivoAbierto] = useState<boolean>(false);
   const [busqueda, setBusqueda] = useState<string>('');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroPais, setFiltroPais] = useState<string>('todos');
@@ -453,19 +468,19 @@ export default function TablaOnboardingCasos({
       <th 
         onClick={() => handleOrdenar(colKey)}
         style={{ width: colWidths[anchoKey], minWidth: colWidths[anchoKey] }} 
-        className={`py-3 px-3 relative select-none cursor-pointer hover:text-[#F46C8E] transition ${alinear === 'center' ? 'text-center' : 'text-left'} ${activo ? 'text-[#F46C8E] font-bold' : ''}`}
+        className={`py-3.5 px-3 relative select-none cursor-pointer transition text-black dark:text-white font-bold text-[11px] tracking-wider uppercase ${alinear === 'center' ? 'text-center' : 'text-left'} ${activo ? 'text-[#E85A80] dark:text-[#F46C8E]' : ''}`}
         title={`Clic para ordenar por ${titulo}`}
       >
         <div className={`flex items-center gap-1 ${alinear === 'center' ? 'justify-center' : 'justify-start'}`}>
           <span>{titulo}</span>
-          <span className="text-[10px] opacity-80 font-sans">
+          <span className="text-[10px] opacity-90 font-sans">
             {activo ? (direccionOrden === 'asc' ? '▲' : '▼') : '⇅'}
           </span>
         </div>
         <div 
           onMouseDown={(e) => iniciarRedimensionar(anchoKey, e)} 
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E]/60 select-none" 
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" 
         />
       </th>
     );
@@ -505,14 +520,14 @@ export default function TablaOnboardingCasos({
           <div className="flex flex-wrap gap-2.5 items-center w-full md:w-auto">
             {/* Filtro Estado del Caso */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-[#B3B3B3]">Estado:</span>
+              <span className="text-[11px] text-black dark:text-[#B3B3B3] font-semibold">Estado:</span>
               <select
                 value={filtroEstado}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   setFiltroEstado(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
+                className="bg-white dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] text-black dark:text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
               >
                 <option value="todos">Todos los Estados ({conteos.todos})</option>
                 <option value="activos">Todos los Activos ({conteos.activos})</option>
@@ -528,14 +543,14 @@ export default function TablaOnboardingCasos({
 
             {/* Filtro País */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-[#B3B3B3]">País:</span>
+              <span className="text-[11px] text-black dark:text-[#B3B3B3] font-semibold">País:</span>
               <select
                 value={filtroPais}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   setFiltroPais(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+                className="bg-white dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] text-black dark:text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
               >
                 <option value="todos">Todos los Países ({listaPaises.length})</option>
                 {listaPaises.map(p => (
@@ -546,14 +561,14 @@ export default function TablaOnboardingCasos({
 
             {/* Filtro Asset */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-[#B3B3B3]">Asset:</span>
+              <span className="text-[11px] text-black dark:text-[#B3B3B3] font-semibold">Asset:</span>
               <select
                 value={filtroAsset}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                   setFiltroAsset(e.target.value);
                   setPaginaActual(1);
                 }}
-                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+                className="bg-white dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] text-black dark:text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
               >
                 <option value="todos">Todos los Assets ({listaAssets.length})</option>
                 {listaAssets.map(a => (
@@ -565,14 +580,14 @@ export default function TablaOnboardingCasos({
             {/* Filtro Año */}
             {listasFecha.anios.length > 0 && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-[#B3B3B3]">Año:</span>
+                <span className="text-[11px] text-black dark:text-[#B3B3B3] font-semibold">Año:</span>
                 <select
                   value={filtroAnio}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     setFiltroAnio(e.target.value);
                     setPaginaActual(1);
                   }}
-                  className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+                  className="bg-white dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] text-black dark:text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
                 >
                   <option value="todos">Todos</option>
                   {listasFecha.anios.map(a => (
@@ -585,14 +600,14 @@ export default function TablaOnboardingCasos({
             {/* Filtro Mes */}
             {listasFecha.meses.length > 0 && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-[#B3B3B3]">Mes:</span>
+                <span className="text-[11px] text-black dark:text-[#B3B3B3] font-semibold">Mes:</span>
                 <select
                   value={filtroMes}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     setFiltroMes(e.target.value);
                     setPaginaActual(1);
                   }}
-                  className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+                  className="bg-white dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] text-black dark:text-[#D1D5DB] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
                 >
                   <option value="todos">Todos</option>
                   {listasFecha.meses.map(m => (
@@ -615,7 +630,7 @@ export default function TablaOnboardingCasos({
                   setBusqueda('');
                   setPaginaActual(1);
                 }}
-                className="bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border border-[#E85A80]/40 rounded-xl px-3 py-1.5 text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+                className="bg-slate-700 hover:bg-slate-600 dark:bg-[#2C2C32] dark:hover:bg-[#3A3A3E] text-white font-bold border border-slate-600 dark:border-[#E85A80]/40 rounded-xl px-3 py-1.5 text-xs flex items-center gap-1 transition cursor-pointer"
                 title="Restablecer todos los filtros acumulados"
               >
                 <span>✕</span>
@@ -626,34 +641,45 @@ export default function TablaOnboardingCasos({
             {/* Botón Descargar Excel según filtros actuales */}
             <button
               onClick={descargarExcel}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-1.5 rounded-xl text-sm transition flex items-center gap-1.5 shadow-md shadow-emerald-950/50 cursor-pointer"
+              className="btn-descargar-excel bg-emerald-100 hover:bg-emerald-200 text-black dark:text-white border border-emerald-300 dark:bg-emerald-600 dark:hover:bg-emerald-500 dark:border-emerald-500 font-bold px-3.5 py-1.5 rounded-xl text-sm transition flex items-center gap-1.5 shadow-sm dark:shadow-md dark:shadow-emerald-950/50 cursor-pointer"
               title="Descargar los casos filtrados en formato Excel (.xlsx)"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-black dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
               </svg>
-              <span>Descargar ({casosFiltrados.length})</span>
+              <span className="text-black dark:text-white font-bold">Descargar ({casosFiltrados.length})</span>
+            </button>
+
+            {/* Botón Cambios Masivos adaptativo a Modo Claro y Oscuro */}
+            <button
+              type="button"
+              onClick={() => setModalMasivoAbierto(true)}
+              className="btn-cambios-masivos bg-purple-100 hover:bg-purple-200 text-black dark:text-white border border-purple-300 dark:bg-purple-600 dark:hover:bg-purple-500 dark:border-purple-500 font-bold px-3.5 py-1.5 rounded-xl text-sm transition flex items-center gap-1.5 shadow-sm dark:shadow-md dark:shadow-purple-950/50 cursor-pointer"
+              title="Cambios Masivos: Editar, Agregar o Eliminar casos en lote"
+            >
+              <span className="text-sm">⚡</span>
+              <span className="text-black dark:text-white font-bold">Cambios Masivos</span>
             </button>
           </div>
         </div>
 
 
         {/* Resumen de resultados */}
-        <div className="flex items-center justify-between text-xs text-[#B3B3B3] pt-2 border-t border-[#3A3A3E]/80">
+        <div className="flex items-center justify-between text-xs text-black dark:text-[#B3B3B3] pt-2 border-t border-slate-200 dark:border-[#3A3A3E]/80">
           <div className="flex items-center">
             <div>
-              Mostrando <strong className="text-white">{casosPaginados.length}</strong> de <strong className="text-[#F46C8E]">{casosFiltrados.length}</strong> casos filtrados (<span className="text-[#D1D5DB] font-mono">{casos.length}</span> casos totales registrados en Onboarding)
+              Mostrando <strong className="text-black dark:text-white">{casosPaginados.length}</strong> de <strong className="text-[#F46C8E]">{casosFiltrados.length}</strong> casos filtrados (<span className="text-black dark:text-[#D1D5DB] font-mono">{casos.length}</span> casos totales registrados en Onboarding)
             </div>
             {/* Cantidad por página: 10, 15, 20 */}
             <div className="flex items-center gap-1.5 ml-4">
-              <span className="text-[11px] text-[#B3B3B3]">Mostrar:</span>
+              <span className="text-[11px] text-black dark:text-[#B3B3B3] font-semibold">Mostrar:</span>
               <select
                 value={casosPorPagina}
                 onChange={(e) => {
                   setCasosPorPagina(Number(e.target.value));
                   setPaginaActual(1);
                 }}
-                className="bg-[#121212] border border-[#3A3A3E] text-[#D1D5DB] rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-[#E85A80] cursor-pointer"
+                className="bg-white dark:bg-[#121212] border border-slate-300 dark:border-[#3A3A3E] text-black dark:text-[#D1D5DB] rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-[#E85A80] font-semibold cursor-pointer"
               >
                 <option value={10}>10</option>
                 <option value={15}>15</option>
@@ -663,8 +689,8 @@ export default function TablaOnboardingCasos({
               </select>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span>Página <strong className="text-white">{paginaSegura}</strong> de <strong className="text-white">{totalPaginas}</strong></span>
+          <div className="flex items-center gap-2 text-black dark:text-[#B3B3B3]">
+            <span>Página <strong className="text-black dark:text-white">{paginaSegura}</strong> de <strong className="text-black dark:text-white">{totalPaginas}</strong></span>
           </div>
         </div>
       </div>
@@ -683,7 +709,7 @@ export default function TablaOnboardingCasos({
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-[#202024]/80 border-b border-[#3A3A3E] text-[#B3B3B3] uppercase font-mono text-[10px] tracking-wider whitespace-nowrap">
+              <tr className="bg-slate-100 dark:bg-[#202024]/80 border-b border-slate-200 dark:border-[#3A3A3E] text-black dark:text-[#B3B3B3] uppercase font-mono text-[10px] tracking-wider whitespace-nowrap">
                 {renderHeader('num', '#', 'num', 'center')}
                 {renderHeader('casoOp', 'Caso OP', 'casoOp')}
                 {renderHeader('vendorId', 'Vendor ID', 'vendorId')}
@@ -696,7 +722,7 @@ export default function TablaOnboardingCasos({
                 {renderHeader('estado', 'Estado', 'estado')}
                 {renderHeader('etapa', 'Etapa', 'etapa')}
                 {renderHeader('seguimiento', 'N° Seguimiento', 'seguimiento')}
-                <th style={{ width: colWidths.acciones, minWidth: colWidths.acciones }} className="py-3 px-2 text-center relative select-none">
+                <th style={{ width: colWidths.acciones, minWidth: colWidths.acciones }} className="py-3 px-2 text-center relative select-none text-black dark:text-[#B3B3B3]">
                   Acciones
                   <div 
                     onMouseDown={(e) => iniciarRedimensionar('acciones', e)} 
@@ -706,10 +732,10 @@ export default function TablaOnboardingCasos({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/80">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800/80">
               {casosPaginados.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-42 text-center text-[#9CA3AF]">
+                  <td colSpan={12} className="py-42 text-center text-black dark:text-[#9CA3AF]">
                     No se encontraron casos con los filtros aplicados.
                   </td>
                 </tr>
@@ -723,10 +749,10 @@ export default function TablaOnboardingCasos({
                   return (
                     <tr
                       key={c.id || c.casoOp || idx}
-                      className="hover:bg-[#2C2C32]/50 transition group"
+                      className="hover:bg-slate-100/70 dark:hover:bg-[#2C2C32]/50 transition group"
                     >
                       {/* # / Fila */}
-                      <td className="py-4 px-3 text-center text-[#9CA3AF] font-mono text-[11px]">
+                      <td className="py-4 px-3 text-center text-black dark:text-[#9CA3AF] font-mono text-[11px]">
                         {filaNumeroVisual}
                       </td>
 
@@ -736,8 +762,8 @@ export default function TablaOnboardingCasos({
                           onClick={() => onEditarCaso && onEditarCaso(c)}
                           className={`hover:underline text-left cursor-pointer ${
                             textoOp === 'Sin caso OP'
-                              ? 'text-[#9CA3AF] italic'
-                              : 'text-cyan-400 hover:text-cyan-300'
+                              ? 'text-gray-400 italic'
+                              : 'text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 font-bold'
                           }`}
                           title="Clic para ampliar y ver todos los datos del caso"
                         >
@@ -746,55 +772,55 @@ export default function TablaOnboardingCasos({
                       </td>
 
                       {/* Vendor ID */}
-                      <td className="py-4 px-3 font-mono text-[#D1D5DB]">
+                      <td className="py-4 px-3 font-mono text-black dark:text-slate-200 font-medium">
                         {c.vendorId || c.vendor_id || '-'}
                       </td>
 
                       {/* Tienda */}
-                      <td className="py-4 px-4 font-semibold text-white max-w-[220px] truncate" title={c.tienda}>
+                      <td className="py-4 px-4 font-bold text-black dark:text-white max-w-[220px] truncate" title={c.tienda}>
                         {c.tienda || '-'}
                       </td>
 
                       {/* País */}
-                      <td className="py-4 px-3 text-[#D1D5DB]">
-                        <span className="px-1.5 py-0.5 rounded bg-[#2C2C32] text-[10px] text-[#D1D5DB] font-medium whitespace-nowrap">
+                      <td className="py-4 px-3">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-black dark:text-slate-100 font-bold border border-slate-300 dark:border-slate-600 whitespace-nowrap">
                           {c.pais || '-'}
                         </span>
                       </td>
 
                       {/* Propietario Oportunidad */}
-                      <td className="py-4 px-3 text-[#D1D5DB] max-w-[160px] truncate" title={c.propietarioOportunidad}>
+                      <td className="py-4 px-3 text-black dark:text-slate-200 font-medium max-w-[160px] truncate" title={c.propietarioOportunidad}>
                         {c.propietarioOportunidad || '-'}
                       </td>
 
                       {/* Integración */}
-                      <td className="py-4 px-3 text-[#D1D5DB] max-w-[140px] truncate" title={c.integracion}>
+                      <td className="py-4 px-3 text-black dark:text-slate-200 font-medium max-w-[140px] truncate" title={c.integracion}>
                         {c.integracion || '-'}
                       </td>
 
                       {/* Asset */}
-                      <td className="py-4 px-3 text-[#D1D5DB]">
-                        <span className="px-1.5 py-0.5 rounded bg-[#2C2C32] text-[10px] text-[#D1D5DB] font-medium whitespace-nowrap">
+                      <td className="py-4 px-3">
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-black dark:text-slate-100 font-bold border border-slate-300 dark:border-slate-600 whitespace-nowrap">
                           {c.asset || '-'}
                         </span>
                       </td>
 
                       {/* Oportunidad */}
-                      <td className="py-4 px-3 text-[#B3B3B3] max-w-[140px] truncate" title={c.oportunidad}>
+                      <td className="py-4 px-3 text-black dark:text-slate-300 font-medium max-w-[140px] truncate" title={c.oportunidad}>
                         {c.oportunidad || '-'}
                       </td>
 
                       {/* Estado */}
                       <td className="py-4 px-3 whitespace-nowrap">
                         <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-xs ${
                             !esCerrado
                               ? estLower.includes('sin oportunidad')
-                                ? 'bg-purple-950/80 text-purple-300 border border-purple-800/80'
-                                : 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
+                                ? 'bg-purple-600 text-white font-bold'
+                                : 'bg-emerald-600 text-white font-bold'
                               : estLower.includes('satisfactorio')
-                                ? 'bg-fuchsia-950/80 text-fuchsia-300 border border-fuchsia-800/80'
-                                : 'bg-[#2C2C32]/90 text-[#D1D5DB] border border-[#3A3A3E]'
+                                ? 'bg-fuchsia-600 text-white font-bold'
+                                : 'bg-slate-700 text-white font-bold'
                           }`}
                         >
                           {c.estado || 'En progreso'}
@@ -802,13 +828,13 @@ export default function TablaOnboardingCasos({
                       </td>
 
                       {/* Etapa */}
-                      <td className="py-4 px-3 text-[#B3B3B3] text-[11px] max-w-[160px] truncate" title={c.etapa}>
+                      <td className="py-4 px-3 text-black dark:text-slate-300 text-[11px] font-medium max-w-[160px] truncate" title={c.etapa}>
                         {c.etapa || '-'}
                       </td>
 
                       {/* Seguimiento */}
-                      <td className="py-4 px-3 font-mono text-[#D1D5DB] text-[11px] max-w-[140px] truncate" title={c.casoSeguimiento}>
-                        {c.casoSeguimiento && c.casoSeguimiento !== '-' ? c.casoSeguimiento : <span className="text-[#9CA3AF] italic">S/N</span>}
+                      <td className="py-4 px-3 font-mono text-black dark:text-slate-200 text-[11px] font-medium max-w-[140px] truncate" title={c.casoSeguimiento}>
+                        {c.casoSeguimiento && c.casoSeguimiento !== '-' ? c.casoSeguimiento : <span className="text-gray-400 italic">S/N</span>}
                       </td>
 
                       {/* Acciones: Solo iconos para ahorrar espacio */}
@@ -941,6 +967,50 @@ export default function TablaOnboardingCasos({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Cambios Masivos (Editar, Agregar, Eliminar en Lote) */}
+      {modalMasivoAbierto && (
+        <ModalCambiosMasivosOnboarding
+          abierto={modalMasivoAbierto}
+          alCerrar={() => setModalMasivoAbierto(false)}
+          casos={casos}
+          catalogos={catalogos}
+          nombreUsuarioAutenticado={nombreUsuarioAutenticado}
+          temaClaro={temaClaro}
+          onActualizarCasos={async (casosActualizados) => {
+            if (onActualizarCasosMasivo) {
+              await onActualizarCasosMasivo(casosActualizados);
+            } else {
+              for (const c of casosActualizados) {
+                await actualizarCasoEnSheets(c);
+              }
+              if (mostrarNotificacion) mostrarNotificacion(`Se actualizaron ${casosActualizados.length} casos exitosamente.`, 'success');
+            }
+          }}
+          onEliminarCasos={async (casosAEliminar) => {
+            if (onEliminarCasosMasivo) {
+              await onEliminarCasosMasivo(casosAEliminar);
+            } else {
+              for (const c of casosAEliminar) {
+                const targetId = String(c.id || c.casoOp || '').trim();
+                await eliminarCasoGoogleSheets(targetId, c.casoOp, c.filaNumero);
+              }
+              if (mostrarNotificacion) mostrarNotificacion(`Se eliminaron ${casosAEliminar.length} casos exitosamente.`, 'success');
+            }
+          }}
+          onAgregarCasos={async (casosNuevos) => {
+            if (onAgregarCasosMasivo) {
+              await onAgregarCasosMasivo(casosNuevos);
+            } else {
+              for (const c of casosNuevos) {
+                await actualizarCasoEnSheets({ ...c, esNuevo: true });
+              }
+              if (mostrarNotificacion) mostrarNotificacion(`Se agregaron ${casosNuevos.length} casos nuevos exitosamente.`, 'success');
+            }
+          }}
+          mostrarNotificacion={mostrarNotificacion}
+        />
       )}
     </div>
   );

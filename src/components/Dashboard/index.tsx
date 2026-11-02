@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { isAgentMatch, identificarMiembro, isHeroCareOwnerMatch } from '../../utils/agentMatching';
-import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL } from '../../utils/userPermissions';
+import { isAgentMatch, identificarMiembro, isHeroCareOwnerMatch, isOpportunityOwnerMatch } from '../../utils/agentMatching';
+import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL, CORREOS_ONBOARDING_OFICIALES, obtenerCorreosOnboardingDinamicos, validarAccesoUsuario } from '../../utils/userPermissions';
 import { 
   procesarActualizacionCaso, 
   analizarAlertasCaso, 
@@ -9,7 +9,10 @@ import {
   esPushKamRealizado, 
   normalizarRespuesta,
   resolverOportunidad,
-  esCasoHcAbierto
+  esCasoHcAbierto,
+  esCasoEnProgreso,
+  esCasoActivoGlobal,
+  contarTicketsSeguimientoUnicos
 } from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 import { analizarTiemposCaso } from '../../utils/tiempoLaboral';
@@ -29,8 +32,7 @@ import AdminCatalogoView from '../Admin/AdminCatalogoView';
 import GestionUsuariosView from '../Admin/GestionUsuariosView';
 import PushAlertContainer, { AlertaPush } from './PushAlertToast';
 import { suscribirCatalogos, CATALOGOS_POR_DEFECTO, consultarCatalogosGoogleSheets, guardarCatalogosEnFirestore } from '../../services/catalogoService';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
-import { db } from '../../firebase';
+
 
 export interface DashboardProps {
   role?: string;
@@ -55,6 +57,7 @@ export interface FormularioNuevoCaso {
   comentarios: string;
   estado: string;
   etapa: string;
+  estadoTicketSeguimiento: string;
   fechaCreacion: string;
   sla_inicio?: string;
 }
@@ -178,13 +181,12 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
     });
   }
 
-  // 2. ALERTAS DE PUSH DE SEGUIMIENTO (>= 4 HORAS) PARA AGENTES:
-  // Solo sobre los casos asignados al usuario
-  // Condiciones: Seguimiento POS API o Catálogo activo, faltar push y tiempo >= 4 horas
-  // Si ya realizó el push (en datos de sheet, respuesta o sesión/local), NUNCA alertar de nuevo.
+  // 2. ALERTAS DE PUSH DE SEGUIMIENTO (>= 4 HORAS)
+  // Evalúa los casos asignados al agente. Si es supervisor/TL o no hay casos asignados explícitamente, evalúa los casos activos.
   const misCasos = casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
+  const casosAAnalizar = (esRolSupervisor || misCasos.length === 0) ? casosActivos : misCasos;
 
-  misCasos.forEach(c => {
+  casosAAnalizar.forEach(c => {
     const alertas = analizarAlertasCaso(c);
     const opLabel = (c.casoOp && c.casoOp !== '-' && c.casoOp !== 'Sin caso OP') ? c.casoOp : (c.vendorId || c.id || 'Sin caso OP');
     const tiendaLabel = c.tienda || 'Sin tienda';
@@ -211,14 +213,17 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
       hizoPushPosRegistrado;
 
     if (alertas.requierePushPos && !tienePushPosEfectivo) {
-      resultados.push({
-        id: `push_pos_${c.id || c.casoOp}`,
-        caso: c,
-        tipo: 'push_pos',
-        titulo: 'Push de Seguimiento POS Pendiente (≥ 4h)',
-        hora: horaTexto,
-        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-      });
+      // Evitar duplicar si ya fue agregado por la sección 1 (supervisor)
+      if (!resultados.some(r => r.id === `push_pos_${c.id || c.casoOp}`)) {
+        resultados.push({
+          id: `push_pos_${c.id || c.casoOp}`,
+          caso: c,
+          tipo: 'push_pos',
+          titulo: 'Push de Seguimiento POS Pendiente (≥ 4h)',
+          hora: horaTexto,
+          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+        });
+      }
     }
 
     // Push de Seguimiento Catálogo (≥ 4 hrs) - Solo si NO ha realizado el push
@@ -230,14 +235,16 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
       hizoPushCatRegistrado;
 
     if (alertas.requierePushCat && !tienePushCatEfectivo) {
-      resultados.push({
-        id: `push_cat_${c.id || c.casoOp}`,
-        caso: c,
-        tipo: 'push_cat',
-        titulo: 'Push de Seguimiento Catálogo Pendiente (≥ 4h)',
-        hora: horaTexto,
-        mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
-      });
+      if (!resultados.some(r => r.id === `push_cat_${c.id || c.casoOp}`)) {
+        resultados.push({
+          id: `push_cat_${c.id || c.casoOp}`,
+          caso: c,
+          tipo: 'push_cat',
+          titulo: 'Push de Seguimiento Catálogo Pendiente (≥ 4h)',
+          hora: horaTexto,
+          mensaje: `Falta realizar push de seguimiento (≥ 4 hrs) en caso OP #${opLabel} (${tiendaLabel})`
+        });
+      }
     }
   });
 
@@ -248,11 +255,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const miembroActual = useMemo(() => identificarMiembro(email), [email]);
   const nombreUsuarioAutenticado = nombreUsuario || miembroActual?.nombre || (email || '').split('@')[0] || 'Usuario';
 
-  const rolEfectivo = useMemo(() => {
-    return role || 'Agente';
-  }, [role]);
+  const perfilBase = useMemo(() => validarAccesoUsuario(email), [email]);
 
-  const tieneAccesoSupervisor = useMemo(() => esSupervisor(rolEfectivo), [rolEfectivo]);
+  const rolEfectivo = useMemo(() => {
+    if (perfilBase?.rol) return perfilBase.rol;
+    return role || 'Agente';
+  }, [role, perfilBase]);
+
+  const tieneAccesoSupervisor = useMemo(() => esSupervisor(rolEfectivo, email), [rolEfectivo, email]);
   const puedeRegistrar = useMemo(() => puedeRegistrarCasos(rolEfectivo), [rolEfectivo]);
 
   // Sidebar responsivo y colapsable
@@ -299,6 +309,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   // Lista dinámica de pestañas permitidas para el usuario autenticado (desde Firestore o por defecto)
   const [pestanasPermitidas, setPestanasPermitidas] = useState<string[]>(() => {
+    if (perfilBase?.pestanas && perfilBase.pestanas.length > 0) {
+      return perfilBase.pestanas;
+    }
     const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
     return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto;
   });
@@ -310,7 +323,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   const [activeTab, setActiveTabState] = useState<string>(() => {
     const saved = sessionStorage.getItem('peya_onb_active_tab');
-    const tabsDefecto = obtenerPestanasPorDefecto(rolEfectivo);
+    const tabsDefecto = perfilBase?.pestanas || obtenerPestanasPorDefecto(rolEfectivo);
     const tabsValidas = !tieneAccesoSupervisor ? tabsDefecto.filter(p => p !== 'usuarios') : tabsDefecto;
     if (saved && tabsValidas.includes(saved)) {
       return saved;
@@ -327,30 +340,39 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   useEffect(() => {
     if (!email) return;
     const correoLimpio = String(email).trim().toLowerCase();
-    const unsubscribe = onSnapshot(doc(db, 'usuarios_permitidos', correoLimpio), (docSnap: any) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        let tabs = Array.isArray(data.pestanas) && data.pestanas.length > 0 
-          ? data.pestanas 
-          : obtenerPestanasPorDefecto(data.rol || role);
+
+    // Mapeo especial Yadira / Supervisors en código
+    if (correoLimpio === 'yadirayajaida@gmail.com' || correoLimpio === 'yadira.flores_dyn.ext@pedidosya.com' || correoLimpio.includes('yadira.flores') || perfilBase?.rol?.includes('Supervisor')) {
+      setPestanasPermitidas(['tl', 'admin', 'inicio', 'nuevo', 'usuarios']);
+      return;
+    }
+
+    const cargarPestanas = () => {
+      const perfil = validarAccesoUsuario(correoLimpio);
+      if (perfil) {
+        let tabs = Array.isArray(perfil.pestanas) && perfil.pestanas.length > 0 
+          ? [...perfil.pestanas] 
+          : obtenerPestanasPorDefecto(perfil.rol || rolEfectivo);
         
-        const esRolSupervisorActual = esSupervisor(data.rol || role);
-        if (!esRolSupervisorActual) {
+        const esRolSupervisorActual = esSupervisor(perfil.rol || rolEfectivo, correoLimpio);
+        if (esRolSupervisorActual) {
+          tabs = ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
+        } else {
           tabs = tabs.filter((t: string) => t !== 'usuarios');
         }
         setPestanasPermitidas(tabs);
       } else {
-        const porDefecto = obtenerPestanasPorDefecto(role);
+        const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
         setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
       }
-    }, (error: any) => {
-      console.warn("No se pudo obtener permisos específicos de usuario desde Firestore:", error);
-      const porDefecto = obtenerPestanasPorDefecto(role);
-      setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
-    });
+    };
 
-    return () => unsubscribe();
-  }, [email, role, tieneAccesoSupervisor]);
+    cargarPestanas();
+    window.addEventListener('peya_usuarios_actualizados', cargarPestanas);
+    return () => {
+      window.removeEventListener('peya_usuarios_actualizados', cargarPestanas);
+    };
+  }, [email, rolEfectivo, tieneAccesoSupervisor, perfilBase]);
 
   useEffect(() => {
     if (!pestanasPermitidas || pestanasPermitidas.length === 0) return;
@@ -467,6 +489,33 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const casosCountRef = useRef<number>(0);
 
+  const [temaClaro, setTemaClaro] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('peya_theme');
+      return saved ? saved === 'light' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (temaClaro) {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('theme-light');
+        document.body.classList.remove('dark');
+        document.body.classList.add('theme-light');
+        localStorage.setItem('peya_theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('theme-light');
+        document.body.classList.add('dark');
+        document.body.classList.remove('theme-light');
+        localStorage.setItem('peya_theme', 'dark');
+      }
+    } catch (e) {}
+  }, [temaClaro]);
+
   const [formulario, setFormulario] = useState<FormularioNuevoCaso>(() => {
     return {
       casoOp: '', vendorId: '', tienda: '', pais: '', kam: '',
@@ -474,6 +523,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
       casoSeguimiento: '', tieneCasoInicio: '', comentarios: '', estado: '',
       etapa: '', 
+      estadoTicketSeguimiento: 'Abierto',
       fechaCreacion: '',
       sla_inicio: ''
     };
@@ -481,27 +531,27 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
   // Lista de correos oficiales del equipo de Onboarding para tickets de seguimiento
   const [correosOnboarding, setCorreosOnboarding] = useState<string[]>(() => {
-    return Object.keys(LISTA_BLANCA_OFICIAL).filter(c => !c.includes('demo'));
+    return obtenerCorreosOnboardingDinamicos();
   });
   const [correoCopiado, setCorreoCopiado] = useState<string | null>(null);
   const [todosCorreosCopiados, setTodosCorreosCopiados] = useState<boolean>(false);
 
   useEffect(() => {
-    const usuariosRef = collection(db, 'usuarios_permitidos');
-    const unsubscribe = onSnapshot(usuariosRef, (snapshot) => {
-      const correosSet = new Set<string>(Object.keys(LISTA_BLANCA_OFICIAL).filter(c => !c.includes('demo')));
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const correo = (data.correo || docSnap.id || '').toLowerCase().trim();
-        if (correo && correo.includes('@') && !correo.includes('demo')) {
-          correosSet.add(correo);
-        }
-      });
-      setCorreosOnboarding(Array.from(correosSet));
-    }, (err) => {
-      console.warn('Error suscribiendo correos onboarding:', err);
-    });
-    return () => unsubscribe();
+    const correosExcluidos = new Set([
+      'yadirayajaida@gmail.com',
+      'guillermo.gonzales_dyn.ext@pedidosya.com',
+      'jean.changanaqui_dyn.ext@pedidosya.com'
+    ]);
+
+    const refrescarCorreosLocales = () => {
+      setCorreosOnboarding(obtenerCorreosOnboardingDinamicos());
+    };
+
+    window.addEventListener('peya_usuarios_actualizados', refrescarCorreosLocales);
+
+    return () => {
+      window.removeEventListener('peya_usuarios_actualizados', refrescarCorreosLocales);
+    };
   }, []);
 
   const copiarCorreoIndividual = (correo: string) => {
@@ -630,65 +680,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   }, []);
 
-  // 1. Al cargar casos / iniciar sesión: sonar y mostrar alertas emergentes si hay casos pendientes de push con SLA >= 4h
-  useEffect(() => {
-    if (casosTotales.length === 0) return;
-
-    if (!alertaLoginEjecutadaRef.current) {
-      alertaLoginEjecutadaRef.current = true;
-      sessionStorage.setItem('peya_ultimo_timbre_ts', String(Date.now()));
-
-      const pendientes = detectarCasosPushPendientes(casosTotales, rolEfectivo, email, nombreUsuarioAutenticado);
-      if (pendientes.length > 0) {
-        reproducirCampana();
-        setAlertasPushActivas(pendientes);
-      }
-    }
-  }, [casosTotales, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
-
-  // 2. Recordatorio continuo cada 30 minutos si aún existen casos con SLA >= 4h sin push
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const casosActuales = casosTotalesRef.current || [];
-      if (casosActuales.length === 0) return;
-
-      const ultimoTs = parseInt(sessionStorage.getItem('peya_ultimo_timbre_ts') || '0', 10);
-      const ahora = Date.now();
-      const INTERVALO_RECORDATORIO_MS = 30 * 60 * 1000; // 30 minutos
-
-      if (ultimoTs === 0 || ahora - ultimoTs >= INTERVALO_RECORDATORIO_MS) {
-        sessionStorage.setItem('peya_ultimo_timbre_ts', String(ahora));
-        const pendientes = detectarCasosPushPendientes(casosActuales, rolEfectivo, email, nombreUsuarioAutenticado);
-        if (pendientes.length > 0) {
-          reproducirCampana();
-          setAlertasPushActivas(pendientes);
-        }
-      }
-    }, 15000);
-    return () => clearInterval(timer);
-  }, [rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
-
-  const esCasoActivo = (c: any): boolean => {
-    if (!c) return false;
-    const est = String(c.estado || '').toLowerCase().trim();
-    if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel')) return false;
-    if (est.includes('sin oportunidad') || est.includes('progreso') || est === 'nuevo' || est === 'abierto' || est === 'activo') return true;
-    if (c.esActivo === true) return true;
-    return false;
-  };
-
-  const casosMostrados = useMemo(() => {
-    if (activeTab === 'global') return casosTotales.filter(esCasoActivo);
-    if (activeTab === 'inicio') {
-      return casosTotales.filter(c => {
-        const esMioActivo = esCasoActivo(c) && isAgentMatch(c, email, nombreUsuarioAutenticado);
-        const esMioHcAbierto = esCasoHcAbierto(c) && isHeroCareOwnerMatch(c, email, nombreUsuarioAutenticado);
-        return esMioActivo || esMioHcAbierto;
-      });
-    }
-    return casosTotales;
-  }, [casosTotales, activeTab, email, nombreUsuarioAutenticado]);
-
   // Reloj de 1 minuto: fuerza el recálculo de SLA/alertas para que los casos que cruzan las 4h aparezcan sin recargar
   const [tickReloj, setTickReloj] = useState<number>(0);
   useEffect(() => {
@@ -696,27 +687,131 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     return () => clearInterval(t);
   }, []);
 
+  // Solicitar permiso de notificaciones de escritorio al montar
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  // Control de activación de notificaciones (persistente en localStorage)
+  const [notificacionesActivas, setNotificacionesActivas] = useState<boolean>(() => {
+    try {
+      const guardado = localStorage.getItem('peya_notificaciones_activas');
+      return guardado !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const alternarNotificaciones = useCallback((forzarValor?: boolean) => {
+    setNotificacionesActivas(prev => {
+      const nuevo = typeof forzarValor === 'boolean' ? forzarValor : !prev;
+      try {
+        localStorage.setItem('peya_notificaciones_activas', nuevo ? 'true' : 'false');
+      } catch {}
+      if (!nuevo) {
+        setAlertasPushActivas([]);
+        mostrarNotificacion('🔕 Notificaciones y alertas apagadas.', 'info');
+      } else {
+        mostrarNotificacion('🔔 Notificaciones y alertas activadas (cada 1 hora).', 'success');
+      }
+      return nuevo;
+    });
+  }, []);
+
+  const sesionAlertadaRef = useRef<boolean>(false);
+
+  // Función unificada para disparar alertas de supervisión (TL) y seguimiento (Agente)
+  const dispararAlertasProgramadas = useCallback((motivo: 'inicio' | 'hora') => {
+    if (!notificacionesActivas) return;
+    const casosActuales = casosTotalesRef.current || [];
+    if (casosActuales.length === 0) return;
+
+    const pendientes = detectarCasosPushPendientes(casosActuales, rolEfectivo, email, nombreUsuarioAutenticado);
+    if (pendientes.length > 0) {
+      setAlertasPushActivas(pendientes);
+      reproducirCampana();
+
+      // Notificación del sistema si la pestaña está en segundo plano
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const topAlerta = pendientes[0];
+        if (topAlerta) {
+          new Notification(topAlerta.titulo, {
+            body: topAlerta.mensaje,
+            icon: '/favicon.ico'
+          });
+        }
+      }
+    } else {
+      setAlertasPushActivas([]);
+    }
+  }, [notificacionesActivas, rolEfectivo, email, nombreUsuarioAutenticado, reproducirCampana]);
+
+  // 1. Mostrar alertas al INICIO DE SESIÓN (primera carga de casos)
+  useEffect(() => {
+    if (casosTotales.length === 0 || !notificacionesActivas) return;
+    if (!sesionAlertadaRef.current) {
+      sesionAlertadaRef.current = true;
+      dispararAlertasProgramadas('inicio');
+    }
+  }, [casosTotales, notificacionesActivas, dispararAlertasProgramadas]);
+
+  // 2. Recordatorio periódico: EXACTAMENTE CADA 1 HORA (60 minutos = 3600000 ms)
+  useEffect(() => {
+    const INTERVALO_HORA = 60 * 60 * 1000; // 1 hora
+    const timer = setInterval(() => {
+      if (notificacionesActivas) {
+        dispararAlertasProgramadas('hora');
+      }
+    }, INTERVALO_HORA);
+    return () => clearInterval(timer);
+  }, [notificacionesActivas, dispararAlertasProgramadas]);
+
+  const esCasoActivo = (c: any): boolean => {
+    if (!c) return false;
+    const est = String(c.estado || '').toLowerCase().trim();
+    if (est.includes('cerrad') || est.includes('fallid') || est.includes('cancel') || est.includes('resuelto')) return false;
+    return true;
+  };
+
+  const casosMostrados = useMemo(() => {
+    if (activeTab === 'global') return casosTotales.filter(c => esCasoEnProgreso(c) || esCasoHcAbierto(c));
+    if (activeTab === 'inicio') {
+      return casosTotales.filter(c => {
+        // En mis casos se filtra por Propietario de la Oportunidad
+        const esMio = isOpportunityOwnerMatch(c, email, nombreUsuarioAutenticado) || isAgentMatch(c, email, nombreUsuarioAutenticado);
+        if (!esMio) return false;
+        // Solo deben aparecer casos activos: OP en progreso O ticket de seguimiento abierto
+        return esCasoEnProgreso(c) || esCasoHcAbierto(c);
+      });
+    }
+    return casosTotales;
+  }, [casosTotales, activeTab, email, nombreUsuarioAutenticado]);
+
   const casosConAlertas = useMemo(() => casosMostrados.map(c => ({ caso: c, alertas: analizarAlertasCaso(c) })), [casosMostrados, tickReloj]);
   
-  const totalTodosActivos = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso)).length, [casosConAlertas]);
+  const totalTodosActivos = useMemo(() => casosConAlertas.filter(x => esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)).length, [casosConAlertas]);
 
-  const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => {
-    if (!esCasoActivo(x.caso)) return false;
-    const est = String(x.caso.estado || '').toLowerCase().trim();
-    const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
-    return !esSinOp && (est === 'en progreso' || est.includes('progreso'));
-  }).length, [casosConAlertas]);
+  // Casos en progreso: casos con la columna Estado del caso = En progreso
+  const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => esCasoEnProgreso(x.caso)).length, [casosConAlertas]);
 
   const totalSinOportunidad = useMemo(() => casosConAlertas.filter(x => {
-    if (!esCasoActivo(x.caso)) return false;
+    if (!esCasoEnProgreso(x.caso)) return false;
     const est = String(x.caso.estado || '').toLowerCase().trim();
-    return est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
+    const etapa = String(x.caso.etapa || '').toLowerCase().trim();
+    return est.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !x.caso.casoOp || x.caso.casoOp === '-';
   }).length, [casosConAlertas]);
 
-  const totalPos = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && x.alertas.requierePushPos).length, [casosConAlertas]);
-  const totalCat = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && x.alertas.requierePushCat).length, [casosConAlertas]);
-  const totalSla = useMemo(() => casosConAlertas.filter(x => esCasoActivo(x.caso) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico)).length, [casosConAlertas]);
-  const totalHcAbiertos = useMemo(() => casosConAlertas.filter(x => esCasoHcAbierto(x.caso)).length, [casosConAlertas]);
+  const totalPos = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushPos).length, [casosConAlertas]);
+  const totalCat = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushCat).length, [casosConAlertas]);
+  const totalSla = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico)).length, [casosConAlertas]);
+  
+  // Casos con seguimiento abiertos: cantidad de tickets de seguimiento únicos (Estado del ticket de seguimiento = Abierto)
+  const totalHcAbiertos = useMemo(() => {
+    const casosHc = casosConAlertas.filter(x => esCasoHcAbierto(x.caso));
+    return contarTicketsSeguimientoUnicos(casosHc);
+  }, [casosConAlertas]);
 
   // Lista única de assets para el selector de filtro en Mis Casos
   const listaAssetsMisCasos = useMemo(() => {
@@ -740,25 +835,26 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       }
 
       const est = String(x.caso.estado || '').toLowerCase().trim();
-      const esSinOp = est.includes('sin oportunidad') || !x.caso.casoOp || String(x.caso.casoOp).trim() === '' || String(x.caso.casoOp).toLowerCase() === 'sin caso op';
+      const etapa = String(x.caso.etapa || '').toLowerCase().trim();
+      const esSinOp = est.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !x.caso.casoOp || x.caso.casoOp === '-';
 
+      // casos con seguimiento abiertos: casos con la columna Estado del ticket de seguimiento = Abierto sin importar el Estado del caso actual
       if (filtroMisCasos === 'hcAbiertos') {
         return esCasoHcAbierto(x.caso);
       }
 
-      // Los otros filtros aplican a los casos activos
-      if (!esCasoActivo(x.caso)) return false;
-
+      // Casos en progreso: casos con la columna Estado del caso = En progreso
       if (filtroMisCasos === 'enProgreso') {
-        return !esSinOp && (est === 'en progreso' || est.includes('progreso'));
+        return esCasoEnProgreso(x.caso);
       }
+
       if (filtroMisCasos === 'sinOportunidad') {
-        return esSinOp;
+        return esCasoEnProgreso(x.caso) && esSinOp;
       }
-      if (filtroMisCasos === 'pushPos') return x.alertas.requierePushPos;
-      if (filtroMisCasos === 'pushCat') return x.alertas.requierePushCat;
-      if (filtroMisCasos === 'sla') return x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico;
-      return true;
+      if (filtroMisCasos === 'pushPos') return (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushPos;
+      if (filtroMisCasos === 'pushCat') return (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushCat;
+      if (filtroMisCasos === 'sla') return (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico);
+      return esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso);
     });
 
     const valStr = (v: any) => String(v || '').toLowerCase().trim();
@@ -882,11 +978,39 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       console.warn("Fallo búsqueda en tiempo real, usando caché local", err);
     }
 
-    const resultadosLocales = casosFrescos.filter(c => 
-      String(c.vendor_id || c.vendorId || '').toLowerCase() === term ||
-      String(c.casoOp || c.id || '').toLowerCase() === term ||
-      String(c.tienda || '').toLowerCase().includes(term)
-    );
+    const termTrim = busquedaId.trim();
+    const soloDigitos = termTrim.replace(/\D/g, '');
+
+    const resultadosLocales = casosFrescos.filter(c => {
+      const vId = String(c.vendor_id || c.vendorId || '').toLowerCase().trim();
+      const cOp = String(c.casoOp || c.id || '').toLowerCase().trim();
+      const tnda = String(c.tienda || '').toLowerCase().trim();
+
+      const vIdDigits = vId.replace(/\D/g, '');
+      const cOpDigits = cOp.replace(/\D/g, '');
+
+      // 1. Coincidencia exacta o por subcadena
+      if (vId === term || cOp === term) return true;
+      if (cOp && (cOp.includes(term) || term.includes(cOp))) return true;
+      if (tnda && tnda.includes(term)) return true;
+
+      // 2. Coincidencia limpia por dígitos numéricos (ej. 352002996 con OP-352002996)
+      if (soloDigitos.length >= 4) {
+        if (cOpDigits && (cOpDigits === soloDigitos || cOpDigits.includes(soloDigitos) || soloDigitos.includes(cOpDigits))) return true;
+        if (vIdDigits && vIdDigits === soloDigitos) return true;
+      }
+    });
+    const esSoloNumeros = /^\d+$/.test(termTrim);
+    const tienePrefijoOp = /^op[-_ ]?\d+/i.test(termTrim);
+
+    // Regla de distinción de campos:
+    // - Caso OP: 9 o más dígitos numéricos (ej. 123456789) o prefijo OP (ej. OP-123456789)
+    // - Vendor ID: Numérico con menos de 9 dígitos (1 a 8 dígitos)
+    // - Tienda: Alfanumérico / Nombre de local
+    const esCasoOp = tienePrefijoOp || (esSoloNumeros && termTrim.length >= 9) || (!esSoloNumeros && soloDigitos.length >= 9);
+    const esVendorId = esSoloNumeros && !esCasoOp && termTrim.length < 9;
+    const esTienda = !esCasoOp && !esVendorId;
+
     setBusquedaResultados(resultadosLocales);
     if (resultadosLocales.length > 0) {
       // Ordenar para tomar el último caso registrado (fila más alta en la base)
@@ -899,9 +1023,9 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const d = casosOrdenados[0] || resultadosLocales[0];
       setFormulario(prev => ({
         ...prev, 
-        casoOp: '', 
-        vendorId: d.vendor_id || d.vendorId || busquedaId.trim(), 
-        tienda: d.tienda || '',
+        casoOp: d.casoOp || (esCasoOp ? termTrim : ''), 
+        vendorId: d.vendor_id || d.vendorId || (esVendorId ? termTrim : ''), 
+        tienda: d.tienda || (esTienda ? termTrim : ''),
         pais: d.pais || prev.pais || 'Argentina', 
         kam: d.kam || '', 
         integracion: d.integracion || 'Datalive',
@@ -914,11 +1038,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       mostrarNotificacion(`Encontrados ${resultadosLocales.length} antecedentes.`, "success");
     } else {
       // Si no existen antecedentes, redirigir automáticamente a la pestaña de agregar caso nuevo
+      // Aplicar reglas de pre-llenado según el formato:
+      // - 9 dígitos / Prefijo OP -> N° Caso OP
+      // - < 9 dígitos numéricos -> Vendor ID
+      // - Alfanumérico -> Tienda
+      const casoOpNuevo = esCasoOp ? termTrim : '';
+      const vendorIdNuevo = esVendorId ? termTrim : '';
+      const tiendaNueva = esTienda ? termTrim : '';
+
       setFormulario(prev => ({ 
         ...prev, 
-        casoOp: '', 
-        vendorId: busquedaId.trim(),
-        tienda: '',
+        casoOp: casoOpNuevo, 
+        vendorId: vendorIdNuevo,
+        tienda: tiendaNueva,
         kam: '',
         fechaCreacion: '',
         sla_inicio: '',
@@ -931,7 +1063,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         etapa: ''
       }));
       setSubTabNuevo('registro');
-      mostrarNotificacion(`Sin antecedentes previos para "${busquedaId.trim()}". Redirigiendo a nuevo registro.`, "info");
+      const tipoCampoMsg = esCasoOp ? 'N° Caso OP' : (esVendorId ? 'Vendor ID' : 'Tienda');
+      mostrarNotificacion(`Sin antecedentes previos para "${termTrim}". Redirigiendo a nuevo registro como ${tipoCampoMsg}.`, "info");
     }
     setCargandoBusqueda(false);
   };
@@ -952,6 +1085,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       comentarios: '',
       estado: '',
       etapa: '',
+      estadoTicketSeguimiento: 'Abierto',
       fechaCreacion: '',
       sla_inicio: ''
     }));
@@ -1071,6 +1205,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         comentarios: '', 
         estado: 'En progreso',
         etapa: 'Sin integración confirmada', 
+        estadoTicketSeguimiento: 'Abierto',
         fechaCreacion: '',
         sla_inicio: ''
       });
@@ -1169,6 +1304,189 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     }
   };
 
+  const actualizarCasosMasivo = async (casosAActualizar: any[]) => {
+    if (!casosAActualizar || casosAActualizar.length === 0) return;
+    setCargandoOperacion(`Preparando actualización de ${casosAActualizar.length} casos...`);
+    try {
+      const casosProcesados: any[] = [];
+      for (const casoRaw of casosAActualizar) {
+        const opInput = String(casoRaw.casoOp || '').trim();
+        const esOpValido = opInput && 
+          opInput !== '-' && 
+          opInput.toLowerCase() !== 'sin caso op' && 
+          !opInput.startsWith('TEMP_') && 
+          !opInput.startsWith('SIN_OP_') && 
+          !opInput.includes('_r');
+        const casoOpFinal = esOpValido ? opInput : '';
+        const opResuelta = resolverOportunidad(casoRaw.oportunidad, catalogosDinamicos.oportunidades);
+
+        const casoListo = procesarActualizacionCaso(casoRaw, {
+          ...casoRaw,
+          oportunidad: opResuelta,
+          esNuevo: false,
+          casoOp: casoOpFinal
+        });
+        casoListo.esNuevo = false;
+        casosProcesados.push(casoListo);
+      }
+
+      // Actualizar estado React de inmediato
+      const mapaActualizados = new Map<string, any>();
+      casosProcesados.forEach(c => {
+        if (c.id) mapaActualizados.set(String(c.id).trim(), c);
+        if (c.casoOp) mapaActualizados.set(String(c.casoOp).trim(), c);
+        if (c.filaNumero) mapaActualizados.set(`F_${c.filaNumero}`, c);
+      });
+
+      setCasosSheets(prev => prev.map(c => {
+        const porFila = c.filaNumero ? mapaActualizados.get(`F_${c.filaNumero}`) : null;
+        const porId = c.id ? mapaActualizados.get(String(c.id).trim()) : null;
+        const porOp = c.casoOp ? mapaActualizados.get(String(c.casoOp).trim()) : null;
+        const actualizado = porFila || porId || porOp;
+        return actualizado ? { ...c, ...actualizado } : c;
+      }));
+
+      // Guardar en Google Sheets en secuencia con progreso
+      let completados = 0;
+      for (const caso of casosProcesados) {
+        completados++;
+        setCargandoOperacion(`Actualizando caso ${completados} de ${casosProcesados.length} en Google Sheets...`);
+        await actualizarCasoEnSheets({ ...caso, esNuevo: false }).catch(err => {
+          console.warn('Sheets sync notice:', err);
+        });
+      }
+
+      mostrarNotificacion(`✅ ${casosProcesados.length} casos actualizados exitosamente`, 'success');
+    } catch (err: any) {
+      console.error('Error actualizando casos masivos:', err);
+      mostrarNotificacion(`❌ Error actualizando casos: ${err.message}`, 'error');
+    } finally {
+      setCargandoOperacion(null);
+    }
+  };
+
+  const eliminarCasosMasivo = async (casosAEliminar: any[]) => {
+    if (!casosAEliminar || casosAEliminar.length === 0) return;
+    setCargandoOperacion(`Preparando eliminación de ${casosAEliminar.length} casos...`);
+    try {
+      const idsAEliminar = new Set<string>();
+      const opsAEliminar = new Set<string>();
+      casosAEliminar.forEach(c => {
+        if (c.id) idsAEliminar.add(String(c.id).trim());
+        if (c.casoOp) opsAEliminar.add(String(c.casoOp).trim());
+      });
+
+      // 1. Actualizar estado local
+      setCasosSheets(prev => prev.filter(c => {
+        const cId = String(c.id || '').trim();
+        const cOp = String(c.casoOp || '').trim();
+        return !idsAEliminar.has(cId) && !opsAEliminar.has(cOp);
+      }));
+
+      // 2. Eliminar en Google Sheets
+      let completados = 0;
+      for (const caso of casosAEliminar) {
+        completados++;
+        setCargandoOperacion(`Eliminando caso ${completados} de ${casosAEliminar.length} en Google Sheets...`);
+        const targetId = String(caso.id || caso.casoOp || '').trim();
+        await eliminarCasoGoogleSheets(targetId, caso.casoOp, caso.filaNumero).catch(err => {
+          console.warn('Delete sheets notice:', err);
+        });
+      }
+
+      mostrarNotificacion(`✅ ${casosAEliminar.length} casos eliminados exitosamente`, 'success');
+    } catch (err: any) {
+      console.error('Error eliminando casos masivos:', err);
+      mostrarNotificacion(`❌ Error al eliminar casos: ${err.message}`, 'error');
+    } finally {
+      setCargandoOperacion(null);
+    }
+  };
+
+  const agregarCasosMasivo = async (casosNuevos: any[]) => {
+    if (!casosNuevos || casosNuevos.length === 0) return;
+    setCargandoOperacion(`Registrando ${casosNuevos.length} casos nuevos en Google Sheets...`);
+    try {
+      let proximaFila = 0;
+      try {
+        const resConteo = await fetch('/api/sheets/conteo-filas', { cache: 'no-store' });
+        if (resConteo.ok) {
+          const dataConteo = await resConteo.json();
+          if (dataConteo.success && dataConteo.proximaFilaNueva) {
+            proximaFila = dataConteo.proximaFilaNueva;
+          }
+        }
+      } catch (e) {
+        console.warn('Error consultando conteo de filas en base:', e);
+      }
+
+      if (!proximaFila) {
+        proximaFila = casosSheets.length + 3;
+      }
+
+      const ahora = formatearFechaHora(new Date());
+      const creadosFinales: any[] = [];
+      let filaCursor = proximaFila;
+      let contador = 0;
+
+      for (const raw of casosNuevos) {
+        contador++;
+        setCargandoOperacion(`Registrando caso nuevo ${contador} de ${casosNuevos.length}...`);
+
+        const opInput = String(raw.casoOp || '').trim();
+        const esOpValido = opInput && 
+          opInput !== '-' && 
+          opInput.toLowerCase() !== 'sin caso op' && 
+          !opInput.startsWith('TEMP_') && 
+          !opInput.startsWith('SIN_OP_') && 
+          !opInput.includes('_r');
+        const casoOpFinal = esOpValido ? opInput : '';
+        const docId = esOpValido ? opInput : `SIN_OP_${raw.vendorId || 'caso'}_r${filaCursor}`;
+        const opResuelta = resolverOportunidad(raw.oportunidad, catalogosDinamicos.oportunidades);
+
+        const fechaCreacionInput = String(raw.fechaCreacion || '').trim();
+        const fCreacion = fechaCreacionInput ? formatearFechaHora(fechaCreacionInput) : ahora;
+        const fInicio = formatearFechaHora(raw.sla_inicio || raw.fechaCreacion || ahora) || ahora;
+
+        const casoListo = procesarActualizacionCaso({}, {
+          ...raw,
+          oportunidad: opResuelta,
+          id: docId,
+          casoOp: casoOpFinal,
+          vendor_id: raw.vendorId,
+          agente: raw.propietarioTicket || raw.propietarioOportunidad || nombreUsuarioAutenticado,
+          propietarioOportunidad: raw.propietarioOportunidad || nombreUsuarioAutenticado,
+          propietarioTicket: raw.propietarioTicket || raw.propietarioOportunidad || nombreUsuarioAutenticado,
+          fechaCreacion: fCreacion,
+          sla_inicio: fInicio,
+          fechaInicioSeguimientoOP: fInicio,
+          filaNumero: filaCursor,
+          esNuevo: true,
+          actualizadoEn: new Date().toISOString()
+        });
+
+        const sheetsRes = await actualizarCasoEnSheets({ ...casoListo, esNuevo: true }).catch(err => {
+          console.warn('Sheets sync bulk new notice:', err);
+          return null;
+        });
+
+        const filaReal = sheetsRes?.caso?.filaNumero || sheetsRes?.filaNumero || filaCursor;
+        casoListo.filaNumero = filaReal;
+        casoListo.esNuevo = false;
+        creadosFinales.push(casoListo);
+        filaCursor = filaReal + 1;
+      }
+
+      setCasosSheets(prev => [...creadosFinales, ...prev]);
+      mostrarNotificacion(`✅ ${creadosFinales.length} casos agregados exitosamente`, 'success');
+    } catch (err: any) {
+      console.error('Error agregando casos masivos:', err);
+      mostrarNotificacion(`❌ Error agregando casos masivos: ${err.message}`, 'error');
+    } finally {
+      setCargandoOperacion(null);
+    }
+  };
+
   const manejarRegistrarPush = async (caso: any, tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat' | string) => {
     setCargandoOperacion('Registrando push...');
     try {
@@ -1224,21 +1542,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         `${tipo}_${idBuscado}`
       ]);
 
-      // 2. Sincronizar directamente con Backend y Google Sheets
-      try {
-        const resPush = await fetch('/api/sheets/actualizar-caso', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(casoActualizado)
-        });
-
-        if (!resPush.ok) {
-          await actualizarCasoEnSheets(casoActualizado).catch(() => {});
-        }
-      } catch (e) {
-        console.warn('Error sincronizando push con sheets, usando fallback:', e);
-        await actualizarCasoEnSheets(casoActualizado).catch(() => {});
-      }
+      // 2. Sincronizar directamente con Google Sheets
+      await actualizarCasoEnSheets(casoActualizado).catch(e => {
+        console.warn('Error sincronizando push con sheets:', e);
+      });
 
       mostrarNotificacion('Actualizado', "success");
 
@@ -1295,7 +1602,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   };
 
   return (
-    <div className="flex h-screen bg-[#121212] text-gray-200 font-sans">
+    <div className="flex h-screen bg-[#f0f2f5] dark:bg-[#121212] text-slate-800 dark:text-gray-200 font-sans">
       <audio ref={audioRef} src="/ding.mp3" preload="auto" />
       
       {/* Alertas Push Flotantes Tipo Captura */}
@@ -1304,6 +1611,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         onCerrarAlerta={manejarCerrarAlertaPush} 
         onCerrarTodas={manejarCerrarTodasAlertasPush}
         onClicAlerta={manejarClicAlertaPush} 
+        onApagarNotificaciones={() => alternarNotificaciones(false)}
       />
 
       {/* Botón flotante para ver sidebar en móviles y pantallas <= 1036px */}
@@ -1322,15 +1630,18 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       {sidebarMovilAbierto && (
         <div className="fixed inset-0 z-50 flex max-[1036px]:flex min-[1037px]:hidden">
           <div 
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
+            className="fixed inset-0 bg-slate-900/40 dark:bg-black/70 backdrop-blur-sm" 
             onClick={() => setSidebarMovilAbierto(false)}
           />
-          <div className="relative w-72 bg-[#202024] border-r border-[#3A3A3E] flex flex-col h-full shadow-2xl z-10 animate-slideRight">
-            <div className="p-4 border-b border-[#3A3A3E] flex items-center justify-between">
-              <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+          <div className="relative w-72 bg-white dark:bg-[#202024] border-r border-slate-200 dark:border-[#3A3A3E] flex flex-col h-full shadow-2xl z-10 animate-slideRight">
+            <div className="p-4 border-b border-slate-200 dark:border-[#3A3A3E] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-[#E85A80] rounded-xl flex items-center justify-center font-black text-white text-sm shadow-md">O</div>
+                <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-slate-900 dark:text-white">ONB</span></h1>
+              </div>
               <button 
                 onClick={() => setSidebarMovilAbierto(false)} 
-                className="text-[#B3B3B3] hover:text-white p-1.5 rounded-lg hover:bg-[#2C2C32] text-lg cursor-pointer"
+                className="text-slate-500 hover:text-slate-900 dark:text-[#B3B3B3] dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#2C2C32] text-lg cursor-pointer"
               >
                 ✕
               </button>
@@ -1345,10 +1656,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                       setActiveTab(tab.id);
                       setSidebarMovilAbierto(false);
                     }}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                       isActive 
-                        ? 'bg-[#E85A80]/20 text-[#F46C8E] border border-[#E85A80]/30 font-bold' 
-                        : 'text-[#B3B3B3] hover:bg-[#2C2C32] hover:text-gray-200'
+                        ? 'bg-[#E85A80] text-white font-black shadow-md shadow-pink-900/20' 
+                        : 'text-slate-700 dark:text-[#B3B3B3] hover:bg-slate-100 dark:hover:bg-[#2C2C32] hover:text-slate-900 dark:hover:text-gray-200'
                     }`}
                   >
                     <span className="text-base">{tab.icono}</span>
@@ -1357,10 +1668,32 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 );
               })}
             </div>
-            <div className="p-4 border-t border-[#3A3A3E]">
+            <div className="p-4 border-t border-slate-200 dark:border-[#3A3A3E]">
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
-              <div className="mt-4 flex items-center justify-between text-xs text-[#B3B3B3]">
+              <button 
+                type="button"
+                onClick={() => alternarNotificaciones()} 
+                className={`w-full mt-2 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition border ${
+                  notificacionesActivas 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60' 
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+                }`}
+                title={notificacionesActivas ? "Alertas activas cada 1h (Clic para apagar)" : "Alertas apagadas (Clic para activar)"}
+              >
+                <span>{notificacionesActivas ? '🔔' : '🔕'}</span>
+                <span>{notificacionesActivas ? 'Notificaciones: Activadas (1h)' : 'Notificaciones: Apagadas'}</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => setTemaClaro(prev => !prev)} 
+                className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition"
+                title={temaClaro ? "Modo Claro activo (Clic para Modo Oscuro)" : "Modo Oscuro activo (Clic para Modo Claro)"}
+              >
+                <span>{temaClaro ? '☀️' : '🌙'}</span>
+                <span>{temaClaro ? 'Modo Claro' : 'Modo Oscuro'}</span>
+              </button>
+              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
+              <div className="mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-[#B3B3B3]">
                 <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
               </div>
@@ -1370,17 +1703,20 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       )}
 
       {/* Sidebar de escritorio: colapsable y responsivo */}
-      <div className={`${sidebarColapsado ? 'w-20' : 'w-64'} bg-[#202024] border-r border-[#3A3A3E] flex flex-col hidden min-[1037px]:flex transition-all duration-300 select-none`}>
-        <div className={`p-4 border-b border-[#3A3A3E] flex items-center ${sidebarColapsado ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
+      <div className={`${sidebarColapsado ? 'w-20' : 'w-64'} bg-white dark:bg-[#202024] border-r border-slate-200 dark:border-[#3A3A3E] flex flex-col hidden min-[1037px]:flex transition-all duration-300 select-none`}>
+        <div className={`p-4 border-b border-slate-200 dark:border-[#3A3A3E] flex items-center ${sidebarColapsado ? 'justify-center flex-col gap-2' : 'justify-between'}`}>
           {!sidebarColapsado ? (
-            <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-white">ONB</span></h1>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-[#E85A80] rounded-xl flex items-center justify-center font-black text-white text-sm shadow-md">O</div>
+              <h1 className="text-xl font-black text-[#E85A80] tracking-tighter">PeYa<span className="text-slate-900 dark:text-white">ONB</span></h1>
+            </div>
           ) : (
-            <span className="text-sm font-black text-[#E85A80]">PY</span>
+            <div className="w-8 h-8 bg-[#E85A80] rounded-xl flex items-center justify-center font-black text-white text-base shadow-md" title="PeYa ONB">O</div>
           )}
           <button
             type="button"
             onClick={() => setSidebarColapsado(prev => !prev)}
-            className="text-[#B3B3B3] hover:text-white bg-transparent border-0 text-base font-mono font-bold px-1.5 py-0.5 transition cursor-pointer select-none"
+            className="text-slate-500 hover:text-slate-900 dark:text-[#B3B3B3] dark:hover:text-white bg-transparent border-0 text-base font-mono font-bold px-1.5 py-0.5 transition cursor-pointer select-none"
             title={sidebarColapsado ? 'Expandir barra lateral' : 'Comprimir barra lateral'}
           >
             {sidebarColapsado ? '>' : '<'}
@@ -1395,10 +1731,10 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 title={sidebarColapsado ? tab.label : undefined}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
                   isActive 
-                    ? 'bg-[#E85A80]/20 text-[#F46C8E] border border-[#E85A80]/30 font-bold' 
-                    : 'text-[#B3B3B3] hover:bg-[#2C2C32] hover:text-gray-200'
+                    ? 'bg-[#E85A80] text-white font-black shadow-md shadow-pink-900/20' 
+                    : 'text-slate-700 dark:text-[#B3B3B3] hover:bg-slate-100 dark:hover:bg-[#2C2C32] hover:text-slate-900 dark:hover:text-gray-200'
                 } ${sidebarColapsado ? 'justify-center px-1' : ''}`}
               >
                 <span className="text-base">{tab.icono}</span>
@@ -1408,11 +1744,33 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           })}
         </div>
 
-        <div className="p-3 border-t border-[#3A3A3E]">
+        <div className="p-3 border-t border-slate-200 dark:border-[#3A3A3E]">
           {!sidebarColapsado ? (
             <>
               <SyncIndicator isConnected={true} ultimaSync={ultimaSync} sincronizando={cargandoSheets} totalCasos={casosSheets.length || casosTotales.length} onForzarSync={() => cargarCasosGoogleSheets()} />
-              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-[#2C2C32] hover:bg-[#3A3A3E] text-[#D1D5DB] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
+              <button 
+                type="button"
+                onClick={() => alternarNotificaciones()} 
+                className={`w-full mt-2 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition border ${
+                  notificacionesActivas 
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60' 
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+                }`}
+                title={notificacionesActivas ? "Alertas activadas cada 1 hora (Clic para apagar)" : "Alertas apagadas (Clic para activar)"}
+              >
+                <span>{notificacionesActivas ? '🔔' : '🔕'}</span>
+                <span>{notificacionesActivas ? 'Notificaciones: Activadas (1h)' : 'Notificaciones: Apagadas'}</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => setTemaClaro(prev => !prev)} 
+                className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2 transition"
+                title={temaClaro ? "Modo Claro activo (Clic para Modo Oscuro)" : "Modo Oscuro activo (Clic para Modo Claro)"}
+              >
+                <span>{temaClaro ? '☀️' : '🌙'}</span>
+                <span>{temaClaro ? 'Modo Claro' : 'Modo Oscuro'}</span>
+              </button>
+              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
               <div className="mt-3 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1426,6 +1784,24 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 className="text-[#B3B3B3] hover:text-[#F46C8E] text-base cursor-pointer"
               >
                 🔄
+              </button>
+              <button 
+                type="button"
+                onClick={() => alternarNotificaciones()} 
+                title={notificacionesActivas ? "Alertas activadas cada 1 hora (Clic para apagar)" : "Alertas apagadas (Clic para activar)"}
+                className={`text-base cursor-pointer transition flex items-center justify-center min-h-[32px] ${
+                  notificacionesActivas ? 'text-emerald-500 hover:text-emerald-400' : 'text-rose-500 hover:text-rose-400'
+                }`}
+              >
+                {notificacionesActivas ? '🔔' : '🔕'}
+              </button>
+              <button 
+                type="button"
+                onClick={() => setTemaClaro(prev => !prev)} 
+                title={temaClaro ? "Modo Claro activo (Clic para Modo Oscuro)" : "Modo Oscuro activo (Clic para Modo Claro)"}
+                className="text-[#B3B3B3] hover:text-amber-400 text-base cursor-pointer transition flex items-center justify-center min-h-[32px]"
+              >
+                {temaClaro ? '☀️' : '🌙'}
               </button>
               <button 
                 onClick={() => setMostrarModalCreds(true)} 
@@ -1472,6 +1848,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               onSeleccionarCaso={setCasoSeleccionadoModal}
               onActualizarCaso={actualizarCasoExistente}
               onEliminarCaso={manejarEliminarCaso}
+              onActualizarCasosMasivo={actualizarCasosMasivo}
+              onEliminarCasosMasivo={eliminarCasosMasivo}
+              onAgregarCasosMasivo={agregarCasosMasivo}
+              nombreUsuarioAutenticado={nombreUsuarioAutenticado}
+              temaClaro={temaClaro}
               onForzarSyncCasos={cargarCasosGoogleSheets}
               sincronizando={cargandoSheets}
               setCargandoOperacion={setCargandoOperacion}
@@ -1555,7 +1936,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     <span>➕</span>
                     <span>Agregar Caso (Nuevo Registro)</span>
                     {formulario.vendorId && (
-                      <span className="text-[10px] text-[#F46C8E] font-mono hidden sm:inline">
+                      <span className={`text-[10px] font-mono hidden sm:inline ${subTabNuevo === 'registro' ? 'text-white' : 'text-[#F46C8E]'}`}>
                         ({formulario.tienda ? formulario.tienda.slice(0, 18) + '...' : formulario.vendorId})
                       </span>
                     )}
@@ -1597,6 +1978,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   oportunidades={catalogosDinamicos.oportunidades}
                   assets={catalogosDinamicos.assets}
                   estados={catalogosDinamicos.estados}
+                  estadosTicketSeguimiento={catalogosDinamicos.estadosTicketSeguimiento}
                   etapas={catalogosDinamicos.etapas}
                   agentes={catalogosDinamicos.agentes}
                 />
@@ -1626,8 +2008,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     disabled={cargandoSheets}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition ${
                       cargandoSheets
-                        ? 'bg-[#2C2C32] text-[#9CA3AF] border-[#3A3A3E] cursor-not-allowed'
-                        : 'bg-[#2C2C32]/90 hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border-[#E85A80]/40 hover:border-[#E85A80] shadow-sm cursor-pointer'
+                        ? 'bg-slate-100 dark:bg-[#2C2C32] text-slate-400 dark:text-[#9CA3AF] border-slate-200 dark:border-[#3A3A3E] cursor-not-allowed'
+                        : 'bg-white hover:bg-pink-50 text-[#DB2777] dark:text-[#F46C8E] hover:dark:text-pink-300 border-pink-300 dark:border-[#E85A80]/40 hover:border-[#E85A80] dark:bg-[#2C2C32]/90 dark:hover:bg-[#3A3A3E] shadow-sm cursor-pointer'
                     }`}
                     title="Actualizar datos desde Google Sheets"
                   >
@@ -1758,7 +2140,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>OP</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'op' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('op', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('op', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1773,7 +2155,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Tienda</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'tienda' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('tienda', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1788,7 +2170,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>País/KAM</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pais' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pais', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pais', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1803,7 +2185,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Integración</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'integracion' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('integracion', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('integracion', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1818,7 +2200,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Asset</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asset' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asset', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asset', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1833,7 +2215,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Estado / Etapa</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'estado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('estado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('estado', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1848,7 +2230,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Push POS</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushPos' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushPos', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushPos', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1863,7 +2245,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Push Catálogo</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'pushCat' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushCat', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('pushCat', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1878,7 +2260,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>SLA</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'sla' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('sla', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('sla', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1893,7 +2275,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Asignado</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'asignado' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asignado', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('asignado', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th 
                           onClick={() => {
@@ -1908,11 +2290,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                             <span>Seguimiento</span>
                             <span className="text-[11px] font-mono">{columnaOrdenMisCasos === 'seguimiento' ? (direccionOrdenMisCasos === 'asc' ? '🔼' : '🔽') : '↕️'}</span>
                           </div>
-                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('seguimiento', e); }} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => { e.stopPropagation(); iniciarRedimensionarMisCasos('seguimiento', e); }} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                         <th className="p-3 relative" style={{ width: colWidthsMisCasos.accion, minWidth: colWidthsMisCasos.accion }}>
                           <span>Acción</span>
-                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#F46C8E] transition-colors" />
+                          <div onMouseDown={(e) => iniciarRedimensionarMisCasos('accion', e)} className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 bg-pink-400/30 select-none" />
                         </th>
                       </tr>
                     </thead>
@@ -2012,7 +2394,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         </div>
       )}
 
-      <ConfigModal visible={mostrarModalCreds} onCerrar={() => setMostrarModalCreds(false)} onSincronizar={() => cargarCasosGoogleSheets()} casosCount={casosSheets.length} />
+      <ConfigModal 
+        visible={mostrarModalCreds} 
+        onCerrar={() => setMostrarModalCreds(false)} 
+        onSincronizar={() => cargarCasosGoogleSheets()} 
+        casosCount={casosSheets.length || casosTotales.length} 
+        temaClaro={temaClaro}
+      />
       
       {casoSeleccionadoModal && (
         <ModalDetalleCaso 
@@ -2028,13 +2416,25 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           paises={catalogosDinamicos.paises}
           assets={catalogosDinamicos.assets}
           integraciones={listaIntegracionesNombres}
+          estadosTicketSeguimiento={catalogosDinamicos.estadosTicketSeguimiento}
+          integracionesDetalle={catalogosDinamicos.integraciones}
+          correosOnboarding={correosOnboarding}
         />
       )}
 
-      {/* Notificación de confirmación: capa superior, visible incluso con modales abiertos */}
+      {/* Notificación de confirmación: adapta perfectamente tanto al Modo Claro como al Modo Oscuro */}
       {notificacion && (
-        <div className={`fixed top-4 right-4 z-[99999] px-4 py-3 rounded-xl text-sm font-bold shadow-2xl animate-bounce pointer-events-none ${notificacion.tipo === 'error' ? 'bg-rose-600 text-white' : notificacion.tipo === 'info' ? 'bg-sky-600 text-white' : 'bg-emerald-600 text-white'}`}>
-          {notificacion.texto}
+        <div className={`fixed top-5 right-5 z-[999999] px-5 py-3.5 rounded-2xl text-sm font-bold shadow-2xl transition-all duration-300 backdrop-blur-md flex items-center gap-3 border animate-fadeIn ${
+          notificacion.tipo === 'error' 
+            ? 'bg-rose-50 dark:bg-rose-950/95 border-rose-300 dark:border-rose-500 text-rose-900 dark:text-rose-200 shadow-rose-900/10 dark:shadow-rose-950/50' 
+            : notificacion.tipo === 'info' 
+            ? 'bg-sky-50 dark:bg-sky-950/95 border-sky-300 dark:border-sky-500 text-sky-900 dark:text-sky-200 shadow-sky-900/10 dark:shadow-sky-950/50' 
+            : 'bg-emerald-50 dark:bg-emerald-950/95 border-emerald-300 dark:border-emerald-500 text-emerald-900 dark:text-emerald-200 shadow-emerald-900/10 dark:shadow-emerald-950/50'
+        }`}>
+          <span className="text-xl shrink-0">
+            {notificacion.tipo === 'error' ? '🚨' : notificacion.tipo === 'info' ? 'ℹ️' : '✅'}
+          </span>
+          <span>{notificacion.texto}</span>
         </div>
       )}
     </div>

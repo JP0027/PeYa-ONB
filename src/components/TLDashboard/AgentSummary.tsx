@@ -47,17 +47,17 @@ export default function AgentSummary({ agente, casos, onClick }: AgentSummaryPro
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
-        <div className="bg-emerald-950/30 border border-emerald-900/50 rounded-lg p-1.5 flex flex-col items-center" title="Casos dentro de SLA (< 24h)">
+        <div className="bg-transparent border-2 border-emerald-500 rounded-lg p-1.5 flex flex-col items-center" title="Casos dentro de SLA (< 24h)">
           <span className="text-emerald-500 font-bold text-sm">{enTiempo}</span>
-          <span className="text-[#9CA3AF] uppercase tracking-wider">OK</span>
+          <span className="text-[#9CA3AF] uppercase tracking-wider font-semibold">OK</span>
         </div>
-        <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg p-1.5 flex flex-col items-center" title="Casos con tiempo acumulado entre 24h y 96h">
+        <div className="bg-transparent border-2 border-amber-500 rounded-lg p-1.5 flex flex-col items-center" title="Casos con tiempo acumulado entre 24h y 96h">
           <span className="text-amber-500 font-bold text-sm">{atencion}</span>
-          <span className="text-[#9CA3AF] uppercase tracking-wider">24-96h</span>
+          <span className="text-[#9CA3AF] uppercase tracking-wider font-semibold">24-96h</span>
         </div>
-        <div className="bg-rose-950/30 border border-rose-900/50 rounded-lg p-1.5 flex flex-col items-center" title="Casos fuera de SLA (≥ 96h)">
+        <div className="bg-transparent border-2 border-rose-500 rounded-lg p-1.5 flex flex-col items-center" title="Casos fuera de SLA (≥ 96h)">
           <span className="text-rose-500 font-bold text-sm">{criticos}</span>
-          <span className="text-[#9CA3AF] uppercase tracking-wider">Crit.</span>
+          <span className="text-[#9CA3AF] uppercase tracking-wider font-semibold">CRIT.</span>
         </div>
       </div>
     </div>

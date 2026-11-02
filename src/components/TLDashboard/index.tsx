@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
-import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta } from '../../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto, esCasoEnProgreso, esCasoActivoGlobal, contarTicketsSeguimientoUnicos } from '../../utils/onboardingRules';
 import { esEstadoActivoOficial, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 
 const AGENTES_OFICIALES = [
@@ -88,7 +88,7 @@ export default function TLDashboard({
   const casosProcesados = useMemo(() => {
     return casos.map(c => {
       const alertas = analizarAlertasCaso(c);
-      const agenteACargo = c.propietarioTicket || c.propietarioOportunidad || c.agente || 'Sin Asignar';
+      const agenteACargo = c.propietarioOportunidad || c.propietarioTicket || c.agente || 'Sin Asignar';
       
       let normalizedAgent = agenteACargo;
       AGENTES_OFICIALES.forEach(ao => {
@@ -97,8 +97,10 @@ export default function TLDashboard({
         }
       });
 
-      const estadoLower = String(c.estado || '').toLowerCase().trim();
-      const esActivo = !estadoLower.match(/cerrad|fallid|cancel/) && (estadoLower.includes('progreso') || c.esActivo);
+      const esEnProgreso = esCasoEnProgreso(c);
+      const esSegAbierto = esCasoHcAbierto(c);
+      // Un caso es activo si tiene la OP en progreso O si tiene ticket de seguimiento abierto
+      const esActivo = esEnProgreso || esSegAbierto;
 
       // Evaluación estricta de seguimiento POS API y Catálogo según regla oficial
       // ¿A cuál le falta el push?: Si tiene fecha de inicio y fecha de push y en existe respuesta dice NO y Push KAM no está hecho
@@ -179,10 +181,11 @@ export default function TLDashboard({
 
       if (filtroKpi !== 'todos') {
         const estLower = String(c.estado || '').toLowerCase().trim();
-        const esSinOp = estLower.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '' || String(c.casoOp).toLowerCase() === 'sin caso op';
+        const etapaLower = String(c.etapa || '').toLowerCase().trim();
+        const esSinOp = estLower.includes('sin oportunidad') || etapaLower.includes('sin oportunidad');
         
         if (filtroKpi === 'en_progreso') {
-          if (esSinOp || (!estLower.includes('progreso') && estLower !== 'en progreso')) return false;
+          if (!esCasoEnProgreso(c)) return false;
         } else if (filtroKpi === 'sin_op') {
           if (!esSinOp) return false;
         } else if (filtroKpi === 'fuera_sla') {
@@ -191,6 +194,8 @@ export default function TLDashboard({
           if (!c.esActivo || !(c.horasSLA >= 72 && c.horasSLA < 96)) return false;
         } else if (filtroKpi === 'req_kam_push') {
           if (!c.requiereKamPush) return false;
+        } else if (filtroKpi === 'hc_abiertos') {
+          if (!esCasoHcAbierto(c)) return false;
         }
       }
 
@@ -206,9 +211,16 @@ export default function TLDashboard({
 
   // Ordenar casos activos / filtrados
   const casosActivosOrdenados = useMemo(() => {
-    const base = (filtroEstado === 'todos' && filtroKpi === 'todos')
-      ? casosFiltrados.filter(c => c.esActivo)
-      : casosFiltrados;
+    let base: any[] = [];
+    if (filtroKpi === 'hc_abiertos') {
+      base = casosFiltrados.filter(c => esCasoHcAbierto(c));
+    } else if (filtroKpi === 'en_progreso') {
+      base = casosFiltrados.filter(c => esCasoEnProgreso(c));
+    } else if (filtroEstado === 'todos' && filtroKpi === 'todos') {
+      base = casosFiltrados.filter(c => c.esActivo);
+    } else {
+      base = casosFiltrados;
+    }
     const ordenados = [...base];
 
     ordenados.sort((a, b) => {
@@ -321,13 +333,29 @@ export default function TLDashboard({
   let fueraDeSla = 0;
   let proximosVencer = 0;
 
+  const casosHcAbiertos = useMemo(() => {
+    return casosProcesados.filter(c => esCasoHcAbierto(c));
+  }, [casosProcesados]);
+
+  // Contar cantidad de tickets en seguimiento únicos (varios casos OP pueden compartir el mismo ticket)
+  const segAbiertosTicketsUnicos = useMemo(() => {
+    return contarTicketsSeguimientoUnicos(casosHcAbiertos);
+  }, [casosHcAbiertos]);
+
+  let segAbiertosTotal = segAbiertosTicketsUnicos;
+
   casosProcesados.forEach(c => {
     const estado = String(c.estado || '').toLowerCase().trim();
+    const etapa = String(c.etapa || '').toLowerCase().trim();
+    const esSinOp = estado.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '';
 
-    if (estado.includes('satisfactori')) closedSat++;
-    else if (estado.includes('fallid')) closedFail++;
-    else if (estado.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '' || String(c.casoOp).toLowerCase() === 'sin caso op') inProgressSinOp++;
-    else if (estado === 'en progreso' || estado.includes('progreso')) inProgressNormal++;
+    // Casos en progreso: casos con la columna Estado del caso = En progreso
+    if (esCasoEnProgreso(c)) {
+      inProgressNormal++;
+      if (esSinOp) {
+        inProgressSinOp++;
+      }
+    }
 
     if (c.esActivo) {
       if (c.horasSLA >= 96) {
@@ -397,10 +425,10 @@ export default function TLDashboard({
             <button
               onClick={onForzarSync}
               disabled={sincronizando}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition shadow-lg ${
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition shadow-sm ${
                 sincronizando
-                  ? 'bg-[#2C2C32] text-[#9CA3AF] border-[#3A3A3E] cursor-not-allowed'
-                  : 'bg-[#2C2C32]/90 hover:bg-[#3A3A3E] text-[#F46C8E] hover:text-pink-300 border-[#E85A80]/40 hover:border-[#E85A80] shadow-pink-950/20 cursor-pointer'
+                  ? 'bg-rose-100 text-rose-400 border-rose-200 cursor-not-allowed'
+                  : 'bg-[#fff1f2] dark:bg-[#38242a] text-[#be123c] dark:text-[#f472b6] border-[#fecdd3] dark:border-[#e85a80]/50 hover:bg-[#ffe4e6] dark:hover:bg-[#462d35] cursor-pointer'
               }`}
               title="Actualizar datos desde Google Sheets"
             >
@@ -409,6 +437,11 @@ export default function TLDashboard({
             </button>
           )}
           <ReportDownloader 
+            casos={casosHcAbiertos} 
+            label="Reporte tickets activos" 
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 cursor-pointer"
+          />
+          <ReportDownloader 
             casos={casosProcesados.filter(c => c.esActivo && c.horasSLA >= 96)} 
             label="Reporte SLA (96h)" 
             className="bg-[#E85A80] hover:bg-[#F46C8E] text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-pink-900/40 cursor-pointer"
@@ -416,63 +449,81 @@ export default function TLDashboard({
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div className="bg-[#1A1A1C] p-3.5 rounded-xl border border-[#3A3A3E] text-center">
+      {/* Summary Cards: Solo borde, sin fondo (Imagen 3) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
+        <div className="p-3.5 rounded-xl border-2 border-slate-300 dark:border-[#3A3A3E] text-center bg-transparent">
           <div className="text-[#B3B3B3] text-xs mb-1">Total Casos</div>
           <div className="text-2xl font-bold text-white">{totalCasos}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'en_progreso' ? 'todos' : 'en_progreso')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'en_progreso' ? 'bg-cyan-950/70 border-cyan-500 ring-2 ring-cyan-500' : 'bg-[#1A1A1C] border-cyan-800 hover:border-cyan-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'en_progreso' ? 'border-cyan-500 ring-2 ring-cyan-400' : 'border-cyan-500/80 hover:border-cyan-400'
           }`}
         >
-          <div className="text-cyan-400 text-xs mb-1 flex items-center justify-center gap-1"><span>💼</span> En Progreso</div>
-          <div className="text-2xl font-bold text-cyan-400">{inProgressNormal}</div>
+          <div className="text-cyan-500 dark:text-cyan-400 text-xs mb-1 flex items-center justify-center gap-1 font-bold"><span>💼</span> En Progreso</div>
+          <div className="text-2xl font-black text-cyan-500 dark:text-cyan-400">{inProgressNormal}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'sin_op' ? 'todos' : 'sin_op')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'sin_op' ? 'bg-purple-950/70 border-purple-500 ring-2 ring-purple-500' : 'bg-[#1A1A1C] border-purple-800 hover:border-purple-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'sin_op' ? 'border-purple-500 ring-2 ring-purple-400' : 'border-purple-500/80 hover:border-purple-400'
           }`}
         >
-          <div className="text-purple-400 text-xs mb-1 flex items-center justify-center gap-1"><span>⚡</span> Sin OP</div>
-          <div className="text-2xl font-bold text-purple-400">{inProgressSinOp}</div>
+          <div className="text-purple-500 dark:text-purple-400 text-xs mb-1 flex items-center justify-center gap-1 font-bold"><span>⚡</span> Sin OP</div>
+          <div className="text-2xl font-black text-purple-500 dark:text-purple-400">{inProgressSinOp}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'fuera_sla' ? 'todos' : 'fuera_sla')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'fuera_sla' ? 'bg-rose-950/70 border-rose-500 ring-2 ring-rose-500' : 'bg-rose-950/20 border-rose-800/80 hover:border-rose-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'fuera_sla' ? 'border-rose-500 ring-2 ring-rose-400' : 'border-rose-500/80 hover:border-rose-400'
           }`}
         >
-          <div className="text-rose-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA</div>
-          <div className="text-2xl font-black text-rose-400">{fueraDeSla}</div>
+          <div className="text-rose-500 dark:text-rose-400 text-xs mb-1 font-bold flex items-center justify-center gap-1"><span>🚨</span> Fuera SLA</div>
+          <div className="text-2xl font-black text-rose-500 dark:text-rose-400">{fueraDeSla}</div>
         </div>
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'proximos' ? 'todos' : 'proximos')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
-            filtroKpi === 'proximos' ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500' : 'bg-amber-950/20 border-amber-800/80 hover:border-amber-600'
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'proximos' ? 'border-amber-500 ring-2 ring-amber-400' : 'border-amber-500/80 hover:border-amber-400'
           }`}
         >
-          <div className="text-amber-400 text-xs mb-1 font-semibold flex items-center justify-center gap-1"><span>⚠️</span> Próximos</div>
-          <div className="text-2xl font-black text-amber-400">{proximosVencer}</div>
+          <div className="text-amber-600 dark:text-amber-400 text-xs mb-1 font-bold flex items-center justify-center gap-1"><span>⚠️</span> Próximos</div>
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{proximosVencer}</div>
         </div>
         
-        {/* Card Req. KAM Push con filtro interactivo */}
+        {/* Card Req. KAM Push con filtro interactivo - Solo Borde */}
         <div 
           onClick={() => setFiltroKpi(prev => prev === 'req_kam_push' ? 'todos' : 'req_kam_push')}
-          className={`p-3.5 rounded-xl border text-center cursor-pointer transition select-none flex flex-col justify-center ${
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
             filtroKpi === 'req_kam_push' 
-              ? 'bg-amber-950/70 border-amber-500 ring-2 ring-amber-500 shadow-lg shadow-amber-950/50' 
-              : 'bg-[#1A1A1C] border-amber-900 hover:border-amber-700'
+              ? 'border-amber-500 ring-2 ring-amber-400' 
+              : 'border-amber-500/80 hover:border-amber-400'
           }`}
           title="Clic para filtrar la tabla por casos que requieren KAM Push"
         >
-          <div className="text-amber-300 text-xs mb-1 font-bold flex items-center justify-center gap-1">
+          <div className="text-amber-600 dark:text-amber-400 text-xs mb-1 font-bold flex items-center justify-center gap-1">
             <span>⚡</span> Req. KAM Push
           </div>
-          <div className="text-2xl font-black text-amber-300">{kamPushTotal}</div>
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{kamPushTotal}</div>
+        </div>
+
+        {/* Card Seguimiento Abiertos */}
+        <div 
+          onClick={() => setFiltroKpi(prev => prev === 'hc_abiertos' ? 'todos' : 'hc_abiertos')}
+          className={`p-3.5 rounded-xl border-2 text-center cursor-pointer transition select-none flex flex-col justify-center bg-transparent ${
+            filtroKpi === 'hc_abiertos' 
+              ? 'border-emerald-500 ring-2 ring-emerald-400' 
+              : 'border-emerald-500/80 hover:border-emerald-400'
+          }`}
+          title={`Clic para filtrar la tabla por casos de seguimiento abiertos (${segAbiertosTicketsUnicos} tickets de seguimiento únicos en ${casosHcAbiertos.length} casos OP)`}
+        >
+          <div className="text-emerald-500 dark:text-emerald-400 text-xs mb-1 font-bold flex items-center justify-center gap-1">
+            <span>🎫</span> Seg. Abiertos
+          </div>
+          <div className="text-2xl font-black text-emerald-500 dark:text-emerald-400">
+            {segAbiertosTicketsUnicos}
+          </div>
         </div>
       </div>
 
@@ -579,7 +630,21 @@ export default function TLDashboard({
           <div className="bg-[#1A1A1C] rounded-xl border border-[#3A3A3E] overflow-hidden shadow-xl">
             <div className="p-4 border-b border-[#3A3A3E] bg-[#1a1d27] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white">Casos Activos ({casosActivosOrdenados.length})</h2>
+                <h2 className="text-sm font-bold text-white">
+                  {filtroKpi === 'hc_abiertos' 
+                    ? `Casos con Seguimiento Abierto (${segAbiertosTicketsUnicos} tickets / ${casosActivosOrdenados.length} casos OP)` 
+                    : filtroKpi === 'en_progreso'
+                    ? 'Casos En Progreso'
+                    : filtroKpi === 'sin_op'
+                    ? 'Casos Sin OP'
+                    : filtroKpi === 'fuera_sla'
+                    ? 'Casos Fuera de SLA (≥96h)'
+                    : filtroKpi === 'proximos'
+                    ? 'Casos Próximos a Vencer (72-96h)'
+                    : filtroKpi === 'req_kam_push'
+                    ? 'Casos que Requieren KAM Push'
+                    : (filtroKpi === 'todos' && filtroEstado === 'todos' ? 'Casos Activos' : 'Casos Filtrados')} ({casosActivosOrdenados.length})
+                </h2>
                 <span className="text-[11px] text-[#B3B3B3] bg-[#2C2C32]/80 px-2 py-0.5 rounded-full">
                   Ordenados por SLA Crítico arriba
                 </span>
@@ -606,7 +671,7 @@ export default function TLDashboard({
             )}
             <div className="overflow-x-auto max-h-[560px]">
               <table className="w-full text-left text-xs text-[#D1D5DB] min-w-max">
-                <thead className="bg-[#121212] text-[#B3B3B3] uppercase sticky top-0 z-10 shadow select-none">
+                <thead className="bg-[#f8fafc] dark:bg-[#202024] text-slate-700 dark:text-[#B3B3B3] uppercase sticky top-0 z-10 shadow select-none border-b border-slate-200 dark:border-[#3A3A3E]">
                   <tr>
                     {[
                       { key: 'op', label: 'Caso OP' },
@@ -694,15 +759,42 @@ export default function TLDashboard({
                           </span>
                         </td>
                         <td className="py-4 px-3">
-                          {String(c.estado || '').toLowerCase().includes('sin oportunidad') ? (
-                            <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm">
-                              <span>⚡</span> Sin OP
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm">
-                              <span>💼</span> En Progreso
-                            </span>
-                          )}
+                          {(() => {
+                            const estLower = String(c.estado || '').toLowerCase().trim();
+                            if (estLower.includes('sin oportunidad')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap">
+                                  <span>⚡</span> Sin OP
+                                </span>
+                              );
+                            }
+                            if (estLower.includes('satisfactori')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap" title={c.estado}>
+                                  <span>✅</span> {c.estado.includes('KAM') ? 'Cerrado KAM' : 'Cerrado ONB'}
+                                </span>
+                              );
+                            }
+                            if (estLower.includes('fallid') || estLower.includes('cancel')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap" title={c.estado}>
+                                  <span>❌</span> {c.estado.includes('KAM') ? 'Fallido KAM' : 'Fallido ONB'}
+                                </span>
+                              );
+                            }
+                            if (estLower.includes('api vendor')) {
+                              return (
+                                <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap" title={c.estado}>
+                                  <span>🔌</span> API Vendor
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/70 text-[10px] font-semibold inline-flex items-center gap-1 shadow-sm whitespace-nowrap">
+                                <span>💼</span> En Progreso
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-4 px-3 font-medium text-[#D1D5DB]">{c.agenteACargo}</td>
                         <td className="py-4 px-3"><span className="px-2 py-0.5 rounded bg-[#2C2C32] text-[10px]">{limpiarTextoEtapa(c.etapa)}</span></td>

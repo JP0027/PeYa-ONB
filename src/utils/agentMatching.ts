@@ -10,76 +10,72 @@ export interface MiembroEquipo {
   correos: string[];
 }
 
-// Diccionario de miembros del equipo con roles asignados
+// Diccionario de miembros oficiales del equipo con roles asignados (4 TLs / Supervisores, 3 Agentes)
 export const AGENTES_CONOCIDOS: MiembroEquipo[] = [
+  // SUPERVISORES / TEAM LEADERS (4)
   {
-    nombre: 'Jean Palomino',
-    rol: 'Agente / Supervisor',
-    slugs: ['palomino', 'jppd', 'jean palomino', 'jean.palomino'],
+    nombre: 'Kimberly Silvera',
+    rol: 'Supervisor',
+    slugs: ['kimberly silvera', 'kimberly.silvera'],
     correos: [
-      'jean.palomino_dyn.ext@pedidosya.com',
-      'jean.palomino@pedidosya.com'
+      'kimberly.silvera_dyn.ext@pedidosya.com',
+      'kimberly.silvera@pedidosya.com'
+    ]
+  },
+  {
+    nombre: 'Henry Serrato',
+    rol: 'Supervisor',
+    slugs: ['henry serrato', 'henry.serrato'],
+    correos: [
+      'henry.serrato_dyn.ext@pedidosya.com',
+      'henry.serrato@pedidosya.com'
+    ]
+  },
+  {
+    nombre: 'Joseline Yactayo',
+    rol: 'Supervisor',
+    slugs: ['joseline yactayo', 'joseline.yactayo'],
+    correos: [
+      'joseline.yactayo_dyn.ext@pedidosya.com',
+      'joseline.yactayo@pedidosya.com'
     ]
   },
   {
     nombre: 'Yadira Flores',
-    rol: 'Agente / Supervisor',
-    slugs: ['flores', 'yadirayajaida', 'yadira flores', 'yadira.flores'],
+    rol: 'Supervisor',
+    slugs: ['yadira flores', 'yadira.flores', 'yadirayajaida'],
     correos: [
       'yadira.flores_dyn.ext@pedidosya.com',
-      'yadira.flores@pedidosya.com'
+      'yadira.flores@pedidosya.com',
+      'yadirayajaida@gmail.com'
     ]
   },
-  {
-    nombre: 'Prisila Leon',
-    rol: 'Agente',
-    slugs: ['leon', 'prisila leon', 'prisila.leon'],
-    correos: [
-      'prisila.leon_dyn.ext@pedidosya.com',
-      'prisila.leon@pedidosya.com'
-    ]
-  },
+  // AGENTES (3)
   {
     nombre: 'Joel Tocas',
     rol: 'Agente',
-    slugs: ['tocas', 'joel tocas', 'joel.tocas'],
+    slugs: ['joel tocas', 'joel.tocas'],
     correos: [
       'joel.tocas_dyn.ext@pedidosya.com',
       'joel.tocas@pedidosya.com'
     ]
   },
   {
-    nombre: 'Henry Serrato',
-    rol: 'Supervisor',
-    slugs: ['serrato', 'henry serrato', 'henry.serrato'],
-    correos: [
-      'henry.serrato_dyn.ext@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Joseline Yactayo',
-    rol: 'Supervisor',
-    slugs: ['yactayo', 'joseline yactayo', 'joseline.yactayo'],
-    correos: [
-      'joseline.yactayo_dyn.ext@pedidosya.com'
-    ]
-  },
-  {
-    nombre: 'Guillermo Gonzales',
+    nombre: 'Prisila Leon',
     rol: 'Agente',
-    slugs: ['gonzales', 'guillermo gonzales', 'guillermo.gonzales'],
+    slugs: ['prisila leon', 'prisila.leon'],
     correos: [
-      'guillermo.gonzales_dyn.ext@pedidosya.com',
-      'guillermo.gonzales@pedidosya.com'
+      'prisila.leon_dyn.ext@pedidosya.com',
+      'prisila.leon@pedidosya.com'
     ]
   },
   {
-    nombre: 'Jean Changanaqui',
+    nombre: 'Jean Palomino',
     rol: 'Agente',
-    slugs: ['changanaqui', 'jean changanaqui', 'jean.changanaqui'],
+    slugs: ['jean palomino', 'jean.palomino', 'jppd'],
     correos: [
-      'jean.changanaqui_dyn.ext@pedidosya.com',
-      'jean.changanaqui@pedidosya.com'
+      'jean.palomino_dyn.ext@pedidosya.com',
+      'jean.palomino@pedidosya.com'
     ]
   }
 ];
@@ -110,12 +106,15 @@ export function identificarMiembro(queryStr?: string): MiembroEquipo | null {
   if (!queryStr) return null;
   const qNorm = normalizarTexto(queryStr);
   const qEmail = normalizarCorreo(queryStr);
+  const qPrefix = qEmail.includes('@') ? normalizarTexto(qEmail.split('@')[0]) : '';
 
   for (const m of AGENTES_CONOCIDOS) {
     if (m.correos.some(c => normalizarCorreo(c) === qEmail)) return m;
     if (normalizarTexto(m.nombre) === qNorm) return m;
-    // Si la query coincide con un slug distintivo (ej. changanaqui, palomino)
+    // Si la query coincide con un slug distintivo (ej. changanaqui, palomino, yadirayajaida)
     if (m.slugs.some(s => qNorm === normalizarTexto(s))) return m;
+    // Si el prefijo del correo coincide con algún slug
+    if (qPrefix && m.slugs.some(s => qPrefix === normalizarTexto(s) || qPrefix.includes(normalizarTexto(s)))) return m;
   }
   return null;
 }
@@ -134,8 +133,9 @@ export function isAgentMatch(
   const emailNormalizado = normalizarCorreo(userEmail || '');
   const nombreNormalizado = normalizarTexto(userDisplayName || userEmail || '');
 
-  // Campos del caso a cotejar
+  // Campos del caso a cotejar (prioriza Propietario de Oportunidad)
   const targets = [
+    caso.propietarioOportunidad,
     caso.propietarioTicket,
     caso.agente
   ].filter(Boolean) as string[];
@@ -173,13 +173,17 @@ export function isAgentMatch(
     return false;
   }
 
-  // 2. Si no es un miembro conocido en la lista fija, comparación directa estricta
+  // 2. Si no es un miembro conocido en la lista fija, comparación directa y por coincidencia de subcadena
   for (const tLower of targetsLower) {
     if (tLower === emailNormalizado) return true;
+    if (emailNormalizado.length >= 4 && tLower.includes(emailNormalizado)) return true;
   }
 
   for (const tNorm of targetsNormalizados) {
     if (tNorm === nombreNormalizado) return true;
+    if (nombreNormalizado.length >= 3 && tNorm.length >= 3) {
+      if (tNorm.includes(nombreNormalizado) || nombreNormalizado.includes(tNorm)) return true;
+    }
   }
 
   return false;
@@ -190,13 +194,32 @@ export function isAgentMatch(
  * como Propietario de Ticket HeroCare (Columna K: Propietario de Ticket HeroCare)
  */
 export function isHeroCareOwnerMatch(
-  caso: { propietarioTicket?: string; [key: string]: any },
+  caso: { propietarioTicket?: string; agente?: string; propietarioOportunidad?: string; [key: string]: any },
   userEmail?: string,
   userDisplayName?: string
 ): boolean {
-  if (!caso || !caso.propietarioTicket) return false;
-  const prop = String(caso.propietarioTicket).trim();
+  if (!caso) return false;
+  const prop = String(caso.propietarioTicket || caso.agente || caso.propietarioOportunidad || '').trim();
   if (!prop || prop === '-' || prop === 'Sin asignación' || prop === 'Sin asignar') return false;
   return isAgentMatch({ propietarioTicket: prop, agente: prop }, userEmail, userDisplayName);
 }
+
+/**
+ * Valida de manera estricta si un caso pertenece al usuario actual
+ * como Propietario de la Oportunidad (Columna J: Propietario de la Oportunidad)
+ */
+export function isOpportunityOwnerMatch(
+  caso: { propietarioOportunidad?: string; agente?: string; propietarioTicket?: string; [key: string]: any },
+  userEmail?: string,
+  userDisplayName?: string
+): boolean {
+  if (!caso) return false;
+  const propOp = String(caso.propietarioOportunidad || '').trim();
+  if (!propOp || propOp === '-' || propOp === 'Sin asignación' || propOp === 'Sin asignar') {
+    // Si no tiene propietario de oportunidad pero tiene agente asignado, cotejar como fallback
+    return isAgentMatch(caso, userEmail, userDisplayName);
+  }
+  return isAgentMatch({ propietarioOportunidad: propOp, propietarioTicket: propOp, agente: propOp }, userEmail, userDisplayName);
+}
+
 

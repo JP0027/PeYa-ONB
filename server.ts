@@ -224,6 +224,8 @@ async function startServer() {
             fechaCreacion: String(fila["Fecha de creación de la OP"] || fila["fechaCreacion"] || ''),
             estado,
             etapa: String(fila["Etapa del onboarding"] || fila["etapa"] || 'Validación del Onboarding'),
+            estadoTicketSeguimiento: String(fila["Estado del ticket de seguimiento"] || fila["estadoTicketSeguimiento"] || 'Abierto'),
+            fechaCierreSeguimiento: String(fila["Fecha de cierre de seguimiento"] || fila["fechaCierreSeguimiento"] || ''),
             sla_inicio: String(fila["Fecha de inicio de seguimiento de OP"] || fila["sla_inicio"] || new Date().toISOString()),
             esActivo,
             origen: 'Google Apps Script',
@@ -377,7 +379,7 @@ async function startServer() {
   });
 
   // Guardar columna/sección del catálogo en hoja Integraciones_Sponsorship
-  app.post('/api/sheets/catalogos/guardar-seccion', async (req, res) => {
+  const manejarGuardarSeccionCatalogo = async (req: any, res: any) => {
     try {
       const { seccion, items } = req.body;
       if (!seccion || !Array.isArray(items)) {
@@ -392,10 +394,13 @@ async function startServer() {
         res.status(400).json({ success: false, error: resultado.message });
       }
     } catch (err: any) {
-      console.error('[API /api/sheets/catalogos/guardar-seccion] Error:', err);
+      console.error('[API /api/sheets/catalogos] Error:', err);
       res.status(500).json({ success: false, error: err.message });
     }
-  });
+  };
+
+  app.post('/api/sheets/catalogos', manejarGuardarSeccionCatalogo);
+  app.post('/api/sheets/catalogos/guardar-seccion', manejarGuardarSeccionCatalogo);
 
   // Obtener lista de integraciones de Sponsorship (retrocompatibilidad)
   app.get('/api/sheets/integraciones', async (req, res) => {
@@ -446,102 +451,225 @@ async function startServer() {
     }
   });
 
-  // Admin Usuarios
-  const USERS_FILE_PATH = process.env.VERCEL
-    ? path.join('/tmp', 'data_usuarios.json')
-    : path.resolve(process.cwd(), 'data_usuarios.json');
+  // =========================================================================
+  // GESTIÓN DE USUARIOS Y ROLES (Persistencia robusta en disco)
+  // =========================================================================
+  const USUARIOS_FILE = fs.existsSync('/tmp') ? path.join('/tmp', 'data_cached_usuarios.json') : path.resolve(process.cwd(), 'data_cached_usuarios.json');
+  const ROLES_FILE = fs.existsSync('/tmp') ? path.join('/tmp', 'data_cached_roles.json') : path.resolve(process.cwd(), 'data_cached_roles.json');
 
-  const USUARIOS_INICIALES = [
-    { id: 'kimberly.silvera_dyn.ext@pedidosya.com', correo: 'kimberly.silvera_dyn.ext@pedidosya.com', nombre: 'Kimberly Silvera', rol: 'Supervisor / TL', pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'], actualizadoEn: '2026-10-21T00:00:00.000Z' },
-    { id: 'henry.serrato_dyn.ext@pedidosya.com', correo: 'henry.serrato_dyn.ext@pedidosya.com', nombre: 'Henry Serrato', rol: 'Supervisor / TL', pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'], actualizadoEn: '2026-10-21T00:00:00.000Z' },
-    { id: 'joseline.yactayo_dyn.ext@pedidosya.com', correo: 'joseline.yactayo_dyn.ext@pedidosya.com', nombre: 'Joseline Yactayo', rol: 'Supervisor / TL', pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'], actualizadoEn: '2026-10-21T00:00:00.000Z' },
-    { id: 'yadira.flores_dyn.ext@pedidosya.com', correo: 'yadira.flores_dyn.ext@pedidosya.com', nombre: 'Yadira Flores', rol: 'Supervisor / TL', pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'], actualizadoEn: '2026-10-21T00:00:00.000Z' },
-    { id: 'yadirayajaida@gmail.com', correo: 'yadirayajaida@gmail.com', nombre: 'Yadira Flores', rol: 'Supervisor / TL', pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'], actualizadoEn: '2026-10-21T00:00:00.000Z' },
-    { id: 'joel.tocas_dyn.ext@pedidosya.com', correo: 'joel.tocas_dyn.ext@pedidosya.com', nombre: 'Joel Tocas', rol: 'Agente', pestanas: ['admin', 'inicio', 'nuevo'], actualizadoEn: '2026-10-21T00:00:00.000Z' },
-    { id: 'prisila.leon_dyn.ext@pedidosya.com', correo: 'prisila.leon_dyn.ext@pedidosya.com', nombre: 'Prisila Leon', rol: 'Agente', pestanas: ['admin', 'inicio', 'nuevo'], actualizadoEn: '2026-10-21T00:00:00.000Z' },
-    { id: 'jean.palomino_dyn.ext@pedidosya.com', correo: 'jean.palomino_dyn.ext@pedidosya.com', nombre: 'Jean Palomino', rol: 'Agente', pestanas: ['admin', 'inicio', 'nuevo'], actualizadoEn: '2026-10-21T00:00:00.000Z' }
-  ];
+  const USUARIOS_INICIALES_LISTA: Record<string, any> = {
+    'kimberly.silvera_dyn.ext@pedidosya.com': {
+      id: 'kimberly.silvera_dyn.ext@pedidosya.com',
+      correo: 'kimberly.silvera_dyn.ext@pedidosya.com',
+      nombre: 'Kimberly Silvera',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'henry.serrato_dyn.ext@pedidosya.com': {
+      id: 'henry.serrato_dyn.ext@pedidosya.com',
+      correo: 'henry.serrato_dyn.ext@pedidosya.com',
+      nombre: 'Henry Serrato',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'joseline.yactayo_dyn.ext@pedidosya.com': {
+      id: 'joseline.yactayo_dyn.ext@pedidosya.com',
+      correo: 'joseline.yactayo_dyn.ext@pedidosya.com',
+      nombre: 'Joseline Yactayo',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'yadira.flores_dyn.ext@pedidosya.com': {
+      id: 'yadira.flores_dyn.ext@pedidosya.com',
+      correo: 'yadira.flores_dyn.ext@pedidosya.com',
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'yadirayajaida@gmail.com': {
+      id: 'yadirayajaida@gmail.com',
+      correo: 'yadirayajaida@gmail.com',
+      nombre: 'Yadira Flores',
+      rol: 'Supervisor / TL',
+      pestanas: ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'joel.tocas_dyn.ext@pedidosya.com': {
+      id: 'joel.tocas_dyn.ext@pedidosya.com',
+      correo: 'joel.tocas_dyn.ext@pedidosya.com',
+      nombre: 'Joel Tocas',
+      rol: 'Agente',
+      pestanas: ['admin', 'inicio', 'nuevo'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'prisila.leon_dyn.ext@pedidosya.com': {
+      id: 'prisila.leon_dyn.ext@pedidosya.com',
+      correo: 'prisila.leon_dyn.ext@pedidosya.com',
+      nombre: 'Prisila Leon',
+      rol: 'Agente',
+      pestanas: ['admin', 'inicio', 'nuevo'],
+      actualizadoEn: new Date().toISOString()
+    },
+    'jean.palomino_dyn.ext@pedidosya.com': {
+      id: 'jean.palomino_dyn.ext@pedidosya.com',
+      correo: 'jean.palomino_dyn.ext@pedidosya.com',
+      nombre: 'Jean Palomino',
+      rol: 'Agente',
+      pestanas: ['admin', 'inicio', 'nuevo'],
+      actualizadoEn: new Date().toISOString()
+    }
+  };
 
-  function cargarUsuariosServer(): any[] {
+  function leerUsuariosDisco(): Record<string, any> {
     try {
-      if (fs.existsSync(USERS_FILE_PATH)) {
-        const raw = fs.readFileSync(USERS_FILE_PATH, 'utf-8');
+      if (fs.existsSync(USUARIOS_FILE)) {
+        const raw = fs.readFileSync(USUARIOS_FILE, 'utf8');
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const mapa = new Map<string, any>();
-          USUARIOS_INICIALES.forEach(u => mapa.set(u.correo.toLowerCase().trim(), u));
-          parsed.forEach(u => { if (u && u.correo) mapa.set(u.correo.toLowerCase().trim(), u); });
-          return Array.from(mapa.values());
+        if (parsed && typeof parsed === 'object') {
+          return { ...USUARIOS_INICIALES_LISTA, ...parsed };
         }
       }
     } catch (e) {
-      console.warn('[Server] Error leyendo usuarios:', e);
+      console.warn('[Server] Error leyendo usuarios en disco:', e);
     }
-    return USUARIOS_INICIALES;
+    return { ...USUARIOS_INICIALES_LISTA };
   }
 
-  app.get('/api/admin/usuarios', (req, res) => {
-    res.json({ success: true, usuarios: cargarUsuariosServer() });
-  });
-
-  app.post('/api/admin/usuarios', (req, res) => {
+  function guardarUsuariosDisco(data: Record<string, any>): void {
     try {
-      const { correo, nombre, rol, pestanas } = req.body || {};
-      const correoLimpio = String(correo || '').toLowerCase().trim();
-      if (!correoLimpio || !correoLimpio.includes('@')) {
-        return res.status(400).json({ success: false, error: 'Correo inválido' });
-      }
-      const rolValido = rol || 'Agente';
-      const pestanasFinales = Array.isArray(pestanas) && pestanas.length > 0
-        ? pestanas.filter((p: string) => rolValido !== 'Agente' || p !== 'usuarios')
-        : ['admin', 'inicio', 'nuevo'];
-
-      const nuevoUsuario = {
-        id: correoLimpio,
-        correo: correoLimpio,
-        nombre: nombre || correoLimpio,
-        rol: rolValido,
-        pestanas: pestanasFinales,
-        actualizadoEn: new Date().toISOString()
-      };
-      const actuales = cargarUsuariosServer();
-      const mapa = new Map<string, any>();
-      actuales.forEach(u => mapa.set(u.correo.toLowerCase().trim(), u));
-      mapa.set(correoLimpio, nuevoUsuario);
-      const lista = Array.from(mapa.values());
-      try { fs.writeFileSync(USERS_FILE_PATH, JSON.stringify(lista, null, 2), 'utf-8'); } catch {}
-      res.json({ success: true, usuario: nuevoUsuario, usuarios: lista });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
+      fs.writeFileSync(USUARIOS_FILE, JSON.stringify(data, null, 2), 'utf8');
+    } catch (e) {
+      console.warn('[Server] Error guardando usuarios en disco:', e);
     }
-  });
+  }
 
-  app.delete('/api/admin/usuarios/:correo', (req, res) => {
-    try {
-      const correo = decodeURIComponent(String(req.params.correo || '')).toLowerCase().trim();
-      const actuales = cargarUsuariosServer();
-      const filtrados = actuales.filter(u => (u.correo || '').toLowerCase().trim() !== correo);
-      try { fs.writeFileSync(USERS_FILE_PATH, JSON.stringify(filtrados, null, 2), 'utf-8'); } catch {}
-      res.json({ success: true, message: 'Usuario eliminado', usuarios: filtrados });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  app.get('/api/admin/roles-catalogos', (req, res) => {
-    res.json({
-      success: true,
+  function leerRolesDisco(): { roles: string[]; pestanasPorRol: Record<string, string[]> } {
+    const defaultData = {
       roles: ['Agente', 'Supervisor', 'Supervisor / TL'],
       pestanasPorRol: {
         'Agente': ['admin', 'inicio', 'nuevo'],
         'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'],
         'Supervisor / TL': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
       }
-    });
+    };
+    try {
+      if (fs.existsSync(ROLES_FILE)) {
+        const raw = fs.readFileSync(ROLES_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.roles) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('[Server] Error leyendo roles en disco:', e);
+    }
+    return defaultData;
+  }
+
+  function guardarRolesDisco(data: any): void {
+    try {
+      fs.writeFileSync(ROLES_FILE, JSON.stringify(data, null, 2), 'utf8');
+    } catch (e) {
+      console.warn('[Server] Error guardando roles en disco:', e);
+    }
+  }
+
+  // GET: Listar usuarios
+  app.get('/api/admin/usuarios', (req, res) => {
+    try {
+      const mapa = leerUsuariosDisco();
+      res.json({ success: true, usuarios: Object.values(mapa) });
+    } catch (err: any) {
+      console.error('[API GET /api/admin/usuarios] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
+  // POST: Crear o editar usuario
+  app.post('/api/admin/usuarios', (req, res) => {
+    try {
+      const { correo, nombre, rol, pestanas } = req.body || {};
+      const correoLimpio = String(correo || '').toLowerCase().trim();
+      if (!correoLimpio || !correoLimpio.includes('@')) {
+        return res.status(400).json({ success: false, error: 'Correo electrónico inválido' });
+      }
+
+      const nombreLimpio = String(nombre || correoLimpio.split('@')[0]).trim();
+      const rolValido = rol || 'Agente';
+      const pestanasFinales = Array.isArray(pestanas) && pestanas.length > 0 
+        ? pestanas.filter(p => rolValido !== 'Agente' || p !== 'usuarios')
+        : ['admin', 'inicio', 'nuevo'];
+
+      const mapa = leerUsuariosDisco();
+      const usuarioActualizado = {
+        id: correoLimpio,
+        correo: correoLimpio,
+        nombre: nombreLimpio,
+        rol: rolValido,
+        pestanas: pestanasFinales,
+        actualizadoEn: new Date().toISOString()
+      };
+
+      mapa[correoLimpio] = usuarioActualizado;
+      guardarUsuariosDisco(mapa);
+
+      console.log(`[Server] Usuario "${nombreLimpio}" (${correoLimpio}) guardado exitosamente.`);
+      res.json({ success: true, usuario: usuarioActualizado, usuarios: Object.values(mapa) });
+    } catch (err: any) {
+      console.error('[API POST /api/admin/usuarios] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // DELETE: Eliminar usuario
+  app.delete('/api/admin/usuarios/:correo', (req, res) => {
+    try {
+      const correoLimpio = decodeURIComponent(String(req.params.correo || '')).toLowerCase().trim();
+      const mapa = leerUsuariosDisco();
+      if (mapa[correoLimpio]) {
+        delete mapa[correoLimpio];
+        guardarUsuariosDisco(mapa);
+        console.log(`[Server] Usuario (${correoLimpio}) eliminado del sistema.`);
+      }
+      res.json({ success: true, message: 'Usuario eliminado', usuarios: Object.values(mapa) });
+    } catch (err: any) {
+      console.error('[API DELETE /api/admin/usuarios] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET: Roles y asignación de pestañas
+  app.get('/api/admin/roles-catalogos', (req, res) => {
+    try {
+      res.json({ success: true, ...leerRolesDisco() });
+    } catch (err: any) {
+      console.error('[API GET /api/admin/roles-catalogos] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST: Guardar roles y asignación de pestañas
   app.post('/api/admin/roles-catalogos', (req, res) => {
-    res.json({ success: true, ...req.body });
+    try {
+      const { roles, pestanasPorRol } = req.body;
+      const data = {
+        roles: Array.isArray(roles) ? roles : ['Agente', 'Supervisor'],
+        pestanasPorRol: (pestanasPorRol && typeof pestanasPorRol === 'object') ? pestanasPorRol : {
+          'Agente': ['admin', 'inicio', 'nuevo'],
+          'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
+        }
+      };
+      guardarRolesDisco(data);
+      res.json({ success: true, ...data });
+    } catch (err: any) {
+      console.error('[API POST /api/admin/roles-catalogos] Error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
   });
 
   // Montar Vite middleware para desarrollo o archivos estáticos en producción

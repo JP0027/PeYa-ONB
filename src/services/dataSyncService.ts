@@ -1,17 +1,12 @@
-// dataSyncService.ts - Centralized sync between Firebase and Google Sheets
-// 
+// dataSyncService.ts - Centralized sync for Google Sheets
+//
 // Architecture:
-// - Firebase Firestore = real-time cache (onSnapshot for live updates)
-// - Google Sheets = source of truth for metrics (via backend API)
-// - Writes go to BOTH (Firebase first for speed, then Sheets in background)
+// - Google Sheets = single source of truth for cases and catalog (via API /api/sheets/casos)
+// - Firebase Firestore = reserved strictly for user authentication & roles (usuarios_permitidos)
+// - NO case or catalog data is stored in Firebase.
 
-import { collection, doc, setDoc, onSnapshot, query, where, getDocs, Unsubscribe } from 'firebase/firestore';
-import { db } from '../firebase';
 import { procesarActualizacionCaso } from '../utils/onboardingRules';
-import { analizarTiemposCaso } from '../utils/tiempoLaboral';
-
-const COLLECTION_NAME = 'casos';
-const BACKEND_URL = ''; // Uses same origin (Express serves both API and frontend)
+import { consultarCasosGoogleSheets, actualizarCasoEnSheets } from './googleSheetsService';
 
 export interface Caso {
   id?: string;
@@ -34,8 +29,7 @@ export interface Integracion {
 
 class DataSyncService {
   private listeners: Set<(casos: Caso[]) => void>;
-  public casosCache: Map<string, Caso>; // casoOp -> caso object
-  private unsubscribeFirestore: Unsubscribe | null;
+  public casosCache: Map<string, Caso>; // casoOp/id -> caso object
   private syncInterval: any | null;
   private ultimaSync: Date | null;
   private isConnected: boolean;
@@ -43,49 +37,60 @@ class DataSyncService {
   constructor() {
     this.listeners = new Set();
     this.casosCache = new Map();
-    this.unsubscribeFirestore = null;
     this.syncInterval = null;
     this.ultimaSync = null;
     this.isConnected = false;
   }
 
-  // Subscribe to real-time Firestore updates
+  /**
+   * Suscribe componentes a cambios en vivo de casos desde Google Sheets
+   */
   public suscribirCasos(callback: (casos: Caso[]) => void): () => void {
     this.listeners.add(callback);
 
-    if (!this.unsubscribeFirestore) {
-      const q = collection(db, COLLECTION_NAME);
-      this.unsubscribeFirestore = onSnapshot(
-        q,
-        (snapshot) => {
-          this.isConnected = true;
-          this.ultimaSync = new Date();
-          
-          snapshot.docs.forEach(docSnap => {
-            const data = docSnap.data() as Caso;
-            this.casosCache.set(docSnap.id, data);
-          });
-          
-          this._notificarListeners();
-        },
-        (error) => {
-          console.error("Firestore subscription error:", error);
-          this.isConnected = false;
-          this._notificarListeners();
-        }
-      );
+    // Cargar casos inmediatamente desde Google Sheets API
+    this.refrescarDesdeSheets();
+
+    // Iniciar intervalo de refresco cada 30 segundos
+    if (!this.syncInterval) {
+      this.syncInterval = setInterval(() => {
+        this.refrescarDesdeSheets();
+      }, 30000);
     }
 
-    // Call immediately with current cache
+    // Retornar inmediatamente lo que esté en caché local
     callback(Array.from(this.casosCache.values()));
 
     return () => {
       this.listeners.delete(callback);
-      if (this.listeners.size === 0 && this.unsubscribeFirestore) {
-        this.unsubscribeFirestore();
-        this.unsubscribeFirestore = null;
+      if (this.listeners.size === 0 && this.syncInterval) {
+        clearInterval(this.syncInterval);
+        this.syncInterval = null;
       }
     };
+  }
+
+  public async refrescarDesdeSheets(): Promise<Caso[]> {
+    try {
+      const lista = await consultarCasosGoogleSheets();
+      if (Array.isArray(lista) && lista.length > 0) {
+        this.casosCache.clear();
+        lista.forEach(caso => {
+          const key = String(caso.casoOp || caso.id || caso.vendorId || '').trim();
+          if (key) {
+            this.casosCache.set(key, caso);
+          }
+        });
+        this.isConnected = true;
+        this.ultimaSync = new Date();
+        this._notificarListeners();
+      }
+      return Array.from(this.casosCache.values());
+    } catch (err) {
+      console.warn('[dataSyncService] Error al refrescar desde Sheets:', err);
+      this.isConnected = false;
+      return Array.from(this.casosCache.values());
+    }
   }
 
   private _notificarListeners(): void {
@@ -93,99 +98,72 @@ class DataSyncService {
     this.listeners.forEach(cb => cb(casosList));
   }
 
-  // Save a case to BOTH Firebase and Sheets
+  /**
+   * Guarda un caso de forma atómica ÚNICAMENTE en Google Sheets
+   */
   public async guardarCaso(caso: Caso): Promise<Caso> {
-    if (!caso || !caso.casoOp) {
-      throw new Error("casoOp is required");
+    if (!caso) {
+      throw new Error("Se requiere información del caso");
     }
 
     try {
+      const key = String(caso.casoOp || caso.id || caso.vendorId || '').trim();
+      const casoExistente = key ? this.casosCache.get(key) || {} : {};
+
       // 1. Validar y procesar con reglas de negocio
-      const casoProcesado = procesarActualizacionCaso(
-        this.casosCache.get(caso.casoOp) || {},
-        caso
-      );
+      const casoProcesado = procesarActualizacionCaso(casoExistente, caso);
 
-      // 1. Actualizar Sheets (fuente de verdad)
-      this._guardarEnSheets(casoProcesado).catch(err => {
-        console.warn("Notice saving to Sheets:", err);
-      });
+      // 2. Guardar directamente en Google Sheets API (no guarda NADA en Firebase)
+      const resSheets = await actualizarCasoEnSheets(casoProcesado);
 
-      // 2. Guardar en Firebase en background (no bloquea si hay backoff delay)
-      try {
-        const docRef = doc(db, COLLECTION_NAME, casoProcesado.casoOp);
-        setDoc(docRef, casoProcesado, { merge: true }).catch(() => {});
-      } catch (_) {}
+      const casoFinal = {
+        ...casoProcesado,
+        filaNumero: resSheets?.filaNumero || casoProcesado.filaNumero
+      };
 
-      return casoProcesado;
+      if (key) {
+        this.casosCache.set(key, casoFinal);
+      }
+      this._notificarListeners();
+
+      return casoFinal;
     } catch (error) {
-      console.error("Error in guardarCaso:", error);
+      console.error("Error en guardarCaso:", error);
       throw error;
     }
   }
 
-  private async _guardarEnSheets(caso: Caso): Promise<void> {
-    const isNetlify = typeof window !== 'undefined' && (window.location.hostname.includes('netlify') || window.location.hostname.includes('app'));
-    const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-
-    const urls = isNetlify && !isVercel
-      ? ['https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso', '/api/sheets/actualizar-caso']
-      : ['/api/sheets/actualizar-caso', 'https://pe-ya-onb.vercel.app/api/sheets/actualizar-caso'];
-
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-          body: JSON.stringify(caso)
-        });
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json') && response.ok) {
-          return;
-        }
-      } catch (error) {
-        console.warn(`[dataSyncService] Error guardando en Sheets (${url}):`, error);
-      }
-    }
-  }
-
-  // Update an existing case
+  /**
+   * Actualiza un caso existente en Google Sheets
+   */
   public async actualizarCaso(casoOp: string, cambios: Partial<Caso>): Promise<Caso> {
-    if (!casoOp) throw new Error("casoOp required for update");
-    const casoActual = this.casosCache.get(casoOp) || {};
+    if (!casoOp) throw new Error("Se requiere casoOp para actualizar");
+    const key = String(casoOp).trim();
+    const casoActual = this.casosCache.get(key) || {};
     const nuevoCaso = { ...casoActual, ...cambios, casoOp };
     return await this.guardarCaso(nuevoCaso);
   }
 
-  // Search by vendor ID
+  /**
+   * Busca casos por Vendor ID en la caché
+   */
   public async buscarPorVendorId(vendorId: string): Promise<Caso[]> {
     if (!vendorId) return [];
-
-    // 1. Search in local cache first
     const results: Caso[] = [];
     for (const caso of this.casosCache.values()) {
-      if (String(caso.vendorId) === String(vendorId)) {
+      if (String(caso.vendorId || caso.vendor_id) === String(vendorId)) {
         results.push(caso);
       }
     }
-    
-    if (results.length > 0) return results;
-
-    // 2. Fallback to Firestore query
-    try {
-      const q = query(collection(db, COLLECTION_NAME), where("vendorId", "==", vendorId));
-      const querySnapshot = await getDocs(q);
-      const docs = querySnapshot.docs.map(docSnap => docSnap.data() as Caso);
-      return docs;
-    } catch (error) {
-      console.error("Error searching by vendorId:", error);
-      return [];
-    }
+    return results;
   }
 
-  // Register a push/contact
+  /**
+   * Registra un push / seguimiento de POS o Catálogo en Google Sheets
+   */
   public async registrarPush(casoOp: string, tipoPush: string, agente: string): Promise<Caso> {
-    const casoActual = this.casosCache.get(casoOp);
+    const key = String(casoOp).trim();
+    const casoActual = this.casosCache.get(key);
     if (!casoActual) throw new Error("Caso no encontrado");
 
     const ahora = new Date().toISOString();
@@ -195,8 +173,8 @@ class DataSyncService {
       agente: agente || 'Sistema'
     };
 
-    const historialPush = Array.isArray(casoActual.historialPush) 
-      ? [...casoActual.historialPush, pushRegistro] 
+    const historialPush = Array.isArray(casoActual.historialPush)
+      ? [...casoActual.historialPush, pushRegistro]
       : [pushRegistro];
 
     const cambios: Partial<Caso> = { historialPush };
@@ -206,60 +184,40 @@ class DataSyncService {
     return await this.actualizarCaso(casoOp, cambios);
   }
 
-  // Load integrations from Sheets tab
+  /**
+   * Carga la lista de integraciones desde Google Sheets
+   */
   public async cargarIntegraciones(): Promise<Integracion[]> {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/sheets/integraciones`);
+      const response = await fetch('/api/sheets/integraciones');
       if (response.ok) {
         const data = await response.json();
-        return data as Integracion[];
+        return (data.integraciones || []) as Integracion[];
       }
       return [];
     } catch (error) {
-      console.error("Error loading integrations:", error);
+      console.error("Error al cargar integraciones desde Sheets:", error);
       return [];
     }
   }
 
-  // Get all cases from cache
   public obtenerTodosCasos(): Caso[] {
     return Array.from(this.casosCache.values());
   }
 
-  // Get sync status
   public obtenerEstadoSync(): SyncStatus {
-    return { 
-      isConnected: this.isConnected, 
-      ultimaSync: this.ultimaSync, 
-      totalCasos: this.casosCache.size 
+    return {
+      isConnected: this.isConnected,
+      ultimaSync: this.ultimaSync,
+      totalCasos: this.casosCache.size
     };
   }
 
-  // Force sync from Sheets
   public async forzarSincronizacion(): Promise<void> {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/sheets/casos`);
-      if (response.ok) {
-        const casos: Caso[] = await response.json();
-        for (const caso of casos) {
-          if (caso.casoOp) {
-            const docRef = doc(db, COLLECTION_NAME, caso.casoOp);
-            await setDoc(docRef, caso, { merge: true });
-          }
-        }
-        this.ultimaSync = new Date();
-      }
-    } catch (error) {
-      console.error("Error forzando sincronización:", error);
-    }
+    await this.refrescarDesdeSheets();
   }
 
-  // Cleanup
   public destruir(): void {
-    if (this.unsubscribeFirestore) {
-      this.unsubscribeFirestore();
-      this.unsubscribeFirestore = null;
-    }
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;

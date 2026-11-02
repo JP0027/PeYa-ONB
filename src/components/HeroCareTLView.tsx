@@ -257,7 +257,7 @@ Favor verificar push de catálogo y activación prioritaria con el KAM.`;
           {/* Tabla Global */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-[#D1D5DB]">
-              <thead className="bg-[#121212] text-[#B3B3B3] uppercase text-[11px] font-bold border-b border-[#3A3A3E] tracking-wider">
+              <thead className="bg-[#f8fafc] dark:bg-[#202024] text-slate-700 dark:text-[#B3B3B3] uppercase text-[11px] font-bold border-b border-slate-200 dark:border-[#3A3A3E] tracking-wider">
                 <tr>
                   <th className="py-3 px-4">N° CASO</th>
                   <th className="py-3 px-4">ID LOCAL</th>

@@ -218,15 +218,48 @@ export function limpiarTextoEstado(estado: any, _etapa?: any): string {
  * - Si el Estado cambia a cualquiera de los estados de Cerrado (Cerrado por ONB..., Cerrado por KAM..., Cerrado por API Vendor):
  *   Imprime la Fecha de cierre de OP y detiene el SLA.
  */
-export function aplicarReglaCierre(nuevoEstado: any, fechaCierreActual: any): string {
+export function aplicarReglaCierre(nuevoEstado: any, fechaCierreActual: any, estadoAnterior?: any): string {
   const est = String(nuevoEstado || '').trim().toLowerCase();
   const esAbierto = est === 'en progreso' || est === 'en progreso (sin oportunidad)' || est === 'nuevo' || est === '';
 
   if (esAbierto) {
     return '';
   } else {
-    // Si es un estado cerrado, imprime fecha y hora de cierre de OP para detener SLA
-    return fechaCierreActual && fechaCierreActual !== '-' ? formatearFechaHora(fechaCierreActual) : formatearFechaHora(new Date());
+    const estAnt = String(estadoAnterior || '').trim().toLowerCase();
+    const eraAbierto = estAnt === 'en progreso' || estAnt === 'en progreso (sin oportunidad)' || estAnt === 'nuevo' || estAnt === '';
+    const tieneHora = fechaCierreActual && /\d{1,2}:\d{2}/.test(String(fechaCierreActual));
+
+    if (eraAbierto || !fechaCierreActual || fechaCierreActual === '-' || !tieneHora) {
+      return formatearFechaHora(new Date());
+    }
+    return formatearFechaHora(fechaCierreActual);
+  }
+}
+
+/**
+ * 1b. Casuísticas de Cierre de Seguimiento / Ticket HeroCare
+ * - Si el Estado del ticket de seguimiento es "Abierto", "Abierto (sin oportunidad)" o "Transferido":
+ *   Fecha de Cierre de seguimiento permanece vacía o "".
+ * - Si el Estado cambia a cualquier otro estado (Resuelto..., Esperando por el cliente, Sin ticket HC):
+ *   Imprime la Fecha de cierre de seguimiento con fecha, hora y minutos.
+ * - Si vuelve a cambiar de regreso a Abierto, Abierto (sin oportunidad) o Transferido:
+ *   Borra la Fecha de cierre de seguimiento.
+ */
+export function aplicarReglaCierreSeguimiento(nuevoEstadoTicket: any, fechaCierreSeguimientoActual: any, estadoTicketAnterior?: any): string {
+  const est = String(nuevoEstadoTicket || '').trim().toLowerCase();
+  const esAbierto = est === 'abierto' || est === 'abierto (sin oportunidad)' || est === 'transferido' || est === '' || est === '-';
+
+  if (esAbierto) {
+    return '';
+  } else {
+    const estAnt = String(estadoTicketAnterior || '').trim().toLowerCase();
+    const eraAbierto = estAnt === 'abierto' || estAnt === 'abierto (sin oportunidad)' || estAnt === 'transferido' || estAnt === '' || estAnt === '-';
+    const tieneHora = fechaCierreSeguimientoActual && /\d{1,2}:\d{2}/.test(String(fechaCierreSeguimientoActual));
+
+    if (eraAbierto || !fechaCierreSeguimientoActual || fechaCierreSeguimientoActual === '-' || !tieneHora) {
+      return formatearFechaHora(new Date());
+    }
+    return formatearFechaHora(fechaCierreSeguimientoActual);
   }
 }
 
@@ -528,7 +561,18 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   if (resultado.fechaInicioSeguimientoOP) resultado.fechaInicioSeguimientoOP = normalizarFecha(resultado.fechaInicioSeguimientoOP);
 
   // 1. Regla de Cierre de OP
-  resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre);
+  resultado.fechaCierre = aplicarReglaCierre(resultado.estado, resultado.fechaCierre, casoAnterior?.estado);
+
+  // 1b. Regla de Cierre de Seguimiento
+  const estadoTicket = resultado.estadoTicketSeguimiento !== undefined 
+    ? resultado.estadoTicketSeguimiento 
+    : (casoAnterior?.estadoTicketSeguimiento || 'Abierto');
+  resultado.estadoTicketSeguimiento = estadoTicket;
+  resultado.fechaCierreSeguimiento = aplicarReglaCierreSeguimiento(
+    estadoTicket, 
+    resultado.fechaCierreSeguimiento,
+    casoAnterior?.estadoTicketSeguimiento
+  );
 
   // Reglas estrictas de fechas base por etapa de Onboarding
   resultado = aplicarFechasPorEtapaOnboarding(resultado, casoAnterior);
@@ -590,30 +634,73 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
 }
 
 /**
- * Detecta si un caso corresponde a "Casos HC Abiertos":
- * Casos con oportunidad u onboarding cerrados (satisfactorio por ONB o KAM),
- * pero que continúan en proceso para prueba (etapa en proceso para pruebas)
- * con ticket de seguimiento HeroCare activo/abierto.
- * Los fallidos NO aplican (sus tickets HeroCare sí se cierran).
+ * Detecta si un caso corresponde a "Casos HC Abiertos" / "Seguimiento Abierto":
+ * Casos donde el ticket de seguimiento HeroCare está Abierto o en seguimiento
+ * (ej. "Abierto", "Abierto (sin oportunidad)", "Esperando por el cliente", "Transferido"),
+/**
+ * Casos en progreso: casos con la columna Estado del caso = En progreso
+ */
+export function esCasoEnProgreso(caso: any): boolean {
+  if (!caso) return false;
+  const est = String(caso.estado || '').toLowerCase().trim();
+  return est === 'en progreso' || est.includes('en progreso');
+}
+
+/**
+ * Casos con seguimiento abiertos: casos con la columna Estado del ticket de seguimiento = Abierto
+ * sin importar el Estado del caso actual (regla estricta oficial)
  */
 export function esCasoHcAbierto(caso: any): boolean {
   if (!caso) return false;
-  const est = String(caso.estado || '').toLowerCase().trim();
-  const et = String(caso.etapa || '').toLowerCase().trim();
-  
-  // Los casos fallidos o cancelados cierran su ticket HeroCare
-  if (est.includes('fallid') || est.includes('cancel')) return false;
-  
-  // Debe ser un estado cerrado satisfactorio (por ONB o KAM o satisfactorio)
-  const esCerradoSatisfactorio = est.includes('cerrad') || est.includes('satisfactori');
-  
-  // Debe estar en proceso para pruebas
-  const enPruebas = et.includes('en proceso para prueba') || et.includes('proceso para prueba') || et.includes('en proceso para pruebas');
-  
-  // Debe contar con caso/ticket de seguimiento de HeroCare
-  const tieneSeguimiento = Boolean(caso.casoSeguimiento && caso.casoSeguimiento !== '-' && String(caso.casoSeguimiento).trim() !== '');
-  
-  return esCerradoSatisfactorio && enPruebas && tieneSeguimiento;
+  const estTicket = String(caso.estadoTicketSeguimiento || '').toLowerCase().trim();
+  // Coincide con Abierto (o variantes como 'abierto (sin oportunidad)') y descarta resuelto o sin ticket
+  return estTicket.startsWith('abierto') || (estTicket.includes('abierto') && !estTicket.includes('resuelto'));
+}
+
+/**
+ * Cuenta la cantidad de tickets de seguimiento únicos en una lista de casos.
+ * Toma en cuenta que varios casos OP pueden tener el mismo ticket de seguimiento (N° Caso Seguimiento).
+ * Si varios casos comparten el mismo número de ticket de seguimiento, se cuentan como 1 solo ticket en el contador.
+ * Si un caso no tiene N° Caso Seguimiento asignado o viene como '-' o 'S/N', cuenta como 1 ticket individual.
+ */
+export function contarTicketsSeguimientoUnicos(lista: any[]): number {
+  if (!Array.isArray(lista) || lista.length === 0) return 0;
+  const ticketsVistos = new Set<string>();
+  let conteo = 0;
+
+  for (const item of lista) {
+    const c = item?.caso || item;
+    const rawTicket = String(c?.casoSeguimiento || '').trim();
+    const esValido = Boolean(
+      rawTicket && 
+      rawTicket !== '-' && 
+      rawTicket.toUpperCase() !== 'S/N' && 
+      rawTicket.toUpperCase() !== 'S/V' && 
+      rawTicket.toLowerCase() !== 'sin caso de seguimiento' &&
+      rawTicket.toLowerCase() !== 'null' &&
+      rawTicket.toLowerCase() !== 'undefined'
+    );
+
+    if (esValido) {
+      const ticketNormalizado = rawTicket.toLowerCase();
+      if (!ticketsVistos.has(ticketNormalizado)) {
+        ticketsVistos.add(ticketNormalizado);
+        conteo++;
+      }
+    } else {
+      // Si no tiene número de ticket asignado aún, cuenta como 1 ticket individual
+      conteo++;
+    }
+  }
+
+  return conteo;
+}
+
+/**
+ * Casos activos globales: aquellos que tienen la OP en progreso O tienen el ticket de seguimiento abierto
+ */
+export function esCasoActivoGlobal(caso: any): boolean {
+  return esCasoEnProgreso(caso) || esCasoHcAbierto(caso);
 }
 
 /**
@@ -683,7 +770,9 @@ export function analizarAlertasCaso(caso: any): any {
   const posSigueActivo = (esEtapaPos || tieneInicioRealPos) && !respPosOk && !esSvPos && !etapaLower.includes('catálogo') && !etapaLower.includes('catalogo');
 
   const horasPosCalculadas = fInicioPosEfectiva ? calcularTiempoLaboralLV(fInicioPosEfectiva, null).totalHoras : 0;
-  const horasPos = tieneInicioRealPos ? (tiempos.totalHorasPos ?? horasPosCalculadas) : horasPosCalculadas;
+  const horasPosBase = tieneInicioRealPos ? (tiempos.totalHorasPos ?? horasPosCalculadas) : horasPosCalculadas;
+  // Considerar el máximo entre horas del seguimiento y horas transcurridas en la etapa activa
+  const horasPos = Math.max(horasPosBase || 0, (posSigueActivo && !tienePushPos ? horasTranscurridas : 0) || 0);
   const rangoSlaPosEfectivo = caso.rangoSlaPos || tiempos.rangoSlaPos || '';
   const esAlertaPosValida = esSlaMayorOIgualA4(horasPos, rangoSlaPosEfectivo);
 
@@ -712,10 +801,11 @@ export function analizarAlertasCaso(caso: any): any {
                      etapaLower.includes('catalogo');
 
   const tieneInicioRealCat = Boolean(caso.fechaInicioCat && caso.fechaInicioCat !== '-' && !esSV(caso.fechaInicioCat));
-  // El seguimiento de catálogo solo tiene fecha efectiva si realmente inició catálogo, nunca hereda la OP de días anteriores
-  const fInicioCatEfectiva = tieneInicioRealCat ? caso.fechaInicioCat : null;
+  const fInicioCatEfectiva = tieneInicioRealCat 
+    ? caso.fechaInicioCat 
+    : (esEtapaCat ? (caso.fechaInicioSeguimientoOP || caso.sla_inicio || caso.fechaCreacion) : null);
 
-  const tieneInicioCat = Boolean(fInicioCatEfectiva);
+  const tieneInicioCat = Boolean(fInicioCatEfectiva && !esSV(fInicioCatEfectiva));
   const tienePushCat = esPushValido(caso.fechaPushCat);
   const respCatNorm = normalizarRespuesta(caso.respuestaCat);
   const esSvCat = esSV(caso.fechaPushCat) || esSV(caso.fechaInicioCat) || respCatNorm === 'S/V';
@@ -724,7 +814,8 @@ export function analizarAlertasCaso(caso: any): any {
   const catSigueActivo = (esEtapaCat || tieneInicioRealCat) && !respCatOk && !esSvCat;
 
   const horasCatCalculadas = fInicioCatEfectiva ? calcularTiempoLaboralLV(fInicioCatEfectiva, null).totalHoras : 0;
-  const horasCat = tieneInicioRealCat ? (tiempos.totalHorasCat ?? horasCatCalculadas) : horasCatCalculadas;
+  const horasCatBase = tieneInicioRealCat ? (tiempos.totalHorasCat ?? horasCatCalculadas) : horasCatCalculadas;
+  const horasCat = Math.max(horasCatBase || 0, (catSigueActivo && !tienePushCat && esEtapaCat ? horasTranscurridas : 0) || 0);
   const rangoSlaCatEfectivo = caso.rangoSlaCat || tiempos.rangoSlaCat || '';
   const esAlertaCatValida = esSlaMayorOIgualA4(horasCat, rangoSlaCatEfectivo);
 
@@ -761,7 +852,7 @@ export function analizarAlertasCaso(caso: any): any {
   const esRangoCritico = rangoStr.includes('≥96') || rangoStr.includes('>=96') || (rangoStr.includes('96') && !rangoStr.includes('<96'));
   const esRangoKam = !esRangoCritico && (rangoStr.includes('24h') || rangoStr.includes('>72') || (rangoStr.includes('72') && !rangoStr.includes('<72')));
 
-  const esSlaMayorA4 = esActivo && !estaCongelado && esSlaMayorOIgualA4(horasTranscurridas, rangoSla);
+  const esSlaMayorA4 = esActivo && !estaCongelado && (horasTranscurridas >= 4 || esSlaMayorOIgualA4(horasTranscurridas, rangoSla));
   const esCritico = esActivo && (horasTranscurridas >= 96 || esRangoCritico);
   const esProximoVencer = esActivo && !esCritico && (horasTranscurridas >= 24 || esRangoKam);
   const esAtencion = esActivo && !esCritico && !esProximoVencer && esSlaMayorA4;

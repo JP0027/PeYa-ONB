@@ -1,11 +1,12 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 html, body {
   overflow-x: hidden;
   max-width: 100vw;
 }
 
-/* Ocultar barra de scroll nativa en contenedores principales */
+/* Ocultar barra de scroll nativa */
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;
 }
@@ -14,7 +15,7 @@ html, body {
   scrollbar-width: none !important;
 }
 
-/* Scrollbars personalizados elegantes y oscuros para tablas y modales */
+/* Scrollbars personalizados */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -23,9 +24,407 @@ html, body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #252837;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #393e54;
+.dark ::-webkit-scrollbar-thumb {
+  background: #252837;
+}
+
+/* ==========================================================================
+   TEMA CLARO GLOBAL (Light Mode Overrides - .theme-light)
+   Garantiza que en Modo Claro todos los fondos, modales, tarjetas,
+   botones, tablas, alertas y etiquetas tengan colores claros y alto contraste.
+   ========================================================================== */
+
+html.theme-light, 
+body.theme-light,
+.theme-light {
+  background-color: #f0f2f5 !important;
+  color: #0f172a !important;
+}
+
+/* 1. Fondo de contenedor principal en Modo Claro */
+.theme-light [class*="bg-[#121212]"],
+.theme-light [class*="bg-[#111111]"],
+.theme-light [class*="bg-[#161618]"],
+.theme-light [class*="bg-[#1a1d27]"],
+.theme-light [class*="bg-[#11131c]"] {
+  background-color: #f0f2f5 !important;
+  color: #0f172a !important;
+}
+
+/* 2. Modales, Tarjetas, Sidebar y Paneles Principales (Fondo Blanco Puro) */
+.theme-light [class*="bg-[#202024]"],
+.theme-light [class*="bg-[#1E1E24]"],
+.theme-light [class*="bg-[#1A1A1C]"],
+.theme-light [class*="bg-[#18181b]"],
+.theme-light [class*="bg-[#18181B]"],
+.theme-light [class*="bg-[#222225]"],
+.theme-light [class*="bg-[#19191d]"],
+.theme-light [class*="bg-[#202027]"],
+.theme-light [class*="bg-slate-900"],
+.theme-light [class*="bg-zinc-900"],
+.theme-light [class*="bg-zinc-950"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Sub-paneles y contenedores secundarios en modales */
+.theme-light [class*="bg-[#15151A]"],
+.theme-light [class*="bg-[#18181D]"],
+.theme-light [class*="bg-[#16161B]"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* Inputs y Selects dentro de modales en Modo Claro */
+.theme-light [class*="bg-[#0F0F12]"],
+.theme-light [class*="bg-[#1A1A20]"] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Badges y pills en modal */
+.theme-light [class*="bg-[#25252C]"] {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+/* Headers de Modales y Cabeceras de Tablas */
+.theme-light [class*="border-b"][class*="bg-[#161618]"],
+.theme-light [class*="border-b"][class*="bg-[#121212]"],
+.theme-light [class*="border-b"][class*="bg-[#1A1A1C]"],
+.theme-light [class*="border-b"][class*="bg-[#11131c]"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Backdrops de Modales */
+.theme-light [class*="bg-black/80"],
+.theme-light [class*="bg-black/75"],
+.theme-light [class*="bg-black/70"],
+.theme-light [class*="bg-black/60"],
+.theme-light [class*="bg-black/50"] {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(4px);
+}
+
+/* 3. Botones Secundarios y de Fondo Oscuro */
+.theme-light button[class*="bg-[#2C2C32]"],
+.theme-light button[class*="bg-[#202024]"],
+.theme-light button[class*="bg-[#121212]"],
+.theme-light button[class*="bg-[#1A1A1C]"],
+.theme-light button[class*="bg-[#27282e]"],
+.theme-light button[class*="bg-[#32333b]"],
+.theme-light button[class*="bg-slate-800"],
+.theme-light button[class*="bg-slate-700"],
+.theme-light button[class*="bg-zinc-800"],
+.theme-light button[class*="bg-black"],
+.theme-light [class*="bg-[#2C2C32]"],
+.theme-light [class*="bg-[#28282e]"],
+.theme-light [class*="bg-[#27282e]"],
+.theme-light [class*="bg-[#32333b]"],
+.theme-light [class*="bg-[#3A3A3E]"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.theme-light button[class*="bg-[#2C2C32]"]:hover,
+.theme-light button[class*="bg-[#202024]"]:hover,
+.theme-light button[class*="bg-[#121212]"]:hover,
+.theme-light [class*="hover:bg-[#2C2C32]"]:hover,
+.theme-light [class*="hover:bg-[#3A3A3E]"]:hover {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Botones Principales (PedidosYa Pink) */
+.theme-light [class*="bg-[#E85A80]"],
+.theme-light [class*="bg-[#DB2777]"] {
+  background-color: #e85a80 !important;
+  color: #ffffff !important;
+}
+
+/* Botón Cambios Masivos en Modo Claro (Letras en Negro) */
+.theme-light .btn-cambios-masivos,
+.theme-light button[class*="btn-cambios-masivos"],
+.theme-light .btn-cambios-masivos *,
+.theme-light button[class*="btn-cambios-masivos"] * {
+  background-color: #f3e8ff !important;
+  color: #000000 !important;
+  border-color: #d8b4fe !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+.theme-light .btn-cambios-masivos:hover,
+.theme-light button[class*="btn-cambios-masivos"]:hover,
+.theme-light .btn-cambios-masivos:hover *,
+.theme-light button[class*="btn-cambios-masivos"]:hover * {
+  background-color: #e9d5ff !important;
+  color: #000000 !important;
+}
+
+/* Modal Cambios Masivos en Modo Claro: Letras en Negro Puro */
+.theme-light .modal-cambios-masivos,
+.theme-light .modal-cambios-masivos h2,
+.theme-light .modal-cambios-masivos h3,
+.theme-light .modal-cambios-masivos label,
+.theme-light .modal-cambios-masivos p,
+.theme-light .modal-cambios-masivos textarea,
+.theme-light .modal-cambios-masivos input,
+.theme-light .modal-cambios-masivos select,
+.theme-light .modal-cambios-masivos th,
+.theme-light .modal-cambios-masivos td,
+.theme-light .modal-cambios-masivos span:not([class*="bg-purple-600"]):not([class*="bg-emerald-600"]):not([class*="bg-rose-600"]):not([class*="bg-fuchsia-600"]),
+.theme-light .modal-cambios-masivos button:not([class*="bg-purple-600"]):not([class*="bg-emerald-600"]):not([class*="bg-rose-600"]),
+.theme-light .modal-cambios-masivos button:not([class*="bg-purple-600"]):not([class*="bg-emerald-600"]):not([class*="bg-rose-600"]) span {
+  color: #000000 !important;
+}
+
+/* 4. Etiquetas, Pills, Badges y Tags */
+.theme-light span[class*="bg-[#2C2C32]"],
+.theme-light span[class*="bg-[#202024]"],
+.theme-light span[class*="bg-[#121212]"],
+.theme-light span[class*="bg-slate-800"],
+.theme-light span[class*="bg-slate-700"],
+.theme-light span[class*="bg-zinc-800"],
+.theme-light span[class*="bg-black"] {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 5. Tablas: Mismo formato limpio de Onboarding (Sin Bordes Verticales y Sombreado Rojo/Rosa Pálido en Hover) */
+table,
+table thead,
+table tbody,
+table tr,
+table th,
+table td {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.theme-light table,
+.theme-light table thead,
+.theme-light table tbody,
+.theme-light table th,
+.theme-light table td {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.theme-light table thead tr,
+.theme-light table thead th {
+  background-color: #f8fafc !important;
+  color: #475569 !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+
+/* Sombreado Rojo/Rosado Pálido al pasar el mouse por las filas */
+.theme-light table tbody tr:hover,
+.theme-light table tbody tr:hover td,
+.theme-light tr:hover,
+.theme-light tr:hover td {
+  background-color: #ffe4e6 !important;
+}
+
+/* Modo oscuro hover */
+.dark table tbody tr:hover,
+.dark table tbody tr:hover td,
+.dark tr:hover,
+.dark tr:hover td {
+  background-color: rgba(244, 108, 142, 0.18) !important;
+}
+
+/* 6. Alertas y Badges de Estado */
+.theme-light [class*="bg-amber-950"],
+.theme-light [class*="bg-amber-900"],
+.theme-light [class*="bg-amber-950/30"] {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+  border-color: #fcd34d !important;
+}
+
+.theme-light [class*="bg-emerald-950"],
+.theme-light [class*="bg-emerald-900"] {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+  border-color: #86efac !important;
+}
+
+.theme-light [class*="bg-cyan-950"],
+.theme-light [class*="bg-cyan-900"] {
+  background-color: #cffafe !important;
+  color: #155e75 !important;
+  border-color: #67e8f9 !important;
+}
+
+.theme-light [class*="bg-pink-950"],
+.theme-light [class*="bg-pink-900"],
+.theme-light [class*="bg-rose-950"],
+.theme-light [class*="bg-rose-900"] {
+  background-color: #fce7f3 !important;
+  color: #9d174d !important;
+  border-color: #f472b6 !important;
+}
+
+.theme-light [class*="bg-purple-950"],
+.theme-light [class*="bg-purple-900"],
+.theme-light [class*="bg-fuchsia-950"] {
+  background-color: #f3e8ff !important;
+  color: #6b21a8 !important;
+  border-color: #d8b4fe !important;
+}
+
+/* 7. Colores de Texto en Modo Claro - Garantiza alto contraste y texto 100% legible */
+.theme-light [class*="text-white"],
+.theme-light [class*="text-[#ffffff]"],
+.theme-light [class*="text-[#FFFFFF]"],
+.theme-light [class*="text-[#FAFAFA]"],
+.theme-light [class*="text-[#fafafa]"],
+.theme-light [class*="text-[#F9FAFB]"],
+.theme-light [class*="text-[#F3F4F6]"],
+.theme-light [class*="text-[#E5E7EB]"],
+.theme-light [class*="text-slate-50"],
+.theme-light [class*="text-slate-100"],
+.theme-light [class*="text-slate-200"],
+.theme-light [class*="text-slate-300"],
+.theme-light [class*="text-gray-50"],
+.theme-light [class*="text-gray-100"],
+.theme-light [class*="text-gray-200"],
+.theme-light [class*="text-gray-300"],
+.theme-light [class*="text-zinc-50"],
+.theme-light [class*="text-zinc-100"],
+.theme-light [class*="text-zinc-200"],
+.theme-light [class*="text-zinc-300"],
+.theme-light [class*="text-neutral-50"],
+.theme-light [class*="text-neutral-100"],
+.theme-light [class*="text-neutral-200"],
+.theme-light [class*="text-neutral-300"] {
+  color: #0f172a !important;
+}
+
+.theme-light [class*="text-[#D1D5DB]"],
+.theme-light [class*="text-[#B3B3B3]"],
+.theme-light [class*="text-[#9CA3AF]"],
+.theme-light [class*="text-slate-400"],
+.theme-light [class*="text-gray-400"],
+.theme-light [class*="text-zinc-400"] {
+  color: #475569 !important;
+}
+
+.theme-light [class*="text-cyan-300"],
+.theme-light [class*="text-cyan-400"] {
+  color: #0284c7 !important;
+}
+
+.theme-light [class*="text-emerald-300"],
+.theme-light [class*="text-emerald-400"] {
+  color: #16a34a !important;
+}
+
+.theme-light [class*="text-amber-300"],
+.theme-light [class*="text-amber-400"] {
+  color: #d97706 !important;
+}
+
+.theme-light [class*="text-purple-300"],
+.theme-light [class*="text-purple-400"] {
+  color: #9333ea !important;
+}
+
+.theme-light [class*="text-rose-300"],
+.theme-light [class*="text-rose-400"] {
+  color: #e11d48 !important;
+}
+
+.theme-light [class*="text-[#F46C8E]"] {
+  color: #db2777 !important;
+}
+
+/* Excepciones necesarias: Texto blanco sobre elementos con fondo oscuro u oficial PedidosYa */
+.theme-light [class*="bg-[#E85A80]"],
+.theme-light [class*="bg-[#DB2777]"],
+.theme-light [class*="bg-[#E85A80]"] *,
+.theme-light [class*="bg-[#DB2777]"] *,
+.theme-light button[class*="bg-[#E85A80]"],
+.theme-light button[class*="bg-[#DB2777]"],
+.theme-light [class*="bg-rose-600"]:not([class*="bg-rose-100"]):not([class*="btn-"]),
+.theme-light [class*="bg-rose-600"]:not([class*="bg-rose-100"]):not([class*="btn-"]) *,
+.theme-light [class*="bg-emerald-600"]:not([class*="bg-emerald-100"]):not([class*="btn-"]),
+.theme-light [class*="bg-emerald-600"]:not([class*="bg-emerald-100"]):not([class*="btn-"]) *,
+.theme-light [class*="bg-amber-600"]:not([class*="bg-amber-100"]):not([class*="btn-"]),
+.theme-light [class*="bg-amber-600"]:not([class*="bg-amber-100"]):not([class*="btn-"]) * {
+  color: #ffffff !important;
+}
+
+/* Botones Sincronizar desde Sheets y Descargar Excel en Modo Claro (Letras en Negro Puro) */
+.theme-light .btn-sincronizar-sheets,
+.theme-light button[class*="btn-sincronizar-sheets"],
+.theme-light .btn-sincronizar-sheets *,
+.theme-light button[class*="btn-sincronizar-sheets"] *,
+.theme-light .btn-descargar-excel,
+.theme-light button[class*="btn-descargar-excel"],
+.theme-light .btn-descargar-excel *,
+.theme-light button[class*="btn-descargar-excel"] *,
+.theme-light [class*="bg-emerald-100"],
+.theme-light [class*="bg-emerald-100"] * {
+  color: #000000 !important;
+  fill: #000000 !important;
+}
+
+.theme-light .btn-sincronizar-sheets:hover,
+.theme-light button[class*="btn-sincronizar-sheets"]:hover,
+.theme-light .btn-sincronizar-sheets:hover *,
+.theme-light button[class*="btn-sincronizar-sheets"]:hover *,
+.theme-light .btn-descargar-excel:hover,
+.theme-light button[class*="btn-descargar-excel"]:hover,
+.theme-light .btn-descargar-excel:hover *,
+.theme-light button[class*="btn-descargar-excel"]:hover * {
+  color: #000000 !important;
+  fill: #000000 !important;
+}
+
+.theme-light .btn-descargar-excel svg,
+.theme-light button[class*="btn-descargar-excel"] svg,
+.theme-light .btn-sincronizar-sheets svg,
+.theme-light button[class*="btn-sincronizar-sheets"] svg {
+  stroke: #000000 !important;
+  color: #000000 !important;
+}
+
+/* 8. Inputs, Selects y Textareas */
+.theme-light input,
+.theme-light select,
+.theme-light textarea {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.theme-light input::placeholder,
+.theme-light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* 9. Bordes en Modo Claro */
+.theme-light [class*="border-[#3A3A3E]"],
+.theme-light [class*="border-[#333338]"] {
+  border-color: #cbd5e1 !important;
 }
