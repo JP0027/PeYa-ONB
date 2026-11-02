@@ -347,14 +347,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       return;
     }
 
-    const unsubscribe = onSnapshot(doc(db, 'usuarios_permitidos', correoLimpio), (docSnap: any) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        let tabs = Array.isArray(data.pestanas) && data.pestanas.length > 0 
-          ? data.pestanas 
-          : obtenerPestanasPorDefecto(data.rol || rolEfectivo);
+    const cargarPestanas = () => {
+      const perfil = validarAccesoUsuario(correoLimpio);
+      if (perfil) {
+        let tabs = Array.isArray(perfil.pestanas) && perfil.pestanas.length > 0 
+          ? [...perfil.pestanas] 
+          : obtenerPestanasPorDefecto(perfil.rol || rolEfectivo);
         
-        const esRolSupervisorActual = esSupervisor(data.rol || rolEfectivo, correoLimpio);
+        const esRolSupervisorActual = esSupervisor(perfil.rol || rolEfectivo, correoLimpio);
         if (esRolSupervisorActual) {
           tabs = ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
         } else {
@@ -365,13 +365,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
         setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
       }
-    }, (error: any) => {
-      console.warn("No se pudo obtener permisos específicos de usuario desde Firestore:", error);
-      const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
-      setPestanasPermitidas(!tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto);
-    });
+    };
 
-    return () => unsubscribe();
+    cargarPestanas();
+    window.addEventListener('peya_usuarios_actualizados', cargarPestanas);
+    return () => {
+      window.removeEventListener('peya_usuarios_actualizados', cargarPestanas);
+    };
   }, [email, rolEfectivo, tieneAccesoSupervisor, perfilBase]);
 
   useEffect(() => {
@@ -1190,6 +1190,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         comentarios: '', 
         estado: 'En progreso',
         etapa: 'Sin integración confirmada', 
+        estadoTicketSeguimiento: 'Abierto',
         fechaCreacion: '',
         sla_inicio: ''
       });

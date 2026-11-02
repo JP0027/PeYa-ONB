@@ -40,6 +40,7 @@ export interface CasoSheets {
   fechaCierre?: string;
   estadoTicketSeguimiento?: string;
   fechaCierreSeguimiento?: string;
+  fechaInicioSeguimientoOP?: string;
   fechaInicioPos?: string;
   fechaPushPos?: string;
   respuestaPos?: string;
