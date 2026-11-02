@@ -1,7 +1,7 @@
 # Dependencias
 node_modules/
 
-# Producción
+# Producción y compilación
 dist/
 dist-ssr/
 
@@ -11,8 +11,18 @@ dist-ssr/
 .env.*.local
 service-account*.json
 onb-data*.json
+client_secret*.json
+*client_secret*
 *.pem
 *.key
+
+# Caches de datos grandes generados dinámicamente
+data_cached*.json
+data_usuarios.json
+
+# Imágenes y archivos temporales de chat
+public/assets/aistudio/
+.aistudio/
 
 # Logs
 npm-debug.log*

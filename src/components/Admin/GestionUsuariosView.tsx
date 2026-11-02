@@ -6,7 +6,8 @@ import {
   RolUsuario,
   obtenerUsuariosCompletos,
   guardarUsuarioEnSistema,
-  eliminarUsuarioDelSistema 
+  eliminarUsuarioDelSistema,
+  sincronizarUsuariosConFirestore
 } from '../../utils/userPermissions';
 import { db } from '../../firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -168,7 +169,12 @@ export default function GestionUsuariosView({
     setUsuarios(baseUsuarios);
     setCargando(false);
 
-    // 2. Intentar consultar API de backend si está disponible
+    // 2. Sincronizar con Firestore en tiempo real para reflejar usuarios creados/modificados por supervisores
+    sincronizarUsuariosConFirestore().then(list => {
+      setUsuarios(list);
+    }).catch(e => console.warn('Sync inicial Firestore:', e));
+
+    // 3. Consultar API de backend como fallback adicional
     const cargarUsuariosBackend = async () => {
       try {
         const resp = await fetch('/api/admin/usuarios');
@@ -176,7 +182,6 @@ export default function GestionUsuariosView({
           const data = await resp.json();
           if (data.success && Array.isArray(data.usuarios) && data.usuarios.length > 0) {
             const correosExcluidos = new Set([
-              'yadirayajaida@gmail.com',
               'guillermo.gonzales_dyn.ext@pedidosya.com',
               'jean.changanaqui_dyn.ext@pedidosya.com'
             ]);
@@ -185,7 +190,7 @@ export default function GestionUsuariosView({
             data.usuarios.forEach((u: any) => {
               if (u && u.correo) {
                 const c = u.correo.toLowerCase().trim();
-                if (!correosExcluidos.has(c) && c.endsWith('@pedidosya.com') && !c.includes('gmail.com')) {
+                if (!correosExcluidos.has(c)) {
                   const existente = mapa.get(c);
                   const fechaApi = u.actualizadoEn ? new Date(u.actualizadoEn).getTime() : 0;
                   const fechaExistente = existente?.actualizadoEn ? new Date(existente.actualizadoEn).getTime() : 0;
