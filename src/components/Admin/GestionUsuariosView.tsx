@@ -192,7 +192,7 @@ export default function GestionUsuariosView({
                   const existente = mapa.get(c);
                   const fechaApi = u.actualizadoEn ? new Date(u.actualizadoEn).getTime() : 0;
                   const fechaExistente = existente?.actualizadoEn ? new Date(existente.actualizadoEn).getTime() : 0;
-                  if (!existente || fechaApi >= fechaExistente) {
+                  if (!existente || fechaApi > fechaExistente) {
                     mapa.set(c, u);
                   }
                 }

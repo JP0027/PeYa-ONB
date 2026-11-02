@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-const USERS_FILE_PATH = path.resolve(process.cwd(), 'data_usuarios.json');
+const USERS_FILE_PATH = process.env.VERCEL
+  ? path.join('/tmp', 'data_usuarios.json')
+  : path.resolve(process.cwd(), 'data_usuarios.json');
 
 const USUARIOS_INICIALES = [
   // LÍDERES / SUPERVISORES / TEAM LEADERS (4)

@@ -218,25 +218,47 @@ export async function sincronizarUsuariosConBackend(): Promise<UsuarioSistema[]>
           const eliminadosRaw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_DELETED_KEY) : null;
           const eliminadosSet = new Set<string>(eliminadosRaw ? JSON.parse(eliminadosRaw) : []);
 
+          const customsRaw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_CUSTOM_KEY) : null;
+          const customsList: any[] = customsRaw ? JSON.parse(customsRaw) : [];
+
           const mapa = new Map<string, UsuarioSistema>();
-          // Base en código
+          // 1. Base en código
           USUARIOS_CODIGO_BASE.forEach(u => mapa.set(u.correo.toLowerCase().trim(), { ...u }));
 
+          // 2. Usuarios de la API
           data.usuarios.forEach((u: any) => {
             if (u && u.correo) {
               const key = String(u.correo).toLowerCase().trim();
-              if (!eliminadosSet.has(key)) {
+              mapa.set(key, {
+                id: key,
+                correo: key,
+                nombre: u.nombre || key,
+                rol: u.rol || 'Agente',
+                pestanas: Array.isArray(u.pestanas) && u.pestanas.length > 0 ? u.pestanas : obtenerPestanasPorDefecto(u.rol),
+                actualizadoEn: u.actualizadoEn || new Date().toISOString()
+              });
+            }
+          });
+
+          // 3. Modificaciones del supervisor en el navegador (tienen prioridad)
+          if (Array.isArray(customsList)) {
+            customsList.forEach((c: any) => {
+              if (c && c.correo) {
+                const key = String(c.correo).toLowerCase().trim();
                 mapa.set(key, {
                   id: key,
                   correo: key,
-                  nombre: u.nombre || key,
-                  rol: u.rol || 'Agente',
-                  pestanas: Array.isArray(u.pestanas) && u.pestanas.length > 0 ? u.pestanas : obtenerPestanasPorDefecto(u.rol),
-                  actualizadoEn: u.actualizadoEn || new Date().toISOString()
+                  nombre: c.nombre || key,
+                  rol: c.rol || 'Agente',
+                  pestanas: Array.isArray(c.pestanas) && c.pestanas.length > 0 ? c.pestanas : obtenerPestanasPorDefecto(c.rol),
+                  actualizadoEn: c.actualizadoEn || new Date().toISOString()
                 });
               }
-            }
-          });
+            });
+          }
+
+          // 4. Eliminar usuarios dados de baja
+          eliminadosSet.forEach(delKey => mapa.delete(delKey));
 
           const listaFinal = Array.from(mapa.values());
           localStorage.setItem(STORAGE_CUSTOM_KEY, JSON.stringify(listaFinal));
