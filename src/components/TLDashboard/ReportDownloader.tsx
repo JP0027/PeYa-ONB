@@ -1,6 +1,6 @@
 import React from 'react';
 import * as XLSX from 'xlsx';
-import { obtenerTextoCasoOp } from '../../utils/onboardingRules';
+import { obtenerTextoCasoOp, limpiarTextoEtapa } from '../../utils/onboardingRules';
 
 export interface ReportDownloaderProps {
   casos: any[];
@@ -33,7 +33,7 @@ export default function ReportDownloader({
       "Estado del ONB": c.estado || '',
       "Propietario de Oportunidad": c.propietarioOportunidad || c.agente || c.propietarioTicket || '',
       "Agente (Actual)": c.agenteACargo || '',
-      "Etapa del Onboarding": c.etapa || '',
+      "Etapa del Onboarding": limpiarTextoEtapa(c.etapa, c.comentarios, c.integracion) || '',
       "SLA / Rango": c.rangoSlaOp || `${c.horasSLA}h`,
       "N° Caso Seguimiento": c.casoSeguimiento || ''
     }));

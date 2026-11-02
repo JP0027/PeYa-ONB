@@ -11,7 +11,8 @@ import {
   resolverOportunidad,
   esCasoHcAbierto,
   esCasoEnProgreso,
-  esCasoActivoGlobal
+  esCasoActivoGlobal,
+  contarTicketsSeguimientoUnicos
 } from '../../utils/onboardingRules';
 import { LISTA_INTEGRACIONES_OFICIALES, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 import { analizarTiemposCaso } from '../../utils/tiempoLaboral';
@@ -806,8 +807,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const totalCat = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushCat).length, [casosConAlertas]);
   const totalSla = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico)).length, [casosConAlertas]);
   
-  // Casos con seguimiento abiertos: casos con la columna Estado del ticket de seguimiento = Abierto sin importar el Estado del caso actual
-  const totalHcAbiertos = useMemo(() => casosConAlertas.filter(x => esCasoHcAbierto(x.caso)).length, [casosConAlertas]);
+  // Casos con seguimiento abiertos: cantidad de tickets de seguimiento únicos (Estado del ticket de seguimiento = Abierto)
+  const totalHcAbiertos = useMemo(() => {
+    const casosHc = casosConAlertas.filter(x => esCasoHcAbierto(x.caso));
+    return contarTicketsSeguimientoUnicos(casosHc);
+  }, [casosConAlertas]);
 
   // Lista única de assets para el selector de filtro en Mis Casos
   const listaAssetsMisCasos = useMemo(() => {

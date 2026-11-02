@@ -658,6 +658,45 @@ export function esCasoHcAbierto(caso: any): boolean {
 }
 
 /**
+ * Cuenta la cantidad de tickets de seguimiento únicos en una lista de casos.
+ * Toma en cuenta que varios casos OP pueden tener el mismo ticket de seguimiento (N° Caso Seguimiento).
+ * Si varios casos comparten el mismo número de ticket de seguimiento, se cuentan como 1 solo ticket en el contador.
+ * Si un caso no tiene N° Caso Seguimiento asignado o viene como '-' o 'S/N', cuenta como 1 ticket individual.
+ */
+export function contarTicketsSeguimientoUnicos(lista: any[]): number {
+  if (!Array.isArray(lista) || lista.length === 0) return 0;
+  const ticketsVistos = new Set<string>();
+  let conteo = 0;
+
+  for (const item of lista) {
+    const c = item?.caso || item;
+    const rawTicket = String(c?.casoSeguimiento || '').trim();
+    const esValido = Boolean(
+      rawTicket && 
+      rawTicket !== '-' && 
+      rawTicket.toUpperCase() !== 'S/N' && 
+      rawTicket.toUpperCase() !== 'S/V' && 
+      rawTicket.toLowerCase() !== 'sin caso de seguimiento' &&
+      rawTicket.toLowerCase() !== 'null' &&
+      rawTicket.toLowerCase() !== 'undefined'
+    );
+
+    if (esValido) {
+      const ticketNormalizado = rawTicket.toLowerCase();
+      if (!ticketsVistos.has(ticketNormalizado)) {
+        ticketsVistos.add(ticketNormalizado);
+        conteo++;
+      }
+    } else {
+      // Si no tiene número de ticket asignado aún, cuenta como 1 ticket individual
+      conteo++;
+    }
+  }
+
+  return conteo;
+}
+
+/**
  * Casos activos globales: aquellos que tienen la OP en progreso O tienen el ticket de seguimiento abierto
  */
 export function esCasoActivoGlobal(caso: any): boolean {

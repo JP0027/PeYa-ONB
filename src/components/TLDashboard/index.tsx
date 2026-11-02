@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
-import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto, esCasoEnProgreso, esCasoActivoGlobal } from '../../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto, esCasoEnProgreso, esCasoActivoGlobal, contarTicketsSeguimientoUnicos } from '../../utils/onboardingRules';
 import { esEstadoActivoOficial, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 
 const AGENTES_OFICIALES = [
@@ -332,7 +332,17 @@ export default function TLDashboard({
   let kamPushTotal = 0;
   let fueraDeSla = 0;
   let proximosVencer = 0;
-  let segAbiertosTotal = 0;
+
+  const casosHcAbiertos = useMemo(() => {
+    return casosProcesados.filter(c => esCasoHcAbierto(c));
+  }, [casosProcesados]);
+
+  // Contar cantidad de tickets en seguimiento únicos (varios casos OP pueden compartir el mismo ticket)
+  const segAbiertosTicketsUnicos = useMemo(() => {
+    return contarTicketsSeguimientoUnicos(casosHcAbiertos);
+  }, [casosHcAbiertos]);
+
+  let segAbiertosTotal = segAbiertosTicketsUnicos;
 
   casosProcesados.forEach(c => {
     const estado = String(c.estado || '').toLowerCase().trim();
@@ -345,11 +355,6 @@ export default function TLDashboard({
       if (esSinOp) {
         inProgressSinOp++;
       }
-    }
-
-    // Casos con seguimiento abiertos: casos con la columna Estado del ticket de seguimiento = Abierto sin importar el Estado del caso actual
-    if (esCasoHcAbierto(c)) {
-      segAbiertosTotal++;
     }
 
     if (c.esActivo) {
@@ -432,7 +437,7 @@ export default function TLDashboard({
             </button>
           )}
           <ReportDownloader 
-            casos={casosProcesados.filter(c => esCasoHcAbierto(c))} 
+            casos={casosHcAbiertos} 
             label="Reporte tickets activos" 
             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 cursor-pointer"
           />
@@ -511,13 +516,13 @@ export default function TLDashboard({
               ? 'border-emerald-500 ring-2 ring-emerald-400' 
               : 'border-emerald-500/80 hover:border-emerald-400'
           }`}
-          title="Clic para filtrar la tabla por casos de seguimiento abiertos"
+          title={`Clic para filtrar la tabla por casos de seguimiento abiertos (${segAbiertosTicketsUnicos} tickets de seguimiento únicos en ${casosHcAbiertos.length} casos OP)`}
         >
           <div className="text-emerald-500 dark:text-emerald-400 text-xs mb-1 font-bold flex items-center justify-center gap-1">
             <span>🎫</span> Seg. Abiertos
           </div>
           <div className="text-2xl font-black text-emerald-500 dark:text-emerald-400">
-            {casosProcesados.filter(c => esCasoHcAbierto(c)).length}
+            {segAbiertosTicketsUnicos}
           </div>
         </div>
       </div>
@@ -627,7 +632,7 @@ export default function TLDashboard({
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-white">
                   {filtroKpi === 'hc_abiertos' 
-                    ? 'Casos con Seguimiento Abierto' 
+                    ? `Casos con Seguimiento Abierto (${segAbiertosTicketsUnicos} tickets / ${casosActivosOrdenados.length} casos OP)` 
                     : filtroKpi === 'en_progreso'
                     ? 'Casos En Progreso'
                     : filtroKpi === 'sin_op'
