@@ -1,6 +1,36 @@
-import { sheetsBackendService } from '../../src/services/sheetsBackendService';
-
 const PERMANENT_GAS_URL = process.env.VITE_GAS_WEBAPP_URL || 'https://script.google.com/a/macros/pedidosya.com/s/AKfycbwsLeUUnWvjWE4Qmt0z0eUHVxOSKzaSzj0hvHMDAjFy-TpQwTmM6pQir946DLDtWtdKRg/exec';
+
+function parsearFilasDinamicas(rows: any[][]): any[] {
+  if (!rows || rows.length < 2) return [];
+  const headers = rows[0].map((h: any) => String(h || '').trim());
+  const data = rows.slice(1);
+  return data.map((row: any[], idx: number) => {
+    const obj: Record<string, any> = {};
+    headers.forEach((h: string, colIdx: number) => {
+      if (h) obj[h] = row[colIdx] !== undefined ? String(row[colIdx]).trim() : '';
+    });
+    const casoOp = obj['N° Caso OP'] || obj['Caso OP'] || obj['casoOp'] || '';
+    const vendorId = obj['ID'] || obj['Vendor ID'] || obj['vendorId'] || '';
+    const estado = obj['Estado del caso de onboarding'] || obj['Estado'] || 'En progreso';
+    return {
+      id: casoOp || vendorId || `GAS-${idx + 1}`,
+      casoOp,
+      vendorId,
+      vendor_id: vendorId,
+      tienda: obj['Tienda'] || '',
+      pais: obj['País'] || obj['Pais'] || '',
+      kam: obj['Kam'] || '',
+      integracion: obj['Integración'] || '',
+      oportunidad: obj['Oportunidad'] || '',
+      asset: obj['Asset'] || '',
+      estado,
+      etapa: obj['Etapa del onboarding'] || 'Validación del Onboarding',
+      esActivo: !estado.toLowerCase().includes('cerrad') && !estado.toLowerCase().includes('fallid'),
+      origen: 'Google Apps Script',
+      filaNumero: idx + 2
+    };
+  });
+}
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,7 +46,6 @@ export default async function handler(req: any, res: any) {
       gasUrl = PERMANENT_GAS_URL;
     }
 
-    // Si es enlace directo a Google Sheets
     if (gasUrl.includes('docs.google.com/spreadsheets')) {
       let csvExportUrl = gasUrl;
       if (gasUrl.includes('/pub') || gasUrl.includes('/pubhtml')) {
@@ -47,7 +76,8 @@ export default async function handler(req: any, res: any) {
               error: 'El documento requiere inicio de sesión corporativo.'
             });
           }
-          const casos = sheetsBackendService.parsearCSV(text, 'Google Sheet Enlace');
+          const lines = text.split('\n').map(l => l.split(','));
+          const casos = parsearFilasDinamicas(lines);
           if (casos.length > 0) {
             return res.json({
               success: true,
@@ -87,7 +117,7 @@ export default async function handler(req: any, res: any) {
     if (!response.ok) {
       return res.status(response.status).json({
         success: false,
-        error: `Google Apps Script error HTTP ${response.status}`
+        error: `Google Apps Script respondió con HTTP ${response.status}`
       });
     }
 
@@ -108,13 +138,13 @@ export default async function handler(req: any, res: any) {
     else if (Array.isArray(data.data)) listaFilas = data.data;
 
     const casosParseados = Array.isArray(listaFilas[0])
-      ? sheetsBackendService.parsearFilasDinamicas(listaFilas, 'Google Apps Script')
+      ? parsearFilasDinamicas(listaFilas)
       : listaFilas;
 
     return res.json({
       success: true,
       total: casosParseados.length,
-      activos: casosParseados.filter(c => c.esActivo).length,
+      activos: casosParseados.filter((c: any) => c.esActivo).length,
       casos: casosParseados
     });
   } catch (err: any) {

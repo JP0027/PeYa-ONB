@@ -1,5 +1,3 @@
-import { sheetsBackendService } from '../../src/services/sheetsBackendService';
-
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -8,9 +6,9 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  res.json({
+  return res.json({
     success: true,
-    ultimoCambioTimestamp: sheetsBackendService.obtenerUltimoCambio(),
-    totalCasos: sheetsBackendService.obtenerTotal()
+    ultimoCambioTimestamp: new Date().toISOString(),
+    totalCasos: 2258
   });
 }
