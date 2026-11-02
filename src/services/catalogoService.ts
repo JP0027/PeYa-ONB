@@ -13,9 +13,9 @@ import {
   LISTA_ESTADOS,
   LISTA_ETAPAS,
   LISTA_ESTADOS_TICKET_SEGUIMIENTO,
+  LISTA_AGENTES,
   MAPA_INTEGRACIONES_SPONSORSHIP
 } from '../data/catalogoOnboarding';
-import CATALOGOS_CACHE from '../../data_cached_catalogos.json';
 
 const STORAGE_KEY = 'peya_catalogos_personalizados';
 const FIRESTORE_DOC_PATH = ['configuracion', 'catalogos'];
@@ -40,24 +40,15 @@ export interface CatalogosPorDefecto {
 }
 
 export const CATALOGOS_POR_DEFECTO: CatalogosPorDefecto = {
-  paises: CATALOGOS_CACHE?.paises || [...LISTA_PAISES],
-  oportunidades: CATALOGOS_CACHE?.oportunidades || [...LISTA_OPORTUNIDADES],
-  assets: CATALOGOS_CACHE?.assets || [...LISTA_ASSETS],
-  estados: CATALOGOS_CACHE?.estados || [...LISTA_ESTADOS],
-  etapas: CATALOGOS_CACHE?.etapas || [...LISTA_ETAPAS],
-  estadosTicketSeguimiento: (CATALOGOS_CACHE as any)?.estadosTicketSeguimiento || [...LISTA_ESTADOS_TICKET_SEGUIMIENTO],
-  roles: ['Agente', 'Supervisor'],
-  agentes: (CATALOGOS_CACHE?.agentes && CATALOGOS_CACHE.agentes.length > 0) ? CATALOGOS_CACHE.agentes : [
-    'Prisila Leon',
-    'Joel Tocas',
-    'Yadira Flores',
-    'Comercial',
-    'Sin asignación',
-    'Jean Palomino',
-    'Jean Changanaqui',
-    'Guillermo Gonzales'
-  ],
-  integraciones: (CATALOGOS_CACHE?.integraciones as any) || Object.entries(MAPA_INTEGRACIONES_SPONSORSHIP).map(([nombre, sponsorship]) => ({
+  paises: [...LISTA_PAISES],
+  oportunidades: [...LISTA_OPORTUNIDADES],
+  assets: [...LISTA_ASSETS],
+  estados: [...LISTA_ESTADOS],
+  etapas: [...LISTA_ETAPAS],
+  estadosTicketSeguimiento: [...LISTA_ESTADOS_TICKET_SEGUIMIENTO],
+  roles: ['Agente', 'Supervisor', 'Supervisor / TL'],
+  agentes: [...LISTA_AGENTES],
+  integraciones: Object.entries(MAPA_INTEGRACIONES_SPONSORSHIP).map(([nombre, sponsorship]) => ({
     nombre,
     sponsorship: String(sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO'
   }))
