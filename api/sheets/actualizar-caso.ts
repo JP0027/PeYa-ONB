@@ -261,22 +261,17 @@ export default async function handler(req: any, res: any) {
       }
 
       const filaValores = mapearCasoAColumnasSheet(casoData);
-      const valoresAF = filaValores.slice(0, 6);   // Columnas A:F (Índices 0..5)
-      const valoresHAC = filaValores.slice(7, 29); // Columnas H:AC (Índices 7..28 = 22 columnas, Columna G Sponsorship omitida)
+      const valoresAAC = filaValores.slice(0, 29); // Columnas A:AC (Índices 0..28)
       const valFreezePos = casoData.fechaFreezePos || casoData.freezePos || '';
       const valFreezeCat = casoData.fechaFreezeCat || casoData.freezeCat || '';
 
       if (filaTarget >= 3) {
-        // ACTUALIZAR fila existente omitiendo Columna G
+        // ACTUALIZAR fila existente
         const urlBatch = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
         const dataUpdates: any[] = [
           {
-            range: `'Onboarding_New'!A${filaTarget}:F${filaTarget}`,
-            values: [valoresAF]
-          },
-          {
-            range: `'Onboarding_New'!H${filaTarget}:AC${filaTarget}`,
-            values: [valoresHAC]
+            range: `'Onboarding_New'!A${filaTarget}:AC${filaTarget}`,
+            values: [valoresAAC]
           }
         ];
 
@@ -309,7 +304,7 @@ export default async function handler(req: any, res: any) {
           success: true,
           updated: true,
           filaNumero: filaTarget,
-          message: `Caso actualizado en Google Sheets (Fila #${filaTarget}, Columna G omitida)`
+          message: `Caso actualizado en Google Sheets (Fila #${filaTarget})`
         });
       } else {
         // INSERTAR nuevo caso detectando exactamente la última fila de la base
@@ -355,12 +350,8 @@ export default async function handler(req: any, res: any) {
         const urlBatchNuevo = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchUpdate`;
         const dataUpdatesNuevo: any[] = [
           {
-            range: `'Onboarding_New'!A${nuevaFila}:F${nuevaFila}`,
-            values: [valoresAF]
-          },
-          {
-            range: `'Onboarding_New'!H${nuevaFila}:AC${nuevaFila}`,
-            values: [valoresHAC]
+            range: `'Onboarding_New'!A${nuevaFila}:AC${nuevaFila}`,
+            values: [valoresAAC]
           }
         ];
 
