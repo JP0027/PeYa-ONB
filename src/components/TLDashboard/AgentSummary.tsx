@@ -50,15 +50,12 @@ export default function AgentSummary({
           : 'border-[#3A3A3E] hover:border-[#E85A80]/50'
       }`}
     >
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 shrink-0 rounded-full bg-cyan-900/40 border border-cyan-700/50 flex items-center justify-center text-cyan-400 font-bold text-lg shadow-inner">
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <div className="flex items-center gap-2.5 min-w-0" title={`${agente} (${activos} filas totales registradas en hoja)`}>
+          <div className="w-9 h-9 shrink-0 rounded-full bg-cyan-900/40 border border-cyan-700/50 flex items-center justify-center text-cyan-400 font-bold text-base shadow-inner">
             {agente.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <h3 className="font-bold text-white text-sm group-hover:text-[#F46C8E] transition truncate">{agente}</h3>
-            <p className="text-[11px] text-[#B3B3B3]">{activos} casos activos</p>
-          </div>
+          <h3 className="font-bold text-white text-sm group-hover:text-[#F46C8E] transition truncate">{agente}</h3>
         </div>
         {kamPushes > 0 && (
           <span className="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-700 px-1.5 py-0.5 rounded font-bold inline-flex items-center gap-1 shadow-sm whitespace-nowrap shrink-0" title={`${kamPushes} casos requieren Push KAM`}>
@@ -68,23 +65,23 @@ export default function AgentSummary({
       </div>
 
       {/* Métricas lado a lado: Seg. Abiertos (tickets únicos sin repetir) y Casos ONB en Progreso */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-2 gap-2 mb-2.5">
         <div 
           onClick={(e) => {
             e.stopPropagation();
             onClick(agente, 'hc_abiertos');
           }}
-          className={`p-2 rounded-lg border-2 text-center transition cursor-pointer flex flex-col justify-center bg-transparent ${
+          className={`p-1.5 rounded-lg border-2 text-center transition cursor-pointer flex flex-col justify-center bg-transparent ${
             seleccionado && kpiActivo === 'hc_abiertos'
               ? 'border-emerald-500 ring-2 ring-emerald-400 bg-emerald-950/20'
               : 'border-emerald-500/80 hover:border-emerald-400'
           }`}
-          title={`Clic para filtrar por tickets de seguimiento de ${agente} (${segAbiertosUnicos} tickets únicos en ${casosSegAbiertos.length} casos OP)`}
+          title={`Clic para filtrar por tickets de seguimiento de ${agente} (${segAbiertosUnicos} tickets únicos en ${casosSegAbiertos.length} filas)`}
         >
-          <div className="text-[11px] font-bold text-emerald-400 flex items-center justify-center gap-1">
+          <div className="text-[10px] font-semibold text-emerald-400 flex items-center justify-center gap-1">
             <span>🎫</span> Seg. Abiertos
           </div>
-          <div className="text-xl font-black text-emerald-400 leading-tight mt-0.5">
+          <div className="text-sm font-bold text-emerald-400 leading-tight mt-0.5">
             {segAbiertosUnicos}
           </div>
         </div>
@@ -94,17 +91,17 @@ export default function AgentSummary({
             e.stopPropagation();
             onClick(agente, 'en_progreso');
           }}
-          className={`p-2 rounded-lg border-2 text-center transition cursor-pointer flex flex-col justify-center bg-transparent ${
+          className={`p-1.5 rounded-lg border-2 text-center transition cursor-pointer flex flex-col justify-center bg-transparent ${
             seleccionado && kpiActivo === 'en_progreso'
               ? 'border-cyan-500 ring-2 ring-cyan-400 bg-cyan-950/20'
               : 'border-cyan-500/80 hover:border-cyan-400'
           }`}
           title={`Clic para filtrar por casos ONB en progreso de ${agente} (${onbEnProgreso} casos)`}
         >
-          <div className="text-[11px] font-bold text-cyan-400 flex items-center justify-center gap-1">
+          <div className="text-[10px] font-semibold text-cyan-400 flex items-center justify-center gap-1">
             <span>💼</span> ONB Progreso
           </div>
-          <div className="text-xl font-black text-cyan-400 leading-tight mt-0.5">
+          <div className="text-sm font-bold text-cyan-400 leading-tight mt-0.5">
             {onbEnProgreso}
           </div>
         </div>
