@@ -44,6 +44,9 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
   return (
     <tr 
       id={idFila}
+      data-caso-id={caso.id}
+      data-caso-op={caso.casoOp}
+      data-vendor-id={caso.vendorId || caso.vendor_id}
       onClick={() => onClick(caso)}
       className={`border-b transition cursor-pointer ${
         estaResaltado 

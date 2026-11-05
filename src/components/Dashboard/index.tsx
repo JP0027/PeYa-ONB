@@ -24,7 +24,6 @@ import CasoForm from './CasoForm';
 import CasoCard from './CasoCard';
 import AlertBadge from './AlertBadge';
 import SyncIndicator from './SyncIndicator';
-import ConfigModal from './ConfigModal';
 
 import ModalDetalleCaso from '../ModalDetalleCaso';
 import TLDashboard from '../TLDashboard';
@@ -425,8 +424,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const [direccionOrdenMisCasos, setDireccionOrdenMisCasos] = useState<'asc' | 'desc'>('desc');
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
-
-  const [mostrarModalCreds, setMostrarModalCreds] = useState<boolean>(false);
   
   const [busquedaResultados, setBusquedaResultados] = useState<any[]>([]);
   const [cargandoBusqueda, setCargandoBusqueda] = useState<boolean>(false);
@@ -445,16 +442,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (!alerta || !alerta.caso) return;
     const targetCaso = alerta.caso;
     const idBuscado = String(targetCaso.casoOp || targetCaso.vendorId || targetCaso.id || '').trim();
-
-    // Si el usuario es supervisor (o está en la pestaña 'tl', o la alerta es kam_pos/kam_cat de supervisión):
-    // Debe mostrarle la fila al supervisor en "Casos en progreso global" ('tl')
     const esAlertaSupervisor = alerta.tipo === 'kam_pos' || alerta.tipo === 'kam_cat';
-    const irACasosGlobales = puedeVerTab('tl') && (activeTab === 'tl' || esAlertaSupervisor || tieneAccesoSupervisor);
 
-    if (irACasosGlobales) {
-      setActiveTab('tl');
-    } else {
-      setActiveTab('inicio');
+    // Guiar al usuario según la pestaña en la que esté a su tabla correspondiente
+    if (activeTab === 'tl') {
+      // Ya está en Casos en progreso global: mantenerse en esta tabla
+      // TLDashboard gestionará casoResaltadoId para paginar y ubicar la fila automáticamente
+    } else if (activeTab === 'inicio') {
+      // Ya está en Mis casos: mantenerse en esta tabla y preparar la fila
       const casoAlertas = analizarAlertasCaso(targetCaso);
       if (alerta.tipo === 'push_pos' && casoAlertas.requierePushPos) {
         setFiltroMisCasos('pushPos');
@@ -463,19 +458,38 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       } else {
         setFiltroMisCasos('todos');
       }
+      setFiltroAsset('todos');
       setCurrentPage(1);
+    } else {
+      // Si está en otra pestaña (ej. datos/admin, nuevo, usuarios):
+      // Si es una alerta exclusiva de supervisor (kam_pos, kam_cat) y puede ver 'tl': ir a 'tl'
+      if (esAlertaSupervisor && puedeVerTab('tl')) {
+        setActiveTab('tl');
+      } else if (puedeVerTab('inicio')) {
+        // Por defecto, ir a la tabla de Mis Casos si tiene permiso
+        setActiveTab('inicio');
+        setFiltroMisCasos('todos');
+        setFiltroAsset('todos');
+        setCurrentPage(1);
+      } else if (puedeVerTab('tl')) {
+        setActiveTab('tl');
+      }
     }
 
     setCasoResaltadoId(idBuscado);
 
     setTimeout(() => {
+      const term = idBuscado.toLowerCase();
       const el = document.getElementById(`caso-row-${idBuscado}`) || 
                  document.getElementById(`caso-row-${targetCaso.id}`) ||
                  document.getElementById(`caso-row-${targetCaso.casoOp}`) ||
                  document.getElementById(`caso-row-${targetCaso.vendorId}`) ||
                  document.querySelector(`[data-caso-op="${idBuscado}"]`) ||
                  document.querySelector(`[data-caso-id="${idBuscado}"]`) ||
-                 document.querySelector(`[data-vendor-id="${idBuscado}"]`);
+                 document.querySelector(`[data-vendor-id="${idBuscado}"]`) ||
+                 document.querySelector(`[data-caso-op="${term}"]`) ||
+                 document.querySelector(`[data-caso-id="${term}"]`) ||
+                 document.querySelector(`[data-vendor-id="${term}"]`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -486,7 +500,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     setTimeout(() => {
       setCasoResaltadoId(prev => (prev === idBuscado ? null : prev));
     }, 9000);
-  }, [activeTab, puedeVerTab, tieneAccesoSupervisor, setActiveTab]);
+  }, [activeTab, puedeVerTab, setActiveTab]);
 
   const manejarCerrarAlertaPush = useCallback((id: string | number) => {
     setAlertasPushActivas(prev => prev.filter(a => a.id !== id));
@@ -955,19 +969,36 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   // Si se resalta un caso (ej. desde una alerta), asegurar que la paginación muestre la página donde está ubicado
   useEffect(() => {
     if (!casoResaltadoId || activeTab !== 'inicio') return;
+    const term = casoResaltadoId.toLowerCase().trim();
     const idx = listaFiltrada.findIndex(x => {
       const c = x.caso;
-      return String(c.id || '').trim().toLowerCase() === casoResaltadoId.toLowerCase() || 
-             String(c.casoOp || '').trim().toLowerCase() === casoResaltadoId.toLowerCase() ||
-             String(c.vendorId || c.vendor_id || '').trim().toLowerCase() === casoResaltadoId.toLowerCase();
+      return String(c.id || '').trim().toLowerCase() === term || 
+             String(c.casoOp || '').trim().toLowerCase() === term ||
+             String(c.vendorId || c.vendor_id || '').trim().toLowerCase() === term;
     });
-    if (idx !== -1) {
-      const targetPage = Math.floor(idx / rowsPerPage) + 1;
-      if (targetPage !== currentPage) {
-        setCurrentPage(targetPage);
-      }
+
+    if (idx === -1) {
+      if (filtroMisCasos !== 'todos') setFiltroMisCasos('todos');
+      if (filtroAsset !== 'todos') setFiltroAsset('todos');
+      return;
     }
-  }, [casoResaltadoId, activeTab, listaFiltrada, rowsPerPage, currentPage]);
+
+    const targetPage = Math.floor(idx / rowsPerPage) + 1;
+    if (targetPage !== currentPage) {
+      setCurrentPage(targetPage);
+    }
+
+    setTimeout(() => {
+      const el = document.getElementById(`caso-row-${casoResaltadoId}`) ||
+                 document.getElementById(`caso-row-${term}`) ||
+                 document.querySelector(`[data-caso-op="${term}"]`) ||
+                 document.querySelector(`[data-caso-id="${term}"]`) ||
+                 document.querySelector(`[data-vendor-id="${term}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 350);
+  }, [casoResaltadoId, activeTab, listaFiltrada, rowsPerPage, currentPage, filtroMisCasos, filtroAsset]);
 
   const manejarBusqueda = async (busquedaId: string) => {
     if (!busquedaId.trim()) return;
@@ -1702,7 +1733,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 <span>{temaClaro ? '☀️' : '🌙'}</span>
                 <span>{temaClaro ? 'Modo Claro' : 'Modo Oscuro'}</span>
               </button>
-              <button onClick={() => { setMostrarModalCreds(true); setSidebarMovilAbierto(false); }} className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
               <div className="mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-[#B3B3B3]">
                 <span className="truncate max-w-[150px]">{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1780,7 +1810,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                 <span>{temaClaro ? '☀️' : '🌙'}</span>
                 <span>{temaClaro ? 'Modo Claro' : 'Modo Oscuro'}</span>
               </button>
-              <button onClick={() => setMostrarModalCreds(true)} className="w-full mt-2 bg-slate-100 dark:bg-[#2C2C32] hover:bg-slate-200 dark:hover:bg-[#3A3A3E] text-slate-800 dark:text-[#D1D5DB] border border-slate-300 dark:border-[#3A3A3E] px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center justify-center gap-2"><span>⚙️</span><span>Configuración</span></button>
               <div className="mt-3 flex items-center justify-between text-xs text-[#B3B3B3]">
                 <span className="truncate max-w-[130px]" title={nombreUsuarioAutenticado}>{nombreUsuarioAutenticado}</span>
                 <button onClick={manejarLogout} className="hover:text-[#F46C8E] cursor-pointer min-h-[44px]">Salir</button>
@@ -1813,11 +1842,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
               >
                 {temaClaro ? '☀️' : '🌙'}
               </button>
-              <button 
-                onClick={() => setMostrarModalCreds(true)} 
-                title="Configuración">
-                  ⚙️
-                </button>
               <button 
                 onClick={manejarLogout} 
                 title="Cerrar sesión"
@@ -2403,14 +2427,6 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           <p className="text-sm font-bold tracking-wide animate-pulse">{cargandoOperacion}</p>
         </div>
       )}
-
-      <ConfigModal 
-        visible={mostrarModalCreds} 
-        onCerrar={() => setMostrarModalCreds(false)} 
-        onSincronizar={() => cargarCasosGoogleSheets()} 
-        casosCount={casosSheets.length || casosTotales.length} 
-        temaClaro={temaClaro}
-      />
       
       {casoSeleccionadoModal && (
         <ModalDetalleCaso 
