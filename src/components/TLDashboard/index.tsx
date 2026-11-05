@@ -530,11 +530,48 @@ export default function TLDashboard({
       <div className="space-y-6">
         {/* Agent Overview */}
         <div>
-          <h2 className="text-lg font-bold text-white mb-3">Resumen por Agente</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-white">Resumen por Agente</h2>
+            {filtroAgente !== 'todos' && (
+              <button 
+                onClick={() => {
+                  setFiltroAgente('todos');
+                  if (filtroKpi === 'hc_abiertos' || filtroKpi === 'en_progreso') {
+                    setFiltroKpi('todos');
+                  }
+                }}
+                className="text-xs text-[#E85A80] hover:text-[#F46C8E] font-medium flex items-center gap-1 transition cursor-pointer"
+                title="Quitar filtro por agente y mostrar todos"
+              >
+                <span>✕</span> Quitar filtro de agente ({filtroAgente})
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {AGENTES_OFICIALES.map(ag => {
               const agentCases = casosActivos.filter(c => c.agenteACargo === ag);
-              return <AgentSummary key={ag} agente={ag} casos={agentCases} onClick={setFiltroAgente} />;
+              return (
+                <AgentSummary 
+                  key={ag} 
+                  agente={ag} 
+                  casos={agentCases} 
+                  seleccionado={filtroAgente === ag}
+                  kpiActivo={filtroKpi}
+                  onClick={(agenteNombre, kpi) => {
+                    if (kpi) {
+                      if (filtroAgente === agenteNombre && filtroKpi === kpi) {
+                        setFiltroAgente('todos');
+                        setFiltroKpi('todos');
+                      } else {
+                        setFiltroAgente(agenteNombre);
+                        setFiltroKpi(kpi);
+                      }
+                    } else {
+                      setFiltroAgente(prev => prev === agenteNombre ? 'todos' : agenteNombre);
+                    }
+                  }} 
+                />
+              );
             })}
           </div>
         </div>
