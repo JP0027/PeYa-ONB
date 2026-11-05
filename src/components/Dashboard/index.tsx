@@ -310,7 +310,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   // Lista dinámica de pestañas permitidas para el usuario autenticado (desde Firestore o por defecto)
   const [pestanasPermitidas, setPestanasPermitidas] = useState<string[]>(() => {
     if (perfilBase?.pestanas && perfilBase.pestanas.length > 0) {
-      return perfilBase.pestanas;
+      const tabs = perfilBase.pestanas.includes('tl') ? perfilBase.pestanas : ['tl', ...perfilBase.pestanas];
+      return !tieneAccesoSupervisor ? tabs.filter(p => p !== 'usuarios') : tabs;
     }
     const porDefecto = obtenerPestanasPorDefecto(rolEfectivo);
     return !tieneAccesoSupervisor ? porDefecto.filter(p => p !== 'usuarios') : porDefecto;
@@ -324,9 +325,13 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const [activeTab, setActiveTabState] = useState<string>(() => {
     const saved = sessionStorage.getItem('peya_onb_active_tab');
     const tabsDefecto = perfilBase?.pestanas || obtenerPestanasPorDefecto(rolEfectivo);
-    const tabsValidas = !tieneAccesoSupervisor ? tabsDefecto.filter(p => p !== 'usuarios') : tabsDefecto;
+    const tabsConTl = tabsDefecto.includes('tl') ? tabsDefecto : ['tl', ...tabsDefecto];
+    const tabsValidas = !tieneAccesoSupervisor ? tabsConTl.filter(p => p !== 'usuarios') : tabsConTl;
     if (saved && tabsValidas.includes(saved)) {
       return saved;
+    }
+    if (!tieneAccesoSupervisor && tabsValidas.includes('inicio')) {
+      return 'inicio';
     }
     return tabsValidas[0] || (tieneAccesoSupervisor ? 'tl' : 'inicio');
   });
@@ -354,6 +359,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
           ? [...perfil.pestanas] 
           : obtenerPestanasPorDefecto(perfil.rol || rolEfectivo);
         
+        // Garantizar que la pestaña 'tl' (Casos en progreso global) esté siempre disponible para todos los agentes
+        if (!tabs.includes('tl')) {
+          tabs = ['tl', ...tabs];
+        }
+
         const esRolSupervisorActual = esSupervisor(perfil.rol || rolEfectivo, correoLimpio);
         if (esRolSupervisorActual) {
           tabs = ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];

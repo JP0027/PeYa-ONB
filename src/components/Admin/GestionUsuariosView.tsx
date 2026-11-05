@@ -84,13 +84,13 @@ export default function GestionUsuariosView({
       } catch (e) {}
     }
     return {
-      'Agente': ['admin', 'inicio', 'nuevo'],
+      'Agente': ['tl', 'admin', 'inicio', 'nuevo'],
       'Supervisor': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
     };
   });
 
   const [nuevoRol, setNuevoRol] = useState<string>('');
-  const [nuevoRolPestanas, setNuevoRolPestanas] = useState<string[]>(['admin', 'inicio', 'nuevo']);
+  const [nuevoRolPestanas, setNuevoRolPestanas] = useState<string[]>(['tl', 'admin', 'inicio', 'nuevo']);
   const [busquedaRoles, setBusquedaRoles] = useState<string>('');
   const [editandoRolIdx, setEditandoRolIdx] = useState<number | null>(null);
   const [rolEditadoTexto, setRolEditadoTexto] = useState<string>('');

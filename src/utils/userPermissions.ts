@@ -69,7 +69,7 @@ export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
     correo: 'joel.tocas_dyn.ext@pedidosya.com',
     nombre: 'Joel Tocas',
     rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
   {
@@ -77,7 +77,7 @@ export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
     correo: 'prisila.leon_dyn.ext@pedidosya.com',
     nombre: 'Prisila Leon',
     rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
   {
@@ -85,7 +85,7 @@ export const USUARIOS_CODIGO_BASE: UsuarioSistema[] = [
     correo: 'jean.palomino_dyn.ext@pedidosya.com',
     nombre: 'Jean Palomino',
     rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   }
 ];
@@ -136,16 +136,21 @@ export function obtenerUsuariosCompletos(): UsuarioSistema[] {
           if (c && c.correo) {
             const key = String(c.correo).toLowerCase().trim();
             // Seguridad estricta: Agente NUNCA puede tener la pestaña de gestionar usuarios
-            const pestanas = Array.isArray(c.pestanas)
+            let pestanas = Array.isArray(c.pestanas)
               ? (c.rol === 'Agente' ? c.pestanas.filter((p: string) => p !== 'usuarios') : c.pestanas)
               : obtenerPestanasPorDefecto(c.rol);
+
+            // Garantizar que la pestaña 'tl' esté disponible para todos los agentes
+            if (!pestanas.includes('tl')) {
+              pestanas = ['tl', ...pestanas];
+            }
 
             mapa.set(key, {
               id: key,
               correo: key,
               nombre: c.nombre || key,
               rol: c.rol || 'Agente',
-              pestanas: pestanas.length > 0 ? pestanas : ['admin', 'inicio', 'nuevo'],
+              pestanas: pestanas.length > 0 ? pestanas : ['tl', 'admin', 'inicio', 'nuevo'],
               actualizadoEn: c.actualizadoEn || new Date().toISOString()
             });
           }
@@ -229,12 +234,19 @@ export async function sincronizarUsuariosConBackend(): Promise<UsuarioSistema[]>
           data.usuarios.forEach((u: any) => {
             if (u && u.correo) {
               const key = String(u.correo).toLowerCase().trim();
+              let pestanas = Array.isArray(u.pestanas) && u.pestanas.length > 0 ? u.pestanas : obtenerPestanasPorDefecto(u.rol);
+              if (!pestanas.includes('tl')) {
+                pestanas = ['tl', ...pestanas];
+              }
+              if (u.rol === 'Agente') {
+                pestanas = pestanas.filter((p: string) => p !== 'usuarios');
+              }
               mapa.set(key, {
                 id: key,
                 correo: key,
                 nombre: u.nombre || key,
                 rol: u.rol || 'Agente',
-                pestanas: Array.isArray(u.pestanas) && u.pestanas.length > 0 ? u.pestanas : obtenerPestanasPorDefecto(u.rol),
+                pestanas,
                 actualizadoEn: u.actualizadoEn || new Date().toISOString()
               });
             }
@@ -245,12 +257,19 @@ export async function sincronizarUsuariosConBackend(): Promise<UsuarioSistema[]>
             customsList.forEach((c: any) => {
               if (c && c.correo) {
                 const key = String(c.correo).toLowerCase().trim();
+                let pestanas = Array.isArray(c.pestanas) && c.pestanas.length > 0 ? c.pestanas : obtenerPestanasPorDefecto(c.rol);
+                if (!pestanas.includes('tl')) {
+                  pestanas = ['tl', ...pestanas];
+                }
+                if (c.rol === 'Agente') {
+                  pestanas = pestanas.filter((p: string) => p !== 'usuarios');
+                }
                 mapa.set(key, {
                   id: key,
                   correo: key,
                   nombre: c.nombre || key,
                   rol: c.rol || 'Agente',
-                  pestanas: Array.isArray(c.pestanas) && c.pestanas.length > 0 ? c.pestanas : obtenerPestanasPorDefecto(c.rol),
+                  pestanas,
                   actualizadoEn: c.actualizadoEn || new Date().toISOString()
                 });
               }
@@ -520,12 +539,13 @@ export function obtenerPestanasPorDefecto(
   pestanasPorRol?: Record<string, string[]> | null
 ): string[] {
   if (rol && pestanasPorRol && Array.isArray(pestanasPorRol[rol]) && pestanasPorRol[rol].length > 0) {
-    return pestanasPorRol[rol];
+    const customTabs = pestanasPorRol[rol];
+    return customTabs.includes('tl') ? customTabs : ['tl', ...customTabs];
   }
   const r = (rol || '').toLowerCase();
   if (r.includes('supervisor') || r.includes('admin') || r.includes('tl')) {
     return ['tl', 'admin', 'inicio', 'nuevo', 'usuarios'];
   }
-  // Rol Agente o general: Por defecto datos, mis casos, búsqueda
-  return ['admin', 'inicio', 'nuevo'];
+  // Rol Agente o general: Casos en progreso global, datos, mis casos y búsqueda
+  return ['tl', 'admin', 'inicio', 'nuevo'];
 }

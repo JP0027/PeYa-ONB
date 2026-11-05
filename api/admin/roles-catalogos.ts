@@ -8,7 +8,7 @@ const ROLES_FILE_PATH = process.env.VERCEL
 const DEFAULT_ROLES = {
   roles: ['Agente', 'Supervisor / TL'],
   pestanasPorRol: {
-    'Agente': ['admin', 'inicio', 'nuevo'],
+    'Agente': ['tl', 'admin', 'inicio', 'nuevo'],
     'Supervisor / TL': ['tl', 'admin', 'inicio', 'nuevo', 'usuarios']
   }
 };

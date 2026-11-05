@@ -53,7 +53,7 @@ const USUARIOS_INICIALES = [
     correo: 'joel.tocas_dyn.ext@pedidosya.com',
     nombre: 'Joel Tocas',
     rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
   {
@@ -61,7 +61,7 @@ const USUARIOS_INICIALES = [
     correo: 'prisila.leon_dyn.ext@pedidosya.com',
     nombre: 'Prisila Leon',
     rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   },
   {
@@ -69,7 +69,7 @@ const USUARIOS_INICIALES = [
     correo: 'jean.palomino_dyn.ext@pedidosya.com',
     nombre: 'Jean Palomino',
     rol: 'Agente',
-    pestanas: ['admin', 'inicio', 'nuevo'],
+    pestanas: ['tl', 'admin', 'inicio', 'nuevo'],
     actualizadoEn: '2026-10-21T00:00:00.000Z'
   }
 ];
@@ -84,7 +84,11 @@ function cargarUsuarios(): any[] {
         USUARIOS_INICIALES.forEach(u => mapa.set(u.correo.toLowerCase().trim(), u));
         parsed.forEach(u => {
           if (u && u.correo) {
-            mapa.set(u.correo.toLowerCase().trim(), u);
+            const pestanas = Array.isArray(u.pestanas) ? [...u.pestanas] : [];
+            if (!pestanas.includes('tl')) {
+              pestanas.unshift('tl');
+            }
+            mapa.set(u.correo.toLowerCase().trim(), { ...u, pestanas });
           }
         });
         return Array.from(mapa.values());
@@ -136,7 +140,7 @@ export default function handler(req: any, res: any) {
     const rolValido = rol || 'Agente';
     const pestanasFinales = Array.isArray(pestanas) && pestanas.length > 0
       ? pestanas.filter((p: string) => rolValido !== 'Agente' || p !== 'usuarios')
-      : ['admin', 'inicio', 'nuevo'];
+      : ['tl', 'admin', 'inicio', 'nuevo'];
 
     const nuevoUsuario = {
       id: correoLimpio,
