@@ -1607,31 +1607,31 @@ export class SheetsService {
 
             // Col E (4): País
             const p = row[4] ? String(row[4]).trim() : '';
-            if (p && !paises.some(x => x.toLowerCase() === p.toLowerCase())) paises.push(p);
+            if (p && p.toLowerCase() !== 'país' && p.toLowerCase() !== 'pais' && !paises.some(x => x.toLowerCase() === p.toLowerCase())) paises.push(p);
 
             // Col G (6): Oportunidad
             const op = row[6] ? String(row[6]).trim() : '';
-            if (op && !oportunidades.some(x => x.toLowerCase() === op.toLowerCase())) oportunidades.push(op);
+            if (op && op.toLowerCase() !== 'oportunidad' && !oportunidades.some(x => x.toLowerCase() === op.toLowerCase())) oportunidades.push(op);
 
             // Col I (8): Asset
             const as = row[8] ? String(row[8]).trim() : '';
-            if (as && !assets.some(x => x.toLowerCase() === as.toLowerCase())) assets.push(as);
+            if (as && as.toLowerCase() !== 'asset' && !assets.some(x => x.toLowerCase() === as.toLowerCase())) assets.push(as);
 
             // Col K (10): Agente
             const ag = row[10] ? String(row[10]).trim() : '';
-            if (ag && !agentes.some(x => x.toLowerCase() === ag.toLowerCase())) agentes.push(ag);
+            if (ag && ag.toLowerCase() !== 'agente' && !agentes.some(x => x.toLowerCase() === ag.toLowerCase())) agentes.push(ag);
 
             // Col M (12): Estado del caso
             const est = row[12] ? String(row[12]).trim() : '';
-            if (est && !estados.some(x => x.toLowerCase() === est.toLowerCase())) estados.push(est);
+            if (est && est.toLowerCase() !== 'estado del caso' && est.toLowerCase() !== 'estado' && !estados.some(x => x.toLowerCase() === est.toLowerCase())) estados.push(est);
 
             // Col O (14): Etapa del onboarding
             const et = row[14] ? String(row[14]).trim() : '';
-            if (et && !etapas.some(x => x.toLowerCase() === et.toLowerCase())) etapas.push(et);
+            if (et && et.toLowerCase() !== 'etapa del onboarding' && et.toLowerCase() !== 'etapa' && !etapas.some(x => x.toLowerCase() === et.toLowerCase())) etapas.push(et);
 
             // Col Q (16): Estado del caso HC / Estado del ticket de seguimiento
             const estHC = row[16] ? String(row[16]).trim() : '';
-            if (estHC && !estadosTicketSeguimiento.some(x => x.toLowerCase() === estHC.toLowerCase())) estadosTicketSeguimiento.push(estHC);
+            if (estHC && estHC.toLowerCase() !== 'estado del caso hc' && estHC.toLowerCase() !== 'estado ticket' && !estadosTicketSeguimiento.some(x => x.toLowerCase() === estHC.toLowerCase())) estadosTicketSeguimiento.push(estHC);
           }
 
           if (estadosTicketSeguimiento.length === 0) {

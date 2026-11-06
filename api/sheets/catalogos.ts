@@ -49,7 +49,7 @@ async function fetchConReintento(
 }
 
 async function obtenerCatalogos(token: string): Promise<any> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:O")}?valueRenderOption=FORMATTED_VALUE`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent("'Integraciones_Sponsorship'!A:Q")}?valueRenderOption=FORMATTED_VALUE`;
   const apiRes = await fetchConReintento(url, {
     headers: { 
       Authorization: `Bearer ${token}`,
@@ -73,6 +73,7 @@ async function obtenerCatalogos(token: string): Promise<any> {
   const agentesSet = new Set<string>();
   const estadosSet = new Set<string>();
   const etapasSet = new Set<string>();
+  const estadosTicketSet = new Set<string>();
 
   let headerIdx = 0;
   for (let i = 0; i < Math.min(3, rows.length); i++) {
@@ -95,6 +96,7 @@ async function obtenerCatalogos(token: string): Promise<any> {
   const colAgente = findCol('agente', 10);
   const colEstado = findCol('estado', 12);
   const colEtapa = findCol('etapa', 14);
+  const colEstadoHC = findCol('ticket', 16);
 
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i] || [];
@@ -102,7 +104,7 @@ async function obtenerCatalogos(token: string): Promise<any> {
     const sponsInt = String(r[1] || '').trim().toUpperCase();
     const contactosInt = String(r[2] || '').trim();
 
-    if (nombreInt && nombreInt.toLowerCase() !== 'integraciones') {
+    if (nombreInt && nombreInt.toLowerCase() !== 'integraciones' && nombreInt.toLowerCase() !== 'nombre de la integración') {
       integraciones.push({
         nombre: nombreInt,
         sponsorship: sponsInt === 'SI' || sponsInt === 'TRUE' ? 'SI' : 'NO',
@@ -111,22 +113,25 @@ async function obtenerCatalogos(token: string): Promise<any> {
     }
 
     const pais = String(r[colPais] || '').trim();
-    if (pais && !pais.toLowerCase().includes('país') && !pais.toLowerCase().includes('pais')) paisesSet.add(pais);
+    if (pais && pais.toLowerCase() !== 'país' && pais.toLowerCase() !== 'pais') paisesSet.add(pais);
 
     const op = String(r[colOportunidad] || '').trim();
-    if (op && !op.toLowerCase().includes('oportunidad')) oportunidadesSet.add(op);
+    if (op && op.toLowerCase() !== 'oportunidad') oportunidadesSet.add(op);
 
     const asset = String(r[colAsset] || '').trim();
-    if (asset && !asset.toLowerCase().includes('asset')) assetsSet.add(asset);
+    if (asset && asset.toLowerCase() !== 'asset') assetsSet.add(asset);
 
     const agente = String(r[colAgente] || '').trim();
-    if (agente && !agente.toLowerCase().includes('agente')) agentesSet.add(agente);
+    if (agente && agente.toLowerCase() !== 'agente') agentesSet.add(agente);
 
     const estado = String(r[colEstado] || '').trim();
-    if (estado && !estado.toLowerCase().includes('estado')) estadosSet.add(estado);
+    if (estado && estado.toLowerCase() !== 'estado' && estado.toLowerCase() !== 'estado del caso') estadosSet.add(estado);
 
     const etapa = String(r[colEtapa] || '').trim();
-    if (etapa && !etapa.toLowerCase().includes('etapa')) etapasSet.add(etapa);
+    if (etapa && etapa.toLowerCase() !== 'etapa' && etapa.toLowerCase() !== 'etapa del onboarding') etapasSet.add(etapa);
+
+    const estHC = String(r[colEstadoHC] || '').trim();
+    if (estHC && estHC.toLowerCase() !== 'estado del caso hc' && estHC.toLowerCase() !== 'estado ticket' && estHC.toLowerCase() !== 'ticket') estadosTicketSet.add(estHC);
   }
 
   return {
@@ -148,6 +153,15 @@ async function obtenerCatalogos(token: string): Promise<any> {
       'En proceso para pruebas',
       'Pedido de prueba realizado',
       'Validación del Onboarding'
+    ],
+    estadosTicketSeguimiento: estadosTicketSet.size > 0 ? Array.from(estadosTicketSet) : [
+      'Abierto',
+      'Abierto (sin oportunidad)',
+      'Resuelto (bloquear respuesta)',
+      'Resuelto (sin bloquear respuesta)',
+      'Esperando por el cliente',
+      'Transferido',
+      'Sin ticket HC'
     ]
   };
 }
@@ -216,6 +230,16 @@ export default async function handler(req: any, res: any) {
         case 'etapas':
           rangoClear = "Integraciones_Sponsorship!O2:O";
           rangoUpdate = `Integraciones_Sponsorship!O2:O${Math.max(items.length + 1, 2)}`;
+          values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
+          break;
+        case 'estadosticketseguimiento':
+        case 'estados_ticket_seguimiento':
+        case 'estadosticket':
+        case 'estadoshc':
+        case 'estados_hc':
+        case 'estados_ticket':
+          rangoClear = "Integraciones_Sponsorship!Q2:Q";
+          rangoUpdate = `Integraciones_Sponsorship!Q2:Q${Math.max(items.length + 1, 2)}`;
           values = items.map(item => [typeof item === 'object' ? (item.nombre || item.valor) : String(item)]);
           break;
         default:

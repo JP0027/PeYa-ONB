@@ -670,7 +670,6 @@ async function startServer() {
       res.status(500).json({ success: false, error: err.message });
     }
   });
-  });
 
   // Montar Vite middleware para desarrollo o archivos estáticos en producción
   const distPath = path.resolve(process.cwd(), 'dist');
