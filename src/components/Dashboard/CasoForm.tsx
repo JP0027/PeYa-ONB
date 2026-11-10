@@ -104,7 +104,18 @@ export default function CasoForm({
     }));
   }, [integracionesDetalle, integraciones]);
 
-  const sponsorshipActual = obtenerSponsorship(formulario.integracion || '');
+  const sponsorshipActual = useMemo(() => {
+    if (!formulario.integracion) return '';
+    const norm = formulario.integracion.trim().toLowerCase();
+    if (Array.isArray(integracionesDetalle) && integracionesDetalle.length > 0) {
+      const match = integracionesDetalle.find(i => i.nombre?.trim().toLowerCase() === norm);
+      if (match && match.sponsorship) {
+        const s = String(match.sponsorship).trim().toUpperCase();
+        return (s === 'SI' || s === 'SÍ') ? 'SI' : 'NO';
+      }
+    }
+    return obtenerSponsorship(formulario.integracion);
+  }, [formulario.integracion, integracionesDetalle]);
 
   // Buscar detalle de contactos para la integración seleccionada o abierta
   const integracionObjetivoNombre = integracionParaContactos || formulario.integracion || '';
@@ -260,14 +271,24 @@ export default function CasoForm({
                 <span>↗️</span>
               </button>
             </div>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sponsorshipActual === 'SI' ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300' : 'bg-[#2C2C32]/80 border-[#3A3A3E] text-[#B3B3B3]'}`}>
-              Sponsorship: {sponsorshipActual}
-            </span>
+            {sponsorshipActual ? (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sponsorshipActual === 'SI' ? 'bg-emerald-950/60 border-emerald-600 text-emerald-300 font-bold' : 'bg-[#2C2C32]/80 border-[#3A3A3E] text-[#B3B3B3]'}`}>
+                Sponsorship: {sponsorshipActual}
+              </span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded border bg-[#2C2C32]/60 border-[#3A3A3E] text-[#888888]">
+                Sponsorship: -
+              </span>
+            )}
           </div>
           <SearchableSelect
             name="integracion"
             value={formulario.integracion || ''}
-            onChange={(val) => onChange({ target: { name: 'integracion', value: val } })}
+            onChange={(val) => {
+              const match = integracionesDetalle?.find(i => i.nombre?.toLowerCase().trim() === String(val).toLowerCase().trim());
+              const spon = match ? (String(match.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : (val ? obtenerSponsorship(val) : '');
+              onChange({ target: { name: 'integracion', value: val, sponsorship: spon } } as any);
+            }}
             options={listaIntegracionesOpciones}
             onVerContactos={(op) => {
               setIntegracionParaContactos(op.value);
@@ -275,6 +296,7 @@ export default function CasoForm({
             }}
             placeholder="Buscar integración..."
             searchPlaceholder="Escribe para buscar integración..."
+            onClear={() => onChange({ target: { name: 'integracion', value: '', sponsorship: '' } } as any)}
           />
         </div>
 
@@ -441,10 +463,11 @@ export default function CasoForm({
           <label className="text-[#B3B3B3] block mb-1 font-medium">q. Estado del ticket de seguimiento</label>
           <select 
             name="estadoTicketSeguimiento" 
-            value={formulario.estadoTicketSeguimiento || 'Abierto'} 
+            value={formulario.estadoTicketSeguimiento || ''} 
             onChange={onChange} 
             className="w-full bg-[#121212] border border-[#3A3A3E] rounded-lg p-2.5 text-white focus:border-[#E85A80] min-h-[44px]"
           >
+            <option value="">Seleccione estado del ticket...</option>
             {estadosTicketSeguimiento.map(et => <option key={et} value={et}>{et}</option>)}
           </select>
         </div>
@@ -501,7 +524,7 @@ export default function CasoForm({
               <div><span className="text-[#9CA3AF]">Integración:</span> <span className="text-cyan-300">{formulario.integracion}</span> (Sponsorship: {sponsorshipActual})</div>
               <div><span className="text-[#9CA3AF]">Oportunidad:</span> <span className="text-white">{formulario.oportunidad}</span></div>
               <div><span className="text-[#9CA3AF]">Etapa:</span> <span className="text-amber-300">{formulario.etapa}</span></div>
-              <div><span className="text-[#9CA3AF]">Ticket HeroCare:</span> <span className="text-purple-300">{formulario.estadoTicketSeguimiento || 'Abierto'}</span></div>
+              <div><span className="text-[#9CA3AF]">Ticket HeroCare:</span> <span className="text-purple-300">{formulario.estadoTicketSeguimiento || 'Sin especificar'}</span></div>
               <div><span className="text-[#9CA3AF]">Inicio Seguimiento:</span> <span className="text-emerald-400">{formulario.sla_inicio || formulario.fechaCreacion || 'Automático según etapa'}</span></div>
             </div>
 

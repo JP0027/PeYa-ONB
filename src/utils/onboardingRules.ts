@@ -566,7 +566,7 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
   // 1b. Regla de Cierre de Seguimiento
   const estadoTicket = resultado.estadoTicketSeguimiento !== undefined 
     ? resultado.estadoTicketSeguimiento 
-    : (casoAnterior?.estadoTicketSeguimiento || 'Abierto');
+    : (casoAnterior?.estadoTicketSeguimiento || '');
   resultado.estadoTicketSeguimiento = estadoTicket;
   resultado.fechaCierreSeguimiento = aplicarReglaCierreSeguimiento(
     estadoTicket, 
@@ -622,7 +622,7 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
 
   // Asignar automáticamente sponsorship según la integración
   if (resultado.integracion) {
-    const spon = obtenerSponsorship(resultado.integracion);
+    const spon = nuevosValores?.sponsorship || nuevosValores?.descuentosBajoEstructuraSponsorship || obtenerSponsorship(resultado.integracion);
     resultado.sponsorship = spon;
     resultado.descuentosBajoEstructuraSponsorship = spon;
   }

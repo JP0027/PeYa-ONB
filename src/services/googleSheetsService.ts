@@ -566,8 +566,8 @@ export function parsearCSVCliente(csvText: string, origen: string = 'Google Shee
     const propOp = getVal(colPropOp >= 0 ? colPropOp : 9, '');
     const propTick = getVal(colPropTicket >= 0 ? colPropTicket : 10, '');
     const agente = propTick || 'Sin asignación';
-    const integracion = getVal(colIntegracion >= 0 ? colIntegracion : 5, 'Datalive');
-    const sponsorship = getVal(colSponsorship >= 0 ? colSponsorship : 6, '') || 'NO';
+    const integracion = getVal(colIntegracion >= 0 ? colIntegracion : 5, '');
+    const sponsorship = getVal(colSponsorship >= 0 ? colSponsorship : 6, '') || (integracion ? obtenerSponsorship(integracion) : 'NO');
 
     casos.push({
       id: casoOp || vendorId || `CASO-${idx + 1}`,

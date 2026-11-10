@@ -14,7 +14,8 @@ import {
   LISTA_ETAPAS,
   LISTA_ESTADOS_TICKET_SEGUIMIENTO,
   LISTA_AGENTES,
-  MAPA_INTEGRACIONES_SPONSORSHIP
+  MAPA_INTEGRACIONES_SPONSORSHIP,
+  actualizarMapaIntegracionesDinamico
 } from '../data/catalogoOnboarding';
 
 const STORAGE_KEY = 'peya_catalogos_personalizados';
@@ -71,9 +72,11 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      const integracionesLocales = (parsed.integraciones?.length && parsed.integraciones.length >= CATALOGOS_POR_DEFECTO.integraciones.length)
+      const integracionesLocales = (Array.isArray(parsed.integraciones) && parsed.integraciones.length > 0)
         ? parsed.integraciones
         : CATALOGOS_POR_DEFECTO.integraciones;
+
+      actualizarMapaIntegracionesDinamico(integracionesLocales);
 
       return {
         paises: parsed.paises?.length ? parsed.paises : CATALOGOS_POR_DEFECTO.paises,
@@ -90,6 +93,7 @@ export function obtenerCatalogosLocales(): CatalogosPorDefecto {
   } catch (err) {
     console.warn('[catalogoService] Error leyendo localStorage:', err);
   }
+  actualizarMapaIntegracionesDinamico(CATALOGOS_POR_DEFECTO.integraciones);
   return { ...CATALOGOS_POR_DEFECTO, roles: rolesLocales };
 }
 
@@ -117,6 +121,9 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.catalogos) {
+          if (Array.isArray(data.catalogos.integraciones) && data.catalogos.integraciones.length > 0) {
+            actualizarMapaIntegracionesDinamico(data.catalogos.integraciones);
+          }
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data.catalogos));
           } catch (_) {}
@@ -128,6 +135,7 @@ export async function consultarCatalogosGoogleSheets(): Promise<CatalogosPorDefe
       console.warn(`[catalogoService] Error consultando ${baseUrl}:`, err);
     }
   }
+  actualizarMapaIntegracionesDinamico(CATALOGOS_POR_DEFECTO.integraciones);
   return { ...CATALOGOS_POR_DEFECTO };
 }
 
@@ -156,6 +164,9 @@ export async function guardarSeccionEnGoogleSheets(seccion: string, items: any[]
       const data = await res.json();
       if (res.ok && data.success) {
         if (data.catalogos) {
+          if (Array.isArray(data.catalogos.integraciones) && data.catalogos.integraciones.length > 0) {
+            actualizarMapaIntegracionesDinamico(data.catalogos.integraciones);
+          }
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data.catalogos));
           } catch (_) {}

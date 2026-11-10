@@ -133,7 +133,7 @@ export const MAPA_INTEGRACIONES_SPONSORSHIP: Record<string, string> = {
   "Lucciano's": 'NO',
   "Dean & Denny's": 'NO',
   'Delicheck': 'NO',
-  'Datalive': 'NO',
+  'Datalive': 'SI',
   'Rapimesas': 'NO',
   'Planeta Empanada': 'NO',
   'Qikserve': 'SI',
@@ -363,13 +363,48 @@ export const MAPA_INTEGRACIONES_SPONSORSHIP: Record<string, string> = {
 
 export const LISTA_INTEGRACIONES_OFICIALES: string[] = Object.keys(MAPA_INTEGRACIONES_SPONSORSHIP).sort((a, b) => a.localeCompare(b));
 
+// Mapa dinámico sincronizado en vivo desde Google Sheets
+export const MAPA_SPONSORSHIP_DINAMICO: Record<string, string> = { ...MAPA_INTEGRACIONES_SPONSORSHIP };
+
+/**
+ * Actualiza el mapa de integraciones con los valores vivos de Google Sheets
+ */
+export function actualizarMapaIntegracionesDinamico(integraciones: Array<{ nombre?: string; sponsorship?: string } | any>): void {
+  if (!Array.isArray(integraciones)) return;
+  for (const item of integraciones) {
+    if (!item) continue;
+    const nombre = typeof item === 'object' ? item.nombre : item;
+    const spon = typeof item === 'object' ? item.sponsorship : '';
+    if (nombre) {
+      const nombreLimpio = String(nombre).trim();
+      if (!nombreLimpio) continue;
+      const sponUpper = String(spon || '').trim().toUpperCase();
+      const esSi = sponUpper === 'SI' || sponUpper === 'SÍ' || sponUpper === 'TRUE';
+      MAPA_SPONSORSHIP_DINAMICO[nombreLimpio] = esSi ? 'SI' : 'NO';
+    }
+  }
+}
+
 export function obtenerSponsorship(integracionNombre: string | null | undefined): string {
   if (!integracionNombre) return 'NO';
   const nombreLimpio = String(integracionNombre).trim();
+  if (!nombreLimpio) return 'NO';
+
+  // 1. Revisar primero el mapa dinámico en vivo sincronizado con Google Sheets
+  if (MAPA_SPONSORSHIP_DINAMICO[nombreLimpio]) {
+    return MAPA_SPONSORSHIP_DINAMICO[nombreLimpio];
+  }
+  const keyDinamica = Object.keys(MAPA_SPONSORSHIP_DINAMICO).find(
+    k => k.toLowerCase() === nombreLimpio.toLowerCase()
+  );
+  if (keyDinamica) {
+    return MAPA_SPONSORSHIP_DINAMICO[keyDinamica];
+  }
+
+  // 2. Revisar el mapa estático como respaldo
   if (MAPA_INTEGRACIONES_SPONSORSHIP[nombreLimpio]) {
     return MAPA_INTEGRACIONES_SPONSORSHIP[nombreLimpio];
   }
-  // Coincidencia flexible si contiene el nombre
   const encontrada = Object.keys(MAPA_INTEGRACIONES_SPONSORSHIP).find(
     k => k.toLowerCase() === nombreLimpio.toLowerCase()
   );

@@ -547,7 +547,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       propietarioOportunidad: nombreUsuarioAutenticado, propietarioTicket: nombreUsuarioAutenticado,
       casoSeguimiento: '', tieneCasoInicio: '', comentarios: '', estado: '',
       etapa: '', 
-      estadoTicketSeguimiento: 'Abierto',
+      estadoTicketSeguimiento: '',
       fechaCreacion: '',
       sla_inicio: ''
     };
@@ -1054,29 +1054,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
     setBusquedaResultados(resultadosLocales);
     if (resultadosLocales.length > 0) {
-      // Ordenar para tomar el último caso registrado (fila más alta en la base)
-      const casosOrdenados = [...resultadosLocales].sort((a, b) => {
-        const filaA = Number(a.filaNumero) || 0;
-        const filaB = Number(b.filaNumero) || 0;
-        if (filaA && filaB) return filaB - filaA;
-        return 0;
-      });
-      const d = casosOrdenados[0] || resultadosLocales[0];
-      setFormulario(prev => ({
-        ...prev, 
-        casoOp: d.casoOp || (esCasoOp ? termTrim : ''), 
-        vendorId: d.vendor_id || d.vendorId || (esVendorId ? termTrim : ''), 
-        tienda: d.tienda || (esTienda ? termTrim : ''),
-        pais: d.pais || prev.pais || 'Argentina', 
-        kam: d.kam || '', 
-        integracion: d.integracion || 'Datalive',
-        oportunidad: resolverOportunidad(d.oportunidad, catalogosDinamicos.oportunidades),
-        asset: d.asset || prev.asset || 'Integración',
-        etapa: d.etapa ? limpiarTextoEtapa(d.etapa, d.comentarios, d.integracion) : 'Sin integración confirmada',
-        fechaCreacion: '',
-        sla_inicio: ''
-      }));
-      mostrarNotificacion(`Encontrados ${resultadosLocales.length} antecedentes.`, "success");
+      mostrarNotificacion(`Encontrados ${resultadosLocales.length} antecedentes. Usa "Replicar Tienda" si deseas copiar sus datos.`, "success");
     } else {
       // Si no existen antecedentes, redirigir automáticamente a la pestaña de agregar caso nuevo
       // Aplicar reglas de pre-llenado según el formato:
@@ -1101,7 +1079,8 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         asset: '',
         tieneCasoInicio: '',
         estado: '',
-        etapa: ''
+        etapa: '',
+        estadoTicketSeguimiento: ''
       }));
       setSubTabNuevo('registro');
       const tipoCampoMsg = esCasoOp ? 'N° Caso OP' : (esVendorId ? 'Vendor ID' : 'Tienda');
@@ -1119,6 +1098,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       pais: '',
       kam: '',
       integracion: '',
+      sponsorship: '',
       oportunidad: '',
       asset: '',
       casoSeguimiento: '',
@@ -1126,16 +1106,29 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       comentarios: '',
       estado: '',
       etapa: '',
-      estadoTicketSeguimiento: 'Abierto',
+      estadoTicketSeguimiento: '',
       fechaCreacion: '',
       sla_inicio: ''
     }));
     mostrarNotificacion('Formulario restablecido.', 'info');
   };
 
-  const manejarCambioForm = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormulario(prev => ({ ...prev, [name]: value }));
+  const manejarCambioForm = (e: any) => {
+    const { name, value, sponsorship } = e.target;
+    setFormulario(prev => {
+      const nuevo: any = { ...prev, [name]: value };
+      if (name === 'integracion') {
+        if (sponsorship !== undefined) {
+          nuevo.sponsorship = sponsorship;
+        } else if (value) {
+          const match = catalogosDinamicos.integraciones?.find(i => i.nombre?.toLowerCase().trim() === String(value).toLowerCase().trim());
+          nuevo.sponsorship = match ? (String(match.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : obtenerSponsorship(value);
+        } else {
+          nuevo.sponsorship = '';
+        }
+      }
+      return nuevo;
+    });
   };
 
   const guardarNuevoCaso = async () => {
@@ -1197,8 +1190,14 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const docId = esOpValido ? opInput : `SIN_OP_${formulario.vendorId || 'caso'}_r${proximaFila}`;
       const opResuelta = resolverOportunidad(formulario.oportunidad, catalogosDinamicos.oportunidades);
 
+      const intNombre = String(formulario.integracion || '').trim();
+      const matchSpon = catalogosDinamicos.integraciones?.find(i => i.nombre?.toLowerCase().trim() === intNombre.toLowerCase());
+      const sponCalculado = matchSpon ? (String(matchSpon.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : (intNombre ? obtenerSponsorship(intNombre) : 'NO');
+
       const casoProcesado = procesarActualizacionCaso({}, {
         ...formulario, 
+        sponsorship: sponCalculado,
+        descuentosBajoEstructuraSponsorship: sponCalculado,
         oportunidad: opResuelta,
         id: docId, 
         casoOp: casoOpFinal,
@@ -1234,19 +1233,20 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         casoOp: '', 
         vendorId: '', 
         tienda: '', 
-        pais: 'Argentina', 
+        pais: '', 
         kam: '',
-        integracion: 'Datalive', 
-        oportunidad: 'Franchise Extension', 
-        asset: 'Integración',
+        integracion: '', 
+        sponsorship: '',
+        oportunidad: '', 
+        asset: '',
         propietarioOportunidad: nombreUsuarioAutenticado, 
         propietarioTicket: nombreUsuarioAutenticado,
         casoSeguimiento: '', 
-        tieneCasoInicio: 'Si', 
+        tieneCasoInicio: '', 
         comentarios: '', 
-        estado: 'En progreso',
-        etapa: 'Sin integración confirmada', 
-        estadoTicketSeguimiento: 'Abierto',
+        estado: '',
+        etapa: '', 
+        estadoTicketSeguimiento: '',
         fechaCreacion: '',
         sla_inicio: ''
       });
@@ -1613,17 +1613,23 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       ? limpiarTextoEtapa(datosTienda.etapa, datosTienda.comentarios, datosTienda.integracion)
       : 'Sin integración confirmada';
 
+    const intReplicada = String(datosTienda.integracion || '').trim();
+    const matchSpon = catalogosDinamicos.integraciones?.find(i => i.nombre?.toLowerCase().trim() === intReplicada.toLowerCase());
+    const sponReplicado = matchSpon ? (String(matchSpon.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : (intReplicada ? obtenerSponsorship(intReplicada) : '');
+
     setFormulario(prev => ({
       ...prev, 
       casoOp: '', 
       vendorId: datosTienda.vendorId || datosTienda.vendor_id || prev.vendorId,
       tienda: datosTienda.tienda || prev.tienda, 
-      pais: datosTienda.pais || prev.pais || 'Argentina',
+      pais: datosTienda.pais || prev.pais || '',
       kam: datosTienda.kam || prev.kam || '', 
-      integracion: datosTienda.integracion || prev.integracion || 'Datalive',
+      integracion: intReplicada,
+      sponsorship: sponReplicado,
       oportunidad: opResuelta,
-      asset: datosTienda.asset || prev.asset || 'Integración',
+      asset: datosTienda.asset || prev.asset || '',
       etapa: etapaLimpia,
+      estadoTicketSeguimiento: '',
       fechaCreacion: '',
       sla_inicio: ''
     }));
@@ -1960,7 +1966,23 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                   </button>
 
                   <button
-                    onClick={() => setSubTabNuevo('registro')}
+                    onClick={() => {
+                      setSubTabNuevo('registro');
+                      setFormulario(prev => {
+                        if (!prev.tienda) {
+                          return {
+                            ...prev,
+                            integracion: '',
+                            sponsorship: '',
+                            estadoTicketSeguimiento: ''
+                          };
+                        }
+                        return {
+                          ...prev,
+                          estadoTicketSeguimiento: ''
+                        };
+                      });
+                    }}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
                       subTabNuevo === 'registro'
                         ? 'bg-[#E85A80] text-white shadow-lg shadow-pink-900/40 border border-[#E85A80]'

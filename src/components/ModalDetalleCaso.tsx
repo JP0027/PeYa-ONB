@@ -76,7 +76,9 @@ export default function ModalDetalleCaso({
     return raw;
   }, [caso]);
 
-  const integracionInicial = String(caso?.integracion || '').trim() || 'Datalive';
+  const integracionInicial = String(caso?.integracion || '').trim();
+  const matchSponInicial = integracionesDetalle?.find(i => i.nombre?.toLowerCase().trim() === integracionInicial.toLowerCase());
+  const sponInicial = caso?.sponsorship || (matchSponInicial ? (String(matchSponInicial.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : (integracionInicial ? obtenerSponsorship(integracionInicial) : 'NO'));
 
   const [form, setForm] = useState(() => ({
     id: caso?.id || caso?.casoOp || '',
@@ -87,8 +89,8 @@ export default function ModalDetalleCaso({
     pais: caso?.pais || 'Argentina',
     kam: caso?.kam || '',
     integracion: integracionInicial,
-    sponsorship: caso?.sponsorship || obtenerSponsorship(integracionInicial),
-    descuentosBajoEstructuraSponsorship: caso?.descuentosBajoEstructuraSponsorship || obtenerSponsorship(integracionInicial),
+    sponsorship: sponInicial,
+    descuentosBajoEstructuraSponsorship: sponInicial,
     oportunidad: resolverOportunidad(caso?.oportunidad, oportunidades),
     asset: caso?.asset || 'Integración',
     propietarioOportunidad: caso?.propietarioOportunidad || nombreUsuarioAutenticado || '',
@@ -139,9 +141,9 @@ export default function ModalDetalleCaso({
         casoOp: casoOpLimpio === 'Sin caso OP' ? '' : casoOpLimpio,
         vendorId: caso.vendor_id || caso.vendorId || '',
         tienda: caso.tienda || '',
-        integracion: intLimpia || prev.integracion || 'Datalive',
-        sponsorship: caso.sponsorship || obtenerSponsorship(intLimpia || prev.integracion || 'Datalive'),
-        descuentosBajoEstructuraSponsorship: caso.descuentosBajoEstructuraSponsorship || obtenerSponsorship(intLimpia || prev.integracion || 'Datalive'),
+        integracion: intLimpia || prev.integracion || '',
+        sponsorship: caso.sponsorship || (matchSponInicial ? (String(matchSponInicial.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : obtenerSponsorship(intLimpia || prev.integracion || '')),
+        descuentosBajoEstructuraSponsorship: caso.descuentosBajoEstructuraSponsorship || (matchSponInicial ? (String(matchSponInicial.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : obtenerSponsorship(intLimpia || prev.integracion || '')),
         oportunidad: opLimpia,
         sla_inicio: fmtFechaOVacio(caso.sla_inicio || caso.fechaInicioSeguimientoOP || caso.fechaInicioSeguimiento || prev.sla_inicio),
         pushKamPos: esPushKamRealizado(caso.pushKamPos),
@@ -234,7 +236,8 @@ export default function ModalDetalleCaso({
     setForm(prev => {
       let extra: Record<string, any> = {};
       if (name === 'integracion') {
-        const spon = obtenerSponsorship(nuevoValor);
+        const match = integracionesDetalle?.find(i => i.nombre?.toLowerCase().trim() === String(nuevoValor).toLowerCase().trim());
+        const spon = match ? (String(match.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : obtenerSponsorship(nuevoValor);
         extra = {
           sponsorship: spon,
           descuentosBajoEstructuraSponsorship: spon
@@ -517,7 +520,8 @@ export default function ModalDetalleCaso({
                   name="integracion"
                   value={form.integracion}
                   onChange={(val) => {
-                    const spon = obtenerSponsorship(val);
+                    const match = integracionesDetalle?.find(i => i.nombre?.toLowerCase().trim() === String(val).toLowerCase().trim());
+                    const spon = match ? (String(match.sponsorship).toUpperCase() === 'SI' ? 'SI' : 'NO') : (val ? obtenerSponsorship(val) : '');
                     setForm(prev => {
                       const cambios = { 
                         integracion: val, 
@@ -651,10 +655,11 @@ export default function ModalDetalleCaso({
                 <label className="text-purple-400 block mb-1 font-semibold">Estado del ticket de seguimiento</label>
                 <select 
                   name="estadoTicketSeguimiento" 
-                  value={form.estadoTicketSeguimiento || 'Abierto'} 
+                  value={form.estadoTicketSeguimiento || ''} 
                   onChange={manejarCambio}
                   className="w-full bg-[#121212] border border-purple-700/70 rounded-lg p-2.5 text-purple-300 font-bold min-h-[44px]"
                 >
+                  <option value="">Seleccione estado del ticket...</option>
                   {listaEstadosTicketFinal.map(est => <option key={est} value={est}>{est}</option>)}
                 </select>
               </div>
