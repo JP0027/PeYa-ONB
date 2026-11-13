@@ -1,5 +1,6 @@
 import React from 'react';
 import { contarTicketsSeguimientoUnicos, esCasoHcAbierto, esCasoEnProgreso } from '../../utils/onboardingRules';
+import { isHeroCareOwnerMatch, isOpportunityOwnerMatch } from '../../utils/agentMatching';
 
 export interface AgentSummaryProps {
   agente: string;
@@ -18,12 +19,18 @@ export default function AgentSummary({
 }: AgentSummaryProps) {
   const activos = casos.length;
   
-  // Casos de seguimiento abiertos y tickets únicos (deduplicados por N° Caso Seguimiento)
-  const casosSegAbiertos = casos.filter(c => esCasoHcAbierto(c));
+  // Casos de seguimiento abiertos guiados estrictamente por Propietario Ticket (tickets únicos sin repetir)
+  const casosSegAbiertos = casos.filter(c =>
+    esCasoHcAbierto(c) &&
+    (c.ownerTicket ? c.ownerTicket === agente : isHeroCareOwnerMatch(c, undefined, agente))
+  );
   const segAbiertosUnicos = contarTicketsSeguimientoUnicos(casosSegAbiertos);
 
-  // Casos de onboarding con estado En progreso
-  const onbEnProgreso = casos.filter(c => esCasoEnProgreso(c)).length;
+  // Casos de onboarding con estado En progreso guiados estrictamente por Propietario Oportunidad
+  const onbEnProgreso = casos.filter(c =>
+    esCasoEnProgreso(c) &&
+    (c.ownerOportunidad ? c.ownerOportunidad === agente : isOpportunityOwnerMatch(c, undefined, agente))
+  ).length;
 
   let criticos = 0; // >= 96h
   let atencion = 0; // >= 24h y < 96h

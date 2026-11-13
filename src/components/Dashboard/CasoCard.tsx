@@ -173,7 +173,12 @@ export default function CasoCard({ caso, alertas, onClick, onRegistrarPush, esta
         </span>
       </td>
       <td className="p-3 text-[10px] text-[#B3B3B3]">
-        {caso.propietarioTicket || caso.agente}
+        <div className="flex flex-col">
+          <span>{caso.propietarioOportunidad || caso.propietarioTicket || caso.agente || '-'}</span>
+          {caso.propietarioTicket && caso.propietarioOportunidad && caso.propietarioTicket.trim().toLowerCase() !== caso.propietarioOportunidad.trim().toLowerCase() && (
+            <span className="text-[9px] text-emerald-400">🎫 {caso.propietarioTicket}</span>
+          )}
+        </div>
       </td>
       <td className="p-3 text-[#D1D5DB] font-mono text-sm font-bold">
         {caso.casoSeguimiento && caso.casoSeguimiento !== '-' ? (

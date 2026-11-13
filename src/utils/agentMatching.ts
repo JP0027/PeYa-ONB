@@ -190,36 +190,63 @@ export function isAgentMatch(
 }
 
 /**
- * Valida de manera estricta si un caso pertenece al usuario actual
- * como Propietario de Ticket HeroCare (Columna K: Propietario de Ticket HeroCare)
+ * Normaliza el nombre de un propietario/agente contra los miembros conocidos o lista oficial,
+ * evitando falsos positivos entre homónimos (ej: Jean Palomino vs Jean Changanaqui).
  */
-export function isHeroCareOwnerMatch(
-  caso: { propietarioTicket?: string; agente?: string; propietarioOportunidad?: string; [key: string]: any },
-  userEmail?: string,
-  userDisplayName?: string
-): boolean {
-  if (!caso) return false;
-  const prop = String(caso.propietarioTicket || caso.agente || caso.propietarioOportunidad || '').trim();
-  if (!prop || prop === '-' || prop === 'Sin asignación' || prop === 'Sin asignar') return false;
-  return isAgentMatch({ propietarioTicket: prop, agente: prop }, userEmail, userDisplayName);
+export function normalizarAgenteOficial(valor?: string, agentesOficiales: string[] = []): string {
+  const raw = String(valor || '').trim();
+  if (!raw || raw === '-' || raw.toLowerCase() === 'sin asignación' || raw.toLowerCase() === 'sin asignar') {
+    return 'Sin Asignar';
+  }
+
+  const miembro = identificarMiembro(raw);
+  if (miembro) {
+    if (agentesOficiales.length === 0) return miembro.nombre;
+    const matchLista = agentesOficiales.find(a => normalizarTexto(a) === normalizarTexto(miembro.nombre));
+    return matchLista || miembro.nombre;
+  }
+
+  if (agentesOficiales.length > 0) {
+    const rawNorm = normalizarTexto(raw);
+    const matchExacto = agentesOficiales.find(a => normalizarTexto(a) === rawNorm);
+    if (matchExacto) return matchExacto;
+  }
+
+  return raw;
 }
 
 /**
  * Valida de manera estricta si un caso pertenece al usuario actual
- * como Propietario de la Oportunidad (Columna J: Propietario de la Oportunidad)
+ * como Propietario de Ticket HeroCare (Columna K: Propietario de Ticket HeroCare).
+ * Se guía exclusivamente por Propietario Ticket (sin fallback a Propietario Oportunidad).
+ */
+export function isHeroCareOwnerMatch(
+  caso: { propietarioTicket?: string; [key: string]: any },
+  userEmail?: string,
+  userDisplayName?: string
+): boolean {
+  if (!caso) return false;
+  const propTicket = String(caso.propietarioTicket || '').trim();
+  if (!propTicket || propTicket === '-' || propTicket.toLowerCase() === 'sin asignación' || propTicket.toLowerCase() === 'sin asignar') {
+    return false;
+  }
+  return isAgentMatch({ propietarioTicket: propTicket }, userEmail, userDisplayName);
+}
+
+/**
+ * Valida de manera estricta si un caso pertenece al usuario actual
+ * como Propietario de la Oportunidad (Columna J: Propietario de la Oportunidad).
+ * Se guía exclusivamente por Propietario Oportunidad (sin fallback a Propietario Ticket).
  */
 export function isOpportunityOwnerMatch(
-  caso: { propietarioOportunidad?: string; agente?: string; propietarioTicket?: string; [key: string]: any },
+  caso: { propietarioOportunidad?: string; [key: string]: any },
   userEmail?: string,
   userDisplayName?: string
 ): boolean {
   if (!caso) return false;
   const propOp = String(caso.propietarioOportunidad || '').trim();
-  if (!propOp || propOp === '-' || propOp === 'Sin asignación' || propOp === 'Sin asignar') {
-    // Si no tiene propietario de oportunidad pero tiene agente asignado, cotejar como fallback
-    return isAgentMatch(caso, userEmail, userDisplayName);
+  if (!propOp || propOp === '-' || propOp.toLowerCase() === 'sin asignación' || propOp.toLowerCase() === 'sin asignar') {
+    return false;
   }
-  return isAgentMatch({ propietarioOportunidad: propOp, propietarioTicket: propOp, agente: propOp }, userEmail, userDisplayName);
+  return isAgentMatch({ propietarioOportunidad: propOp }, userEmail, userDisplayName);
 }
-
-

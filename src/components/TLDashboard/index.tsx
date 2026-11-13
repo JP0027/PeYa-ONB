@@ -4,6 +4,7 @@ import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
 import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto, esCasoEnProgreso, esCasoActivoGlobal, contarTicketsSeguimientoUnicos } from '../../utils/onboardingRules';
 import { esEstadoActivoOficial, LISTA_ASSETS } from '../../data/catalogoOnboarding';
+import { normalizarAgenteOficial } from '../../utils/agentMatching';
 
 const AGENTES_OFICIALES = [
   'Jean Palomino',
@@ -84,18 +85,13 @@ export default function TLDashboard({
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  // Procesar casos con análisis detallado de Push KAM
+  // Procesar casos con análisis detallado de Push KAM y propietarios diferenciados (OP vs Ticket HC)
   const casosProcesados = useMemo(() => {
     return casos.map(c => {
       const alertas = analizarAlertasCaso(c);
-      const agenteACargo = c.propietarioOportunidad || c.propietarioTicket || c.agente || 'Sin Asignar';
-      
-      let normalizedAgent = agenteACargo;
-      AGENTES_OFICIALES.forEach(ao => {
-        if (agenteACargo.toLowerCase().includes(ao.split(' ')[0].toLowerCase())) {
-          normalizedAgent = ao;
-        }
-      });
+      const ownerOportunidad = normalizarAgenteOficial(c.propietarioOportunidad, AGENTES_OFICIALES);
+      const ownerTicket = normalizarAgenteOficial(c.propietarioTicket, AGENTES_OFICIALES);
+      const agenteACargo = ownerOportunidad !== 'Sin Asignar' ? ownerOportunidad : (ownerTicket !== 'Sin Asignar' ? ownerTicket : 'Sin Asignar');
 
       const esEnProgreso = esCasoEnProgreso(c);
       const esSegAbierto = esCasoHcAbierto(c);
@@ -133,7 +129,11 @@ export default function TLDashboard({
         tiempoTranscurridoOp: c.tiempoTranscurridoOp || alertas.tiempoTexto || '',
         esCritico: alertas.esCritico || horas >= 96,
         esProximoVencer: alertas.esProximoVencer || (horas >= 72 && horas < 96),
-        agenteACargo: normalizedAgent,
+        ownerOportunidad,
+        ownerTicket,
+        agenteACargo,
+        esEnProgreso,
+        esSegAbierto,
         colorClass: alertas.colorClass || 'bg-[#2C2C32]',
         esActivo,
         tieneInicioPos,
@@ -165,7 +165,21 @@ export default function TLDashboard({
   // Aplicar filtros
   const casosFiltrados = useMemo(() => {
     return casosProcesados.filter(c => {
-      if (filtroAgente !== 'todos' && c.agenteACargo !== filtroAgente) return false;
+      if (filtroAgente !== 'todos') {
+        if (filtroKpi === 'hc_abiertos') {
+          // Ticket de seguimiento abierto guiado estrictamente por Propietario Ticket
+          if (c.ownerTicket !== filtroAgente) return false;
+        } else if (filtroKpi === 'en_progreso' || filtroKpi === 'sin_op') {
+          // Oportunidad en progreso guiada estrictamente por Propietario Oportunidad
+          if (c.ownerOportunidad !== filtroAgente) return false;
+        } else if (filtroEstado !== 'todos') {
+          if (c.ownerOportunidad !== filtroAgente && c.ownerTicket !== filtroAgente) return false;
+        } else {
+          const esMiOp = c.esEnProgreso && c.ownerOportunidad === filtroAgente;
+          const esMiTicket = c.esSegAbierto && c.ownerTicket === filtroAgente;
+          if (!esMiOp && !esMiTicket) return false;
+        }
+      }
       if (filtroPais !== 'todos') {
         if (filtroPais === 'Otros') {
           if (PAISES_OFICIALES.includes(c.pais) && c.pais !== 'Otros') return false;
@@ -236,7 +250,8 @@ export default function TLDashboard({
       } else if (ordenCampo === 'estado') {
         valA = String(a.estado || '').toLowerCase(); valB = String(b.estado || '').toLowerCase();
       } else if (ordenCampo === 'agente') {
-        valA = String(a.agenteACargo || '').toLowerCase(); valB = String(b.agenteACargo || '').toLowerCase();
+        valA = String(filtroKpi === 'hc_abiertos' ? a.ownerTicket : a.agenteACargo || '').toLowerCase();
+        valB = String(filtroKpi === 'hc_abiertos' ? b.ownerTicket : b.agenteACargo || '').toLowerCase();
       } else if (ordenCampo === 'etapa') {
         valA = String(a.etapa || '').toLowerCase(); valB = String(b.etapa || '').toLowerCase();
       } else if (ordenCampo === 'sla') {
@@ -549,7 +564,10 @@ export default function TLDashboard({
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {AGENTES_OFICIALES.map(ag => {
-              const agentCases = casosActivos.filter(c => c.agenteACargo === ag);
+              const agentCases = casosActivos.filter(c =>
+                (c.esEnProgreso && c.ownerOportunidad === ag) ||
+                (c.esSegAbierto && c.ownerTicket === ag)
+              );
               return (
                 <AgentSummary 
                   key={ag} 
@@ -833,7 +851,23 @@ export default function TLDashboard({
                             );
                           })()}
                         </td>
-                        <td className="py-4 px-3 font-medium text-[#D1D5DB]">{c.agenteACargo}</td>
+                        <td className="py-4 px-3 font-medium text-[#D1D5DB]">
+                          {filtroKpi === 'hc_abiertos' ? (
+                            <div className="flex flex-col">
+                              <span>{c.ownerTicket}</span>
+                              {c.ownerOportunidad !== 'Sin Asignar' && c.ownerOportunidad !== c.ownerTicket && (
+                                <span className="text-[10px] text-[#9CA3AF]">OP: {c.ownerOportunidad}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col">
+                              <span>{c.ownerOportunidad !== 'Sin Asignar' ? c.ownerOportunidad : c.ownerTicket}</span>
+                              {c.ownerTicket !== 'Sin Asignar' && c.ownerOportunidad !== 'Sin Asignar' && c.ownerTicket !== c.ownerOportunidad && (
+                                <span className="text-[10px] text-emerald-400">🎫 {c.ownerTicket}</span>
+                              )}
+                            </div>
+                          )}
+                        </td>
                         <td className="py-4 px-3"><span className="px-2 py-0.5 rounded bg-[#2C2C32] text-[10px]">{limpiarTextoEtapa(c.etapa)}</span></td>
                         <td className="py-4 px-3 text-[#D1D5DB] font-mono text-xs">{c.casoSeguimiento && c.casoSeguimiento !== '-' ? c.casoSeguimiento : <span className="text-[#9CA3AF] italic">S/N</span>}</td>
                         <td className="py-4 px-3">

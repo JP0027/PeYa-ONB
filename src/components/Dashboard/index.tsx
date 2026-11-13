@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { isAgentMatch, identificarMiembro, isHeroCareOwnerMatch, isOpportunityOwnerMatch } from '../../utils/agentMatching';
+import { identificarMiembro, isHeroCareOwnerMatch, isOpportunityOwnerMatch } from '../../utils/agentMatching';
 import { esSupervisor, puedeRegistrarCasos, obtenerPestanasPorDefecto, LISTA_PESTANAS_SISTEMA, LISTA_BLANCA_OFICIAL, CORREOS_ONBOARDING_OFICIALES, obtenerCorreosOnboardingDinamicos, validarAccesoUsuario } from '../../utils/userPermissions';
 import { 
   procesarActualizacionCaso, 
@@ -182,7 +182,10 @@ function detectarCasosPushPendientes(casos: any[], rol?: string, emailUsuario?: 
 
   // 2. ALERTAS DE PUSH DE SEGUIMIENTO (>= 4 HORAS)
   // Evalúa los casos asignados al agente. Si es supervisor/TL o no hay casos asignados explícitamente, evalúa los casos activos.
-  const misCasos = casosActivos.filter(c => isAgentMatch(c, emailUsuario, nombreUsuario));
+  const misCasos = casosActivos.filter(c =>
+    (esCasoEnProgreso(c) && isOpportunityOwnerMatch(c, emailUsuario, nombreUsuario)) ||
+    (esCasoHcAbierto(c) && isHeroCareOwnerMatch(c, emailUsuario, nombreUsuario))
+  );
   const casosAAnalizar = (esRolSupervisor || misCasos.length === 0) ? casosActivos : misCasos;
 
   casosAAnalizar.forEach(c => {
@@ -803,37 +806,42 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     if (activeTab === 'global') return casosTotales.filter(c => esCasoEnProgreso(c) || esCasoHcAbierto(c));
     if (activeTab === 'inicio') {
       return casosTotales.filter(c => {
-        // En mis casos se filtra por Propietario de la Oportunidad
-        const esMio = isOpportunityOwnerMatch(c, email, nombreUsuarioAutenticado) || isAgentMatch(c, email, nombreUsuarioAutenticado);
-        if (!esMio) return false;
-        // Solo deben aparecer casos activos: OP en progreso O ticket de seguimiento abierto
-        return esCasoEnProgreso(c) || esCasoHcAbierto(c);
+        // Oportunidades en progreso guiadas estrictamente por Propietario Oportunidad
+        const esMiOp = esCasoEnProgreso(c) && isOpportunityOwnerMatch(c, email, nombreUsuarioAutenticado);
+        // Tickets de seguimiento abiertos guiados estrictamente por Propietario Ticket
+        const esMiTicket = esCasoHcAbierto(c) && isHeroCareOwnerMatch(c, email, nombreUsuarioAutenticado);
+        return esMiOp || esMiTicket;
       });
     }
     return casosTotales;
   }, [casosTotales, activeTab, email, nombreUsuarioAutenticado]);
 
-  const casosConAlertas = useMemo(() => casosMostrados.map(c => ({ caso: c, alertas: analizarAlertasCaso(c) })), [casosMostrados, tickReloj]);
+  const casosConAlertas = useMemo(() => casosMostrados.map(c => ({
+    caso: c,
+    alertas: analizarAlertasCaso(c),
+    esMiOportunidad: activeTab !== 'inicio' || isOpportunityOwnerMatch(c, email, nombreUsuarioAutenticado),
+    esMiTicketHC: activeTab !== 'inicio' || isHeroCareOwnerMatch(c, email, nombreUsuarioAutenticado)
+  })), [casosMostrados, tickReloj, activeTab, email, nombreUsuarioAutenticado]);
   
-  const totalTodosActivos = useMemo(() => casosConAlertas.filter(x => esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)).length, [casosConAlertas]);
+  const totalTodosActivos = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)).length, [casosConAlertas]);
 
-  // Casos en progreso: casos con la columna Estado del caso = En progreso
-  const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => esCasoEnProgreso(x.caso)).length, [casosConAlertas]);
+  // Casos en progreso: casos con Estado del caso = En progreso asignados por Propietario Oportunidad
+  const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => esCasoEnProgreso(x.caso) && x.esMiOportunidad).length, [casosConAlertas]);
 
   const totalSinOportunidad = useMemo(() => casosConAlertas.filter(x => {
-    if (!esCasoEnProgreso(x.caso)) return false;
+    if (!esCasoEnProgreso(x.caso) || !x.esMiOportunidad) return false;
     const est = String(x.caso.estado || '').toLowerCase().trim();
     const etapa = String(x.caso.etapa || '').toLowerCase().trim();
     return est.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !x.caso.casoOp || x.caso.casoOp === '-';
   }).length, [casosConAlertas]);
 
-  const totalPos = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushPos).length, [casosConAlertas]);
-  const totalCat = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushCat).length, [casosConAlertas]);
-  const totalSla = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico)).length, [casosConAlertas]);
+  const totalPos = useMemo(() => casosConAlertas.filter(x => ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushPos).length, [casosConAlertas]);
+  const totalCat = useMemo(() => casosConAlertas.filter(x => ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushCat).length, [casosConAlertas]);
+  const totalSla = useMemo(() => casosConAlertas.filter(x => ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico)).length, [casosConAlertas]);
   
-  // Casos con seguimiento abiertos: cantidad de tickets de seguimiento únicos (Estado del ticket de seguimiento = Abierto)
+  // Casos con seguimiento abiertos: tickets únicos (Estado del ticket de seguimiento = Abierto) asignados por Propietario Ticket
   const totalHcAbiertos = useMemo(() => {
-    const casosHc = casosConAlertas.filter(x => esCasoHcAbierto(x.caso));
+    const casosHc = casosConAlertas.filter(x => esCasoHcAbierto(x.caso) && x.esMiTicketHC);
     return contarTicketsSeguimientoUnicos(casosHc);
   }, [casosConAlertas]);
 
@@ -862,23 +870,23 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       const etapa = String(x.caso.etapa || '').toLowerCase().trim();
       const esSinOp = est.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !x.caso.casoOp || x.caso.casoOp === '-';
 
-      // casos con seguimiento abiertos: casos con la columna Estado del ticket de seguimiento = Abierto sin importar el Estado del caso actual
+      // Casos con seguimiento abiertos: guiados estrictamente por Propietario Ticket
       if (filtroMisCasos === 'hcAbiertos') {
-        return esCasoHcAbierto(x.caso);
+        return esCasoHcAbierto(x.caso) && x.esMiTicketHC;
       }
 
-      // Casos en progreso: casos con la columna Estado del caso = En progreso
+      // Casos en progreso: guiados estrictamente por Propietario Oportunidad
       if (filtroMisCasos === 'enProgreso') {
-        return esCasoEnProgreso(x.caso);
+        return esCasoEnProgreso(x.caso) && x.esMiOportunidad;
       }
 
       if (filtroMisCasos === 'sinOportunidad') {
-        return esCasoEnProgreso(x.caso) && esSinOp;
+        return esCasoEnProgreso(x.caso) && x.esMiOportunidad && esSinOp;
       }
-      if (filtroMisCasos === 'pushPos') return (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushPos;
-      if (filtroMisCasos === 'pushCat') return (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && x.alertas.requierePushCat;
-      if (filtroMisCasos === 'sla') return (esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso)) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico);
-      return esCasoEnProgreso(x.caso) || esCasoHcAbierto(x.caso);
+      if (filtroMisCasos === 'pushPos') return ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushPos;
+      if (filtroMisCasos === 'pushCat') return ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushCat;
+      if (filtroMisCasos === 'sla') return ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && (x.alertas.esVencido || x.alertas.esProximoVencer || x.alertas.esCritico);
+      return (esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC);
     });
 
     const valStr = (v: any) => String(v || '').toLowerCase().trim();
@@ -2164,7 +2172,7 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
                     <span className="text-lg">🎫</span>
                     <div>
                       <span className="font-bold text-white">Casos HC Abiertos ({totalHcAbiertos}):</span>{' '}
-                      Casos de OP u Onboarding cerrados satisfactoriamente que aún están en proceso para prueba con ticket de seguimiento HeroCare abierto asignados a ti como Propietario de Ticket HeroCare.
+                      Casos con ticket de seguimiento HeroCare abierto asignados a ti como Propietario Ticket ({totalHcAbiertos} tickets únicos en {listaFiltrada.length} filas).
                     </div>
                   </div>
                   <button

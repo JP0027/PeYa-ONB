@@ -32,8 +32,8 @@ export default function MetricsPanel({ casos, mesActual }: MetricsPanelProps) {
       } else {
         enProgresoNormal++;
 
-        // Agente activo para casos con OP
-        const agente = c.agenteACargo || c.agente || c.propietarioTicket || c.propietarioOportunidad || 'Sin Asignar';
+        // Agente propietario de la oportunidad para casos con OP
+        const agente = c.ownerOportunidad || c.propietarioOportunidad || 'Sin Asignar';
         porAgente[agente] = (porAgente[agente] || 0) + 1;
 
         // SLA de casos activos con OP

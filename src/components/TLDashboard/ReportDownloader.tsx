@@ -31,8 +31,8 @@ export default function ReportDownloader({
       "ID": c.vendorId || c.vendor_id || '',
       "KAM": c.kam || '',
       "Estado del ONB": c.estado || '',
-      "Propietario de Oportunidad": c.propietarioOportunidad || c.agente || c.propietarioTicket || '',
-      "Agente (Actual)": c.agenteACargo || '',
+      "Propietario de Oportunidad": c.propietarioOportunidad || c.ownerOportunidad || '',
+      "Propietario de Ticket HeroCare": c.propietarioTicket || c.ownerTicket || '',
       "Etapa del Onboarding": limpiarTextoEtapa(c.etapa, c.comentarios, c.integracion) || '',
       "SLA / Rango": c.rangoSlaOp || `${c.horasSLA}h`,
       "N° Caso Seguimiento": c.casoSeguimiento || ''
@@ -48,7 +48,7 @@ export default function ReportDownloader({
       { wch: 32 }, // KAM
       { wch: 25 }, // Estado del ONB
       { wch: 26 }, // Propietario de Oportunidad
-      { wch: 20 }, // Agente (Actual)
+      { wch: 26 }, // Propietario de Ticket HeroCare
       { wch: 34 }, // Etapa del Onboarding
       { wch: 15 }, // SLA
       { wch: 42 }  // N° Caso Seguimiento
