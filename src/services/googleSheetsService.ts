@@ -896,26 +896,61 @@ export async function actualizarCasoEnSheets(casoActualizado: any): Promise<any>
         if (data.success) {
           return data;
         }
+        if (data.error || data.message) {
+          throw new Error(data.error || data.message);
+        }
+      } else if (!res.ok) {
+        throw new Error(`Error HTTP ${res.status} al guardar en Google Sheets`);
       }
-    } catch (errApi) {
+    } catch (errApi: any) {
       console.warn(`[GoogleSheets] Error en actualizarCasoEnSheets (${endpoint}):`, errApi);
-    }
-  }
-
-  if (gasUrl && gasUrl.startsWith('http')) {
-    try {
-      await fetch(gasUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(casoActualizado)
-      });
-    } catch {
-      // Ignorar
+      throw errApi;
     }
   }
 
   return { success: true, caso: casoActualizado };
+}
+
+/**
+ * Registra un push (POS API / Catálogo / KAM) escribiendo ÚNICAMENTE las columnas de push en Google Sheets,
+ * evitando reescribir columnas A:U (Caso OP, Vendor ID, Tienda, etc.).
+ */
+export async function registrarPushEnSheets(payload: {
+  casoId?: string;
+  casoOp?: string;
+  vendorId?: string;
+  tienda?: string;
+  filaNumero?: number;
+  fecha: string;
+  tipo: 'pos' | 'cat' | 'kam_pos' | 'kam_cat' | string;
+  respuestaPos?: string;
+  pushKamPos?: string | boolean;
+  fechaInicioPos?: string;
+  freezePos?: string;
+  respuestaCat?: string;
+  pushKamCat?: string | boolean;
+  fechaInicioCat?: string;
+  freezeCat?: string;
+}): Promise<any> {
+  const res = await fetch('/api/sheets/registrar-push', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    const data = await res.json();
+    if (data.success) return data;
+    throw new Error(data.error || data.message || 'Error al registrar push en Google Sheets');
+  }
+  if (!res.ok) {
+    throw new Error(`Error HTTP ${res.status} al registrar push en Google Sheets`);
+  }
+  return { success: true };
 }
 
 /**
@@ -926,12 +961,14 @@ export async function eliminarCasoGoogleSheets(casoId: string, casoOp?: string, 
   try {
     const local = localStorage.getItem('PEDA_CASOS_LOCAL');
     if (local) {
-      const target = String(casoOp || casoId).trim();
-      const lista = JSON.parse(local).filter((c: any) => 
-        String(c.id).trim() !== target && 
-        String(c.casoOp || '').trim() !== target &&
-        (!filaNumero || c.filaNumero !== filaNumero)
-      );
+      const targetId = String(casoId || '').trim();
+      const targetOp = String(casoOp || '').trim();
+      const lista = JSON.parse(local).filter((c: any) => {
+        if (filaNumero && Number(c.filaNumero) === Number(filaNumero)) return false;
+        if (targetId && String(c.id || '').trim() === targetId) return false;
+        if (targetOp && String(c.casoOp || '').trim() === targetOp) return false;
+        return true;
+      });
       localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(lista));
     }
   } catch (_) {}

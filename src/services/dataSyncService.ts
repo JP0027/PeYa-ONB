@@ -75,8 +75,8 @@ class DataSyncService {
       const lista = await consultarCasosGoogleSheets();
       if (Array.isArray(lista) && lista.length > 0) {
         this.casosCache.clear();
-        lista.forEach(caso => {
-          const key = String(caso.casoOp || caso.id || caso.vendorId || '').trim();
+        lista.forEach((caso, idx) => {
+          const key = String(caso.id || (caso.filaNumero ? `fila_${caso.filaNumero}` : '') || caso.casoOp || `${caso.vendorId || 'caso'}_${idx}`).trim();
           if (key) {
             this.casosCache.set(key, caso);
           }
@@ -107,7 +107,7 @@ class DataSyncService {
     }
 
     try {
-      const key = String(caso.casoOp || caso.id || caso.vendorId || '').trim();
+      const key = String(caso.id || (caso.filaNumero ? `fila_${caso.filaNumero}` : '') || caso.casoOp || caso.vendorId || '').trim();
       const casoExistente = key ? this.casosCache.get(key) || {} : {};
 
       // 1. Validar y procesar con reglas de negocio

@@ -69,6 +69,8 @@ export default async function handler(req: any, res: any) {
     const { 
       casoId, 
       casoOp, 
+      vendorId,
+      tienda,
       filaNumero, 
       fecha, 
       tipo,
@@ -81,17 +83,19 @@ export default async function handler(req: any, res: any) {
       fechaInicioCat,
       freezeCat
     } = body;
-    const idBusqueda = String(casoOp || casoId || '').trim();
+    const idBusqueda = String(casoOp || casoId || vendorId || '').trim();
+    const venBuscado = String(vendorId || '').trim();
+    const tiendaBuscada = String(tienda || '').trim().toLowerCase();
 
-    if (!idBusqueda) {
-      return res.status(400).json({ success: false, error: 'Se requiere casoId o casoOp' });
+    if (!idBusqueda && !filaNumero) {
+      return res.status(400).json({ success: false, error: 'Se requiere casoId, casoOp o filaNumero' });
     }
 
     const token = await getToken();
 
     // 1. Consultar hoja completa A2:AO para detectar la fila y los valores actuales
     const fn = Number(filaNumero);
-    let filaTarget = (!isNaN(fn) && fn >= 2) ? fn : 0;
+    let filaTarget = (!isNaN(fn) && fn >= 3) ? fn : 0;
     let targetRowData: any[] = [];
 
     const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A2:AO?valueRenderOption=FORMATTED_VALUE`;
@@ -103,11 +107,20 @@ export default async function handler(req: any, res: any) {
       const dataCols = await resCols.json();
       const rows = dataCols.values || [];
 
-      if (filaTarget >= 2 && (filaTarget - 2) < rows.length) {
+      const opRaw = String(casoOp || '').trim();
+      const tieneOp = Boolean(opRaw && opRaw !== '-' && opRaw.toLowerCase() !== 'sin caso op' && !opRaw.startsWith('TEMP_') && !opRaw.startsWith('SIN_OP_') && !opRaw.includes('_r'));
+
+      if (filaTarget >= 3 && (filaTarget - 2) < rows.length) {
         const r = rows[filaTarget - 2] || [];
         const op = String(r[0] || '').trim();
         const ven = String(r[1] || '').trim();
-        if (op === idBusqueda || ven === idBusqueda || idBusqueda.startsWith(op + '_') || idBusqueda.startsWith(ven + '_')) {
+        const tie = String(r[2] || '').trim().toLowerCase();
+        const coincideOp = Boolean(op && tieneOp && op === opRaw);
+        const coincideVen = Boolean(ven && ((venBuscado && ven === venBuscado) || (!tieneOp && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))));
+        const venConflicto = Boolean(ven && venBuscado && ven !== venBuscado);
+        const coincideTie = Boolean(tie && tiendaBuscada && tie === tiendaBuscada);
+        const okMatch = tieneOp ? coincideOp : (!op && !venConflicto && (coincideVen || coincideTie));
+        if (okMatch) {
           targetRowData = r;
         } else {
           filaTarget = 0;
@@ -119,20 +132,30 @@ export default async function handler(req: any, res: any) {
         for (let i = rows.length - 1; i >= 0; i--) {
           const op = String(rows[i]?.[0] || '').trim();
           const ven = String(rows[i]?.[1] || '').trim();
-          if (
-            (op && op !== 'Sin caso OP' && op !== '-' && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
-            (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
-          ) {
-            filaTarget = i + 2;
-            targetRowData = rows[i] || [];
-            break;
+          const tie = String(rows[i]?.[2] || '').trim().toLowerCase();
+          if (tieneOp) {
+            if (op && op === opRaw) {
+              filaTarget = i + 2;
+              targetRowData = rows[i] || [];
+              break;
+            }
+          } else {
+            if (!op) {
+              const matchVen = Boolean(ven && ((venBuscado && ven === venBuscado) || ven === idBusqueda || idBusqueda.startsWith(ven + '_')));
+              const matchTie = Boolean(tie && tiendaBuscada && tie === tiendaBuscada);
+              if (matchVen || (!ven && matchTie)) {
+                filaTarget = i + 2;
+                targetRowData = rows[i] || [];
+                break;
+              }
+            }
           }
         }
       }
     }
 
-    if (filaTarget < 2) {
-      return res.status(404).json({ success: false, error: `Caso OP ${idBusqueda} no encontrado en Google Sheets.` });
+    if (filaTarget < 3) {
+      return res.status(409).json({ success: false, error: `No se pudo confirmar la fila exacta del caso ${idBusqueda} en Google Sheets. Haz clic en "Actualizar" e intenta nuevamente.` });
     }
 
     // 2. Preparar actualizaciones según las reglas oficiales

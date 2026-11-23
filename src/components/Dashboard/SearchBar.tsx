@@ -116,7 +116,7 @@ export default function SearchBar({
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="Buscar por N° Caso OP, Vendor ID o Nombre de Tienda..."
+              placeholder="Buscar por N° Caso OP, Vendor ID, Tienda o N° Seguimiento..."
               className="w-full bg-[#121212] border border-[#3A3A3E] focus:border-[#E85A80] rounded-xl pl-10 pr-9 py-2.5 text-white font-mono text-sm placeholder-gray-500 focus:outline-none transition shadow-inner"
             />
             {busquedaId && (

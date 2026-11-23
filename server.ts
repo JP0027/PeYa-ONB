@@ -329,8 +329,8 @@ async function startServer() {
   app.post('/api/sheets/actualizar-caso', async (req, res) => {
     try {
       const casoData = req.body;
-      if (!casoData || (!casoData.id && !casoData.casoOp)) {
-        return res.status(400).json({ success: false, error: 'Se requiere id o casoOp' });
+      if (!casoData || (!casoData.id && !casoData.casoOp && !casoData.vendorId)) {
+        return res.status(400).json({ success: false, error: 'Se requiere id, casoOp o vendorId' });
       }
       const resultado = sheetsBackendService.actualizarCaso(casoData);
 
@@ -339,12 +339,23 @@ async function startServer() {
 
       if (sheetsBackendService.tieneCredenciales() && resultado.caso) {
         try {
-          const syncRes = await sheetsBackendService.sincronizarCasoConGoogleSheets(resultado.caso);
+          const syncPayload: any = {
+            ...resultado.caso,
+            esNuevo: Boolean(casoData.esNuevo),
+            _origCasoOp: casoData._origCasoOp,
+            _origVendorId: casoData._origVendorId,
+            _origTienda: casoData._origTienda
+          };
+          const syncRes = await sheetsBackendService.sincronizarCasoConGoogleSheets(syncPayload);
           sheetsSincronizado = syncRes.success;
           if (syncRes.success) {
+            if (syncRes.filaNumero) resultado.caso.filaNumero = syncRes.filaNumero;
             gasMensaje = `Sincronizado exitosamente con Google Sheets (Fila #${syncRes.filaNumero})`;
           } else {
             gasMensaje = `Error al sincronizar con Sheets: ${syncRes.error}`;
+            if (String(syncRes.error || '').toLowerCase().includes('confirmar la fila')) {
+              return res.status(409).json({ success: false, error: syncRes.error });
+            }
           }
         } catch (e: any) {
           gasMensaje = `Error al sincronizar con Service Account: ${e.message}`;
@@ -355,6 +366,7 @@ async function startServer() {
 
       res.json({
         ...resultado,
+        filaNumero: resultado.caso?.filaNumero,
         sheetsSincronizado,
         gasMensaje
       });
@@ -413,21 +425,11 @@ async function startServer() {
     }
   });
 
-  // Registrar Push
+  // Registrar Push (actualiza únicamente columnas de Push POS/Catálogo sin sobrescribir A:U)
   app.post('/api/sheets/registrar-push', async (req, res) => {
     try {
-      const { casoId, casoOp, fecha, tipo } = req.body;
-      const targetId = casoOp || casoId;
-      if (!targetId) {
-        return res.status(400).json({ success: false, error: 'Se requiere casoId o casoOp' });
-      }
-      
-      const resultado = await sheetsBackendService.registrarPush(targetId, tipo, fecha);
-      if (resultado.success) {
-        res.json(resultado);
-      } else {
-        res.status(404).json(resultado);
-      }
+      const mod = await import('./api/sheets/registrar-push');
+      return await mod.default(req, res);
     } catch (err: any) {
       console.error('[API /api/sheets/registrar-push] Error:', err);
       res.status(500).json({ success: false, error: err.message });

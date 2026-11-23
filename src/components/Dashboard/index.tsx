@@ -19,7 +19,7 @@ import {
 import { LISTA_INTEGRACIONES_OFICIALES, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 import { analizarTiemposCaso } from '../../utils/tiempoLaboral';
 
-import { consultarCasosGoogleSheets, actualizarCasoEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
+import { consultarCasosGoogleSheets, actualizarCasoEnSheets, registrarPushEnSheets, eliminarCasoGoogleSheets } from '../../services/googleSheetsService';
 
 import SearchBar from './SearchBar';
 import CasoForm from './CasoForm';
@@ -1008,14 +1008,23 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
     setCargandoBusqueda(true);
     const term = busquedaId.trim().toLowerCase();
     
-    // Obtener data en tiempo real desde Google Sheets (evita depender del caché local)
+    // Obtener data en tiempo real desde Google Sheets (sin caché del navegador)
     let casosFrescos = casosTotales;
     try {
-      const res = await fetch('/api/sheets/casos?forceRefresh=true'); // Forzar refresh si es posible, o simplemente fetch
+      const res = await fetch(`/api/sheets/casos?forceRefresh=true&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       if (res.ok) {
         const json = await res.json();
-        if (json.success && json.casos) {
+        if (json.success && Array.isArray(json.casos) && json.casos.length > 0) {
           casosFrescos = json.casos;
+          setCasosSheets(json.casos);
+          setUltimaSync(new Date());
+          try { localStorage.setItem('PEDA_CASOS_LOCAL', JSON.stringify(json.casos)); } catch (_) {}
         }
       }
     } catch (err) {
@@ -1027,22 +1036,25 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
 
     const resultadosLocales = casosFrescos.filter(c => {
       const vId = String(c.vendor_id || c.vendorId || '').toLowerCase().trim();
-      const cOp = String(c.casoOp || c.id || '').toLowerCase().trim();
+      const cOpReal = String(c.casoOp || '').toLowerCase().trim();
       const tnda = String(c.tienda || '').toLowerCase().trim();
+      const seg = String(c.casoSeguimiento || '').toLowerCase().trim();
 
       const vIdDigits = vId.replace(/\D/g, '');
-      const cOpDigits = cOp.replace(/\D/g, '');
+      const cOpDigits = cOpReal.replace(/\D/g, '');
 
-      // 1. Coincidencia exacta o por subcadena
-      if (vId === term || cOp === term) return true;
-      if (cOp && (cOp.includes(term) || term.includes(cOp))) return true;
+      // 1. Coincidencia exacta o por subcadena (Vendor ID, Caso OP, Tienda o N° Caso Seguimiento)
+      if (vId && vId === term) return true;
+      if (cOpReal && (cOpReal === term || cOpReal.includes(term) || (cOpReal.length >= 4 && term.includes(cOpReal)))) return true;
       if (tnda && tnda.includes(term)) return true;
+      if (seg && seg.includes(term)) return true;
 
       // 2. Coincidencia limpia por dígitos numéricos (ej. 352002996 con OP-352002996)
       if (soloDigitos.length >= 4) {
-        if (cOpDigits && (cOpDigits === soloDigitos || cOpDigits.includes(soloDigitos) || soloDigitos.includes(cOpDigits))) return true;
+        if (cOpDigits && (cOpDigits === soloDigitos || cOpDigits.includes(soloDigitos) || (cOpDigits.length >= 4 && soloDigitos.includes(cOpDigits)))) return true;
         if (vIdDigits && vIdDigits === soloDigitos) return true;
       }
+      return false;
     });
     const esSoloNumeros = /^\d+$/.test(termTrim);
     const tienePrefijoOp = /^op[-_ ]?\d+/i.test(termTrim);
@@ -1215,19 +1227,23 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       });
 
       // 2. Guardar y sincronizar directamente con Google Sheets
-      const sheetsRes = await actualizarCasoEnSheets({ ...casoProcesado, esNuevo: true }).catch(err => {
-        console.warn('Sheets sync notice:', err);
-        return null;
-      });
+      const sheetsRes = await actualizarCasoEnSheets({ ...casoProcesado, esNuevo: true });
       const filaConfirmada = sheetsRes?.caso?.filaNumero || sheetsRes?.filaNumero || proximaFila;
+      const idConfirmado = esOpValido
+        ? `${opInput}_${filaConfirmada}`
+        : (formulario.vendorId ? `${formulario.vendorId}_${filaConfirmada}` : `fila_${filaConfirmada}`);
       const casoFinalConFila = {
         ...casoProcesado,
+        id: idConfirmado,
         filaNumero: filaConfirmada,
         esNuevo: false
       };
 
-      // 3. Actualizar estado local
-      setCasosSheets(prev => [casoFinalConFila, ...prev.filter(c => String(c.id).trim() !== docId && String(c.casoOp || '').trim() !== docId)]);
+      // 3. Actualizar estado local sin colisionar con otros casos Sin OP
+      setCasosSheets(prev => [
+        casoFinalConFila,
+        ...prev.filter(c => Number(c.filaNumero) !== Number(filaConfirmada) && String(c.id || '').trim() !== idConfirmado)
+      ]);
 
       mostrarNotificacion(`Caso registrado exitosamente en fila #${filaConfirmada}`, "success");
       
@@ -1297,28 +1313,43 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         casoFinal.filaNumero = filaNum;
       }
 
-      const nuevoDocId = esOpValido ? opInput : (idPrevio || `SIN_OP_${casoFinal.vendorId || 'caso'}_r${filaNum || 'edit'}`);
+      const nuevoDocId = filaNum
+        ? (esOpValido ? `${opInput}_${filaNum}` : (casoFinal.vendorId ? `${casoFinal.vendorId}_${filaNum}` : (idPrevio || `fila_${filaNum}`)))
+        : (esOpValido ? opInput : (idPrevio || `SIN_OP_${casoFinal.vendorId || 'caso'}_edit`));
       casoFinal.id = nuevoDocId;
 
-      // 1. Actualizar estados locales de inmediato
-      const coincideCaso = (c: any) => 
-        (filaNum && c.filaNumero === filaNum) ||
-        (idPrevio && String(c.id).trim() === idPrevio) ||
-        (nuevoDocId && String(c.id).trim() === nuevoDocId) ||
-        (esOpValido && String(c.casoOp).trim() === opInput);
-
-      setCasosSheets(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoFinal } : c));
-
-      // 2. Guardar y sincronizar directamente con Google Sheets
-      await actualizarCasoEnSheets({ ...casoFinal, esNuevo: false }).catch(err => {
-        console.warn('Sheets sync notice:', err);
+      // 1. Guardar y sincronizar directamente con Google Sheets enviando identidad original para evitar cruce de filas
+      const sheetsRes = await actualizarCasoEnSheets({
+        ...casoFinal,
+        esNuevo: false,
+        _origCasoOp: casoPrevio?.casoOp || '',
+        _origVendorId: casoPrevio?.vendorId || casoPrevio?.vendor_id || '',
+        _origTienda: casoPrevio?.tienda || ''
       });
 
+      const filaReal = sheetsRes?.filaNumero || sheetsRes?.caso?.filaNumero || filaNum;
+      if (filaReal) {
+        casoFinal.filaNumero = filaReal;
+      }
+
+      // 2. Actualizar estado local estrictamente para esta fila/ID (nunca cruzar con otros casos)
+      const coincideCaso = (c: any) => {
+        if (filaNum && Number(c.filaNumero) === filaNum) return true;
+        if (idPrevio && String(c.id || '').trim() === idPrevio) return true;
+        if (!filaNum && !idPrevio && esOpValido && String(c.casoOp || '').trim() === opInput) return true;
+        return false;
+      };
+
+      setCasosSheets(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoFinal } : c));
       setCasoSeleccionadoModal(casoFinal);
       mostrarNotificacion('Actualizado', "success");
     } catch (err: any) {
-      console.error("Error actualizando caso en Firebase/Sheets:", err);
+      console.error("Error actualizando caso en Sheets:", err);
       mostrarNotificacion(`❌ Error actualizando caso: ${err.message}`, "error");
+      // Si hubo desfase de filas en Sheets, refrescar silenciosamente para realinear
+      if (String(err?.message || '').toLowerCase().includes('fila')) {
+        cargarCasosGoogleSheets(true);
+      }
     } finally {
       setCargandoOperacion(null);
     }
@@ -1327,15 +1358,22 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   const manejarEliminarCaso = async (caso: any): Promise<any> => {
     if (!caso) return false;
     const targetId = String(caso.id || caso.casoOp || '').trim();
-    const op = (caso.casoOp && caso.casoOp !== '-' && caso.casoOp !== 'Sin caso OP') ? caso.casoOp : (caso.vendorId || targetId);
+    const targetOp = String(caso.casoOp || '').trim();
+    const targetFila = Number(caso.filaNumero);
+    const op = (targetOp && targetOp !== '-' && targetOp !== 'Sin caso OP') ? targetOp : (caso.vendorId || targetId);
 
     setCargandoOperacion(`Eliminando caso OP #${op}...`);
     try {
       // 1. Eliminar en Google Sheets
-      await eliminarCasoGoogleSheets(targetId, caso.casoOp, caso.filaNumero);
+      await eliminarCasoGoogleSheets(targetId, targetOp, targetFila || undefined);
 
-      // 2. Actualizar estado local de casos
-      setCasosSheets(prev => prev.filter(c => String(c.id).trim() !== targetId && String(c.casoOp || '').trim() !== String(caso.casoOp || '').trim()));
+      // 2. Actualizar estado local sin borrar otros casos Sin OP
+      setCasosSheets(prev => prev.filter(c => {
+        if (targetFila && Number(c.filaNumero) === targetFila) return false;
+        if (targetId && String(c.id || '').trim() === targetId) return false;
+        if (!targetFila && !targetId && targetOp && String(c.casoOp || '').trim() === targetOp) return false;
+        return true;
+      }));
 
       mostrarNotificacion('Actualizado', 'success');
       return true;
@@ -1554,12 +1592,39 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
       if (caso.filaNumero) casoActualizado.filaNumero = caso.filaNumero;
       if (caso.id) casoActualizado.id = caso.id;
 
-      // 1. Actualización inmediata local
-      const coincideCaso = (c: any) => 
-        (String(c.id).trim() === idBuscado || 
-         String(c.casoOp || '').trim() === idBuscado || 
-         (caso.casoOp && String(c.casoOp).trim() === String(caso.casoOp).trim()) ||
-         (caso.filaNumero && Number(c.filaNumero) === Number(caso.filaNumero)));
+      // 1. Sincronizar ÚNICAMENTE las columnas de Push en Google Sheets (nunca reescribe A:U, evitando duplicaciones)
+      const pushRes = await registrarPushEnSheets({
+        casoId: String(caso.id || '').trim(),
+        casoOp: String(caso.casoOp || '').trim(),
+        vendorId: String(caso.vendorId || caso.vendor_id || '').trim(),
+        tienda: String(caso.tienda || '').trim(),
+        filaNumero: caso.filaNumero ? Number(caso.filaNumero) : undefined,
+        fecha: fechaSheet,
+        tipo,
+        respuestaPos: casoActualizado.respuestaPos,
+        pushKamPos: casoActualizado.pushKamPos,
+        fechaInicioPos: casoActualizado.fechaInicioPos,
+        freezePos: casoActualizado.freezePos || casoActualizado.fechaFreezePos,
+        respuestaCat: casoActualizado.respuestaCat,
+        pushKamCat: casoActualizado.pushKamCat,
+        fechaInicioCat: casoActualizado.fechaInicioCat,
+        freezeCat: casoActualizado.freezeCat || casoActualizado.fechaFreezeCat
+      });
+
+      if (pushRes?.filaNumero) {
+        casoActualizado.filaNumero = pushRes.filaNumero;
+      }
+
+      // 2. Actualización local estricta por filaNumero o id (sin cruzar otros casos Sin OP)
+      const targetFila = Number(casoActualizado.filaNumero || caso.filaNumero);
+      const targetId = String(caso.id || '').trim();
+      const targetOp = String(caso.casoOp || '').trim();
+      const coincideCaso = (c: any) => {
+        if (targetFila && Number(c.filaNumero) === targetFila) return true;
+        if (targetId && String(c.id || '').trim() === targetId) return true;
+        if (!targetFila && !targetId && targetOp && String(c.casoOp || '').trim() === targetOp) return true;
+        return false;
+      };
 
       setCasosSheets(prev => prev.map(c => coincideCaso(c) ? { ...c, ...casoActualizado } : c));
 
@@ -1586,25 +1651,22 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         `${tipo}_${idBuscado}`
       ]);
 
-      // 2. Sincronizar directamente con Google Sheets
-      await actualizarCasoEnSheets(casoActualizado).catch(e => {
-        console.warn('Error sincronizando push con sheets:', e);
-      });
-
       mostrarNotificacion('Actualizado', "success");
 
       setAlertasPushActivas(prev => prev.filter(a => {
         const c = a.caso;
         if (!c) return false;
-        const matchesOp = Boolean(c.casoOp && caso.casoOp && String(c.casoOp).trim() === String(caso.casoOp).trim());
-        const matchesId = Boolean(c.id && caso.id && String(c.id).trim() === String(caso.id).trim());
-        const matchesVen = Boolean((c.vendorId || c.vendor_id) && (caso.vendorId || caso.vendor_id) && String(c.vendorId || c.vendor_id).trim() === String(caso.vendorId || caso.vendor_id).trim());
-        const matchesSearch = Boolean(String(c.id || '').trim() === idBuscado || String(c.casoOp || '').trim() === idBuscado);
-        return !(matchesOp || matchesId || matchesVen || matchesSearch);
+        if (targetFila && Number(c.filaNumero) === targetFila) return false;
+        if (targetId && String(c.id || '').trim() === targetId) return false;
+        if (targetOp && String(c.casoOp || '').trim() === targetOp) return false;
+        return true;
       }));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al registrar push:", err);
-      mostrarNotificacion("Error al registrar push.", "error");
+      mostrarNotificacion(`❌ Error al registrar push: ${err?.message || 'Error de conexión'}`, "error");
+      if (String(err?.message || '').toLowerCase().includes('fila')) {
+        cargarCasosGoogleSheets(true);
+      }
     } finally {
       setCargandoOperacion(null);
     }

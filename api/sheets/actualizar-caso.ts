@@ -197,11 +197,23 @@ export default async function handler(req: any, res: any) {
     let filaTarget = 0;
     let totalFilasHoja = 0;
 
-    // 1. Consultar 'Onboarding_New'!A:C para detectar el número real de filas con datos en la base antes de escribir
-    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:C?valueRenderOption=FORMATTED_VALUE`;
+    // 1. Consultar 'Onboarding_New'!A:L para detectar el número real de filas y verificar identidad (OP, Vendor, Tienda, N° Seguimiento)
+    const urlCols = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A:L?valueRenderOption=FORMATTED_VALUE`;
     const resCols = await fetchConReintento(urlCols, {
       headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
     });
+
+    const esOpReal = (val: string): boolean => {
+      const v = String(val || '').trim();
+      return Boolean(
+        v &&
+        v !== 'Sin caso OP' &&
+        v !== '-' &&
+        !v.startsWith('TEMP_') &&
+        !v.startsWith('SIN_OP_') &&
+        !v.includes('_r')
+      );
+    };
 
     if (resCols.ok) {
       const dataCols = await resCols.json();
@@ -222,51 +234,101 @@ export default async function handler(req: any, res: any) {
 
       const filaHint = Number(casoData.filaNumero);
       const venBuscado = String(casoData.vendorId || casoData.vendor_id || '').trim();
+      const origVen = String(casoData._origVendorId || '').trim();
       const opBuscado = String(casoData.casoOp || '').trim();
-      const esOpValido = opBuscado && opBuscado !== 'Sin caso OP' && opBuscado !== '-' && !opBuscado.startsWith('TEMP_') && !opBuscado.startsWith('SIN_OP_') && !opBuscado.includes('_r');
+      const origOp = String(casoData._origCasoOp || '').trim();
+      const tiendaBuscada = String(casoData.tienda || '').trim().toLowerCase();
+      const origTienda = String(casoData._origTienda || '').trim().toLowerCase();
+      const segBuscado = String(casoData.casoSeguimiento || '').trim().toLowerCase();
+
+      const esOpValido = esOpReal(opBuscado);
+      const esOrigOpValido = esOpReal(origOp);
 
       // Solo buscar filaTarget si estamos EDITANDO un caso existente (!esNuevo)
       if (!esNuevo) {
-        // 1. Prioridad: Verificar por número de fila en Sheets (posición exacta en la base)
+        // 1. Prioridad: Verificar estrictamente la fila indicada en Sheets
         if (filaHint >= 3 && filaHint <= rows.length) {
           const rowAtHint = rows[filaHint - 1] || [];
           const opAtHint = String(rowAtHint[0] || '').trim();
           const venAtHint = String(rowAtHint[1] || '').trim();
-          if (!venBuscado || venAtHint === venBuscado || (esOpValido && opAtHint === opBuscado) || !opAtHint) {
-            filaTarget = filaHint;
-          }
-        }
+          const tiendaAtHint = String(rowAtHint[2] || '').trim().toLowerCase();
+          const segAtHint = String(rowAtHint[11] || '').trim().toLowerCase();
 
-        // 2. Si no confirmó por filaHint, buscar de abajo hacia arriba tomando el último registrado si se repite casoOp
-        if (!filaTarget && esOpValido) {
-          for (let i = rows.length - 1; i >= 0; i--) {
-            const op = String(rows[i]?.[0] || '').trim();
-            if (op === opBuscado) {
-              filaTarget = i + 1;
-              break;
+          const venCoincide = Boolean(venAtHint && ((venBuscado && venAtHint === venBuscado) || (origVen && venAtHint === origVen)));
+          const venConflicto = Boolean(venAtHint && (venBuscado || origVen) && !venCoincide);
+          const tiendaCoincide = Boolean(tiendaAtHint && ((tiendaBuscada && tiendaAtHint === tiendaBuscada) || (origTienda && tiendaAtHint === origTienda)));
+          const segCoincide = Boolean(segAtHint && segBuscado && segAtHint === segBuscado);
+
+          if (opAtHint) {
+            // La fila en Sheets TIENE un Caso OP: solo coincide si ese OP coincide con el actual o el original
+            if ((esOpValido && opAtHint === opBuscado) || (esOrigOpValido && opAtHint === origOp)) {
+              filaTarget = filaHint;
+            }
+          } else {
+            // La fila en Sheets NO tiene Caso OP (Sin OP): jamás sobrescribir si el Vendor ID pertenece a otra tienda
+            if (!venConflicto && (venCoincide || tiendaCoincide || segCoincide)) {
+              filaTarget = filaHint;
             }
           }
         }
 
-        // 3. Si aún no encuentra por casoOp, buscar por vendorId o id de abajo hacia arriba
-        if (!filaTarget) {
+        // 2. Si no confirmó por filaHint y tiene Caso OP real, buscar de abajo hacia arriba por Caso OP
+        if (!filaTarget && (esOrigOpValido || esOpValido)) {
+          const opTarget = esOrigOpValido ? origOp : opBuscado;
+          let fallbackOpRow = 0;
           for (let i = rows.length - 1; i >= 0; i--) {
             const op = String(rows[i]?.[0] || '').trim();
             const ven = String(rows[i]?.[1] || '').trim();
-            if (
-              (venBuscado && ven === venBuscado) ||
-              (op && (op === idBusqueda || idBusqueda.startsWith(op + '_'))) ||
-              (ven && (ven === idBusqueda || idBusqueda.startsWith(ven + '_')))
-            ) {
-              filaTarget = i + 1;
-              break;
+            if (op === opTarget) {
+              if (!fallbackOpRow) fallbackOpRow = i + 1;
+              if ((venBuscado && ven === venBuscado) || (origVen && ven === origVen)) {
+                filaTarget = i + 1;
+                break;
+              }
             }
+          }
+          if (!filaTarget && fallbackOpRow) {
+            filaTarget = fallbackOpRow;
           }
         }
 
-        // 4. Si es edición y no se encontró en búsquedas, forzar filaHint
-        if (!filaTarget && filaHint >= 3) {
-          filaTarget = filaHint;
+        // 3. Si es un caso Sin OP (!esOpValido && !esOrigOpValido), buscar SOLO entre filas Sin OP (!op)
+        if (!filaTarget && !esOpValido && !esOrigOpValido) {
+          let fallbackSinOpVen = 0;
+          let fallbackSinOpTienda = 0;
+          for (let i = rows.length - 1; i >= 0; i--) {
+            const op = String(rows[i]?.[0] || '').trim();
+            if (op) continue; // Nunca cruzar un caso Sin OP con una fila que ya tiene Caso OP
+            const ven = String(rows[i]?.[1] || '').trim();
+            const tie = String(rows[i]?.[2] || '').trim().toLowerCase();
+            const seg = String(rows[i]?.[11] || '').trim().toLowerCase();
+
+            const matchVen = Boolean(ven && ((venBuscado && ven === venBuscado) || (origVen && ven === origVen)));
+            const matchTie = Boolean(tie && ((tiendaBuscada && tie === tiendaBuscada) || (origTienda && tie === origTienda)));
+            const matchSeg = Boolean(seg && segBuscado && seg === segBuscado);
+
+            if (matchVen && (matchTie || matchSeg)) {
+              filaTarget = i + 1;
+              break;
+            }
+            if (matchVen && !fallbackSinOpVen) {
+              fallbackSinOpVen = i + 1;
+            }
+            if (!ven && matchTie && (!segBuscado || matchSeg) && !fallbackSinOpTienda) {
+              fallbackSinOpTienda = i + 1;
+            }
+          }
+          if (!filaTarget) {
+            filaTarget = fallbackSinOpVen || fallbackSinOpTienda;
+          }
+        }
+
+        // 4. Protección contra cruce de filas: si es edición y no se confirmó ninguna fila segura, abortar con 409
+        if (!filaTarget) {
+          return res.status(409).json({
+            success: false,
+            error: 'No se pudo confirmar la fila exacta del caso en Google Sheets porque la hoja cambió de posición. Haz clic en "Actualizar" e intenta nuevamente.'
+          });
         }
       }
     }

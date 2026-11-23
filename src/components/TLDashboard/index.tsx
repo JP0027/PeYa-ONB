@@ -681,7 +681,7 @@ export default function TLDashboard({
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-white">
                   {filtroKpi === 'hc_abiertos' 
-                    ? `Casos con Seguimiento Abierto (${segAbiertosTicketsUnicos} tickets / ${casosActivosOrdenados.length} casos OP)` 
+                    ? `Casos con Seguimiento Abierto (${contarTicketsSeguimientoUnicos(casosActivosOrdenados)} tickets / ${casosActivosOrdenados.length} casos OP)` 
                     : filtroKpi === 'en_progreso'
                     ? 'Casos En Progreso'
                     : filtroKpi === 'sin_op'

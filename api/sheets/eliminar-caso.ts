@@ -78,7 +78,8 @@ export default async function handler(req: any, res: any) {
     const fn = Number(filaNumero);
     let filaTarget = !isNaN(fn) && fn >= 3 ? fn : 0;
 
-    // 1. Si tenemos filaNumero, verificar si coincide la fila con este caso
+    // 1. Si tenemos filaNumero, verificar estrictamente si coincide la fila con este caso
+    const tieneOp = Boolean(casoOp && String(casoOp).trim() !== '' && String(casoOp).trim() !== '-' && String(casoOp).trim().toLowerCase() !== 'sin caso op');
     if (filaTarget >= 3 && target) {
       const urlCheck = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/'Onboarding_New'!A${filaTarget}:B${filaTarget}?valueRenderOption=FORMATTED_VALUE`;
       const resCheck = await fetchConReintento(urlCheck, {
@@ -89,7 +90,10 @@ export default async function handler(req: any, res: any) {
         const row = dataCheck.values?.[0] || [];
         const opVal = String(row[0] || '').trim();
         const venVal = String(row[1] || '').trim();
-        if (opVal !== target && venVal !== target && !target.includes(opVal)) {
+        const coincideOp = Boolean(opVal && (opVal === target || target.startsWith(opVal + '_')));
+        const coincideVen = Boolean(venVal && (venVal === target || target.startsWith(venVal + '_')));
+        const okMatch = tieneOp ? coincideOp : (!opVal && coincideVen);
+        if (!okMatch) {
           filaTarget = 0; // Desfasada, buscar en toda la lista
         }
       }
@@ -108,12 +112,16 @@ export default async function handler(req: any, res: any) {
         for (let i = rows.length - 1; i >= 0; i--) {
           const op = String(rows[i]?.[0] || '').trim();
           const ven = String(rows[i]?.[1] || '').trim();
-          if (
-            (op && (op === target || target.startsWith(op + '_'))) ||
-            (ven && (ven === target || target.startsWith(ven + '_')))
-          ) {
-            filaTarget = i + 2;
-            break;
+          if (tieneOp) {
+            if (op && (op === target || target.startsWith(op + '_'))) {
+              filaTarget = i + 2;
+              break;
+            }
+          } else {
+            if (!op && ven && (ven === target || target.startsWith(ven + '_'))) {
+              filaTarget = i + 2;
+              break;
+            }
           }
         }
       }

@@ -252,7 +252,8 @@ export default async function handler(req: any, res: any) {
       const estadoNorm = estado.toLowerCase().trim();
       const esActivo = estadoNorm === 'en progreso' || estadoNorm === 'nuevo' || estadoNorm === 'abierto' || estadoNorm.includes('ticket hc') || estadoNorm.includes('sin oportunidad');
 
-      const filaNumero = headerRowIdx + 2 + idx;
+      const SHEET_START_ROW = 2; // El rango A2:AZ inicia en la fila 2 de Google Sheets
+      const filaNumero = SHEET_START_ROW + headerRowIdx + 1 + idx;
       const idUnico = (casoOp && casoOp !== '-') ? `${casoOp}_${filaNumero}` : (vendorId ? `${vendorId}_${filaNumero}` : `fila_${filaNumero}`);
 
       casos.push({
