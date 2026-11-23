@@ -11,6 +11,8 @@ import {
   resolverOportunidad,
   esCasoHcAbierto,
   esCasoEnProgreso,
+  esCasoEnProgresoSolo,
+  esCasoEnProgresoSinOportunidad,
   esCasoActivoGlobal,
   contarTicketsSeguimientoUnicos
 } from '../../utils/onboardingRules';
@@ -825,15 +827,11 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
   
   const totalTodosActivos = useMemo(() => casosConAlertas.filter(x => (esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)).length, [casosConAlertas]);
 
-  // Casos en progreso: casos con Estado del caso = En progreso asignados por Propietario Oportunidad
-  const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => esCasoEnProgreso(x.caso) && x.esMiOportunidad).length, [casosConAlertas]);
+  // Casos en progreso: estrictamente Estado del caso = "En progreso" asignados por Propietario Oportunidad
+  const totalEnProgresoNormal = useMemo(() => casosConAlertas.filter(x => esCasoEnProgresoSolo(x.caso) && x.esMiOportunidad).length, [casosConAlertas]);
 
-  const totalSinOportunidad = useMemo(() => casosConAlertas.filter(x => {
-    if (!esCasoEnProgreso(x.caso) || !x.esMiOportunidad) return false;
-    const est = String(x.caso.estado || '').toLowerCase().trim();
-    const etapa = String(x.caso.etapa || '').toLowerCase().trim();
-    return est.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !x.caso.casoOp || x.caso.casoOp === '-';
-  }).length, [casosConAlertas]);
+  // Casos sin oportunidad: estrictamente Estado del caso = "En progreso (sin oportunidad)" asignados por Propietario Oportunidad
+  const totalSinOportunidad = useMemo(() => casosConAlertas.filter(x => esCasoEnProgresoSinOportunidad(x.caso) && x.esMiOportunidad).length, [casosConAlertas]);
 
   const totalPos = useMemo(() => casosConAlertas.filter(x => ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushPos).length, [casosConAlertas]);
   const totalCat = useMemo(() => casosConAlertas.filter(x => ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushCat).length, [casosConAlertas]);
@@ -866,22 +864,19 @@ export default function Dashboard({ role, email, nombreUsuario, onLogout }: Dash
         if (String(x.caso.asset || '').trim().toLowerCase() !== filtroAsset.trim().toLowerCase()) return false;
       }
 
-      const est = String(x.caso.estado || '').toLowerCase().trim();
-      const etapa = String(x.caso.etapa || '').toLowerCase().trim();
-      const esSinOp = est.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !x.caso.casoOp || x.caso.casoOp === '-';
-
       // Casos con seguimiento abiertos: guiados estrictamente por Propietario Ticket
       if (filtroMisCasos === 'hcAbiertos') {
         return esCasoHcAbierto(x.caso) && x.esMiTicketHC;
       }
 
-      // Casos en progreso: guiados estrictamente por Propietario Oportunidad
+      // Casos en progreso: estrictamente Estado del caso = "En progreso" guiados por Propietario Oportunidad
       if (filtroMisCasos === 'enProgreso') {
-        return esCasoEnProgreso(x.caso) && x.esMiOportunidad;
+        return esCasoEnProgresoSolo(x.caso) && x.esMiOportunidad;
       }
 
+      // Casos sin oportunidad: estrictamente Estado del caso = "En progreso (sin oportunidad)" guiados por Propietario Oportunidad
       if (filtroMisCasos === 'sinOportunidad') {
-        return esCasoEnProgreso(x.caso) && x.esMiOportunidad && esSinOp;
+        return esCasoEnProgresoSinOportunidad(x.caso) && x.esMiOportunidad;
       }
       if (filtroMisCasos === 'pushPos') return ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushPos;
       if (filtroMisCasos === 'pushCat') return ((esCasoEnProgreso(x.caso) && x.esMiOportunidad) || (esCasoHcAbierto(x.caso) && x.esMiTicketHC)) && x.alertas.requierePushCat;

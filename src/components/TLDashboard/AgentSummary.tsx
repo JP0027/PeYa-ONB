@@ -1,5 +1,10 @@
 import React from 'react';
-import { contarTicketsSeguimientoUnicos, esCasoHcAbierto, esCasoEnProgreso } from '../../utils/onboardingRules';
+import {
+  contarTicketsSeguimientoUnicos,
+  esCasoHcAbierto,
+  esCasoEnProgresoSolo,
+  esCasoEnProgresoSinOportunidad
+} from '../../utils/onboardingRules';
 import { isHeroCareOwnerMatch, isOpportunityOwnerMatch } from '../../utils/agentMatching';
 
 export interface AgentSummaryProps {
@@ -26,9 +31,15 @@ export default function AgentSummary({
   );
   const segAbiertosUnicos = contarTicketsSeguimientoUnicos(casosSegAbiertos);
 
-  // Casos de onboarding con estado En progreso guiados estrictamente por Propietario Oportunidad
+  // Casos de onboarding con Estado del caso = "En progreso" guiados estrictamente por Propietario Oportunidad
   const onbEnProgreso = casos.filter(c =>
-    esCasoEnProgreso(c) &&
+    esCasoEnProgresoSolo(c) &&
+    (c.ownerOportunidad ? c.ownerOportunidad === agente : isOpportunityOwnerMatch(c, undefined, agente))
+  ).length;
+
+  // Casos de onboarding con Estado del caso = "En progreso (sin oportunidad)" guiados por Propietario Oportunidad
+  const onbSinOp = casos.filter(c =>
+    esCasoEnProgresoSinOportunidad(c) &&
     (c.ownerOportunidad ? c.ownerOportunidad === agente : isOpportunityOwnerMatch(c, undefined, agente))
   ).length;
 
@@ -71,8 +82,8 @@ export default function AgentSummary({
         )}
       </div>
 
-      {/* Métricas lado a lado: Seg. Abiertos (tickets únicos sin repetir) y Casos ONB en Progreso */}
-      <div className="grid grid-cols-2 gap-2 mb-2.5">
+      {/* Métricas lado a lado: Seg. Abiertos, ONB Progreso (solo "En progreso") y Sin OP ("En progreso (sin oportunidad)") */}
+      <div className="grid grid-cols-3 gap-1.5 mb-2.5">
         <div 
           onClick={(e) => {
             e.stopPropagation();
@@ -85,8 +96,9 @@ export default function AgentSummary({
           }`}
           title={`Clic para filtrar por tickets de seguimiento de ${agente} (${segAbiertosUnicos} tickets únicos en ${casosSegAbiertos.length} filas)`}
         >
-          <div className="text-[10px] font-semibold text-emerald-400 flex items-center justify-center gap-1">
-            <span>🎫</span> Seg. Abiertos
+          <div className="text-[9.5px] leading-tight font-semibold text-emerald-400 flex flex-col items-center justify-center">
+            <span>🎫 Seg.</span>
+            <span>Abiertos</span>
           </div>
           <div className="text-sm font-bold text-emerald-400 leading-tight mt-0.5">
             {segAbiertosUnicos}
@@ -103,13 +115,35 @@ export default function AgentSummary({
               ? 'border-cyan-500 ring-2 ring-cyan-400 bg-cyan-950/20'
               : 'border-cyan-500/80 hover:border-cyan-400'
           }`}
-          title={`Clic para filtrar por casos ONB en progreso de ${agente} (${onbEnProgreso} casos)`}
+          title={`Clic para filtrar por casos con Estado "En progreso" de ${agente} (${onbEnProgreso} casos)`}
         >
-          <div className="text-[10px] font-semibold text-cyan-400 flex items-center justify-center gap-1">
-            <span>💼</span> ONB Progreso
+          <div className="text-[9.5px] leading-tight font-semibold text-cyan-400 flex flex-col items-center justify-center">
+            <span>💼 ONB</span>
+            <span>Progreso</span>
           </div>
           <div className="text-sm font-bold text-cyan-400 leading-tight mt-0.5">
             {onbEnProgreso}
+          </div>
+        </div>
+
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(agente, 'sin_op');
+          }}
+          className={`p-1.5 rounded-lg border-2 text-center transition cursor-pointer flex flex-col justify-center bg-transparent ${
+            seleccionado && kpiActivo === 'sin_op'
+              ? 'border-purple-500 ring-2 ring-purple-400 bg-purple-950/20'
+              : 'border-purple-500/80 hover:border-purple-400'
+          }`}
+          title={`Clic para filtrar por casos con Estado "En progreso (sin oportunidad)" de ${agente} (${onbSinOp} casos)`}
+        >
+          <div className="text-[9.5px] leading-tight font-semibold text-purple-400 flex flex-col items-center justify-center">
+            <span>⚡ Sin</span>
+            <span>OP</span>
+          </div>
+          <div className="text-sm font-bold text-purple-400 leading-tight mt-0.5">
+            {onbSinOp}
           </div>
         </div>
       </div>

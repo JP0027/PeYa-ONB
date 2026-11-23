@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import AgentSummary from './AgentSummary';
 import MetricsPanel from './MetricsPanel';
 import ReportDownloader from './ReportDownloader';
-import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto, esCasoEnProgreso, esCasoActivoGlobal, contarTicketsSeguimientoUnicos } from '../../utils/onboardingRules';
+import { analizarAlertasCaso, limpiarTextoEtapa, esPushKamRealizado, normalizarRespuesta, esCasoHcAbierto, esCasoEnProgreso, esCasoEnProgresoSolo, esCasoEnProgresoSinOportunidad, esCasoActivoGlobal, contarTicketsSeguimientoUnicos } from '../../utils/onboardingRules';
 import { esEstadoActivoOficial, LISTA_ASSETS } from '../../data/catalogoOnboarding';
 import { normalizarAgenteOficial } from '../../utils/agentMatching';
 
@@ -194,14 +194,10 @@ export default function TLDashboard({
       }
 
       if (filtroKpi !== 'todos') {
-        const estLower = String(c.estado || '').toLowerCase().trim();
-        const etapaLower = String(c.etapa || '').toLowerCase().trim();
-        const esSinOp = estLower.includes('sin oportunidad') || etapaLower.includes('sin oportunidad');
-        
         if (filtroKpi === 'en_progreso') {
-          if (!esCasoEnProgreso(c)) return false;
+          if (!esCasoEnProgresoSolo(c)) return false;
         } else if (filtroKpi === 'sin_op') {
-          if (!esSinOp) return false;
+          if (!esCasoEnProgresoSinOportunidad(c)) return false;
         } else if (filtroKpi === 'fuera_sla') {
           if (!c.esActivo || c.horasSLA < 96) return false;
         } else if (filtroKpi === 'proximos') {
@@ -229,7 +225,9 @@ export default function TLDashboard({
     if (filtroKpi === 'hc_abiertos') {
       base = casosFiltrados.filter(c => esCasoHcAbierto(c));
     } else if (filtroKpi === 'en_progreso') {
-      base = casosFiltrados.filter(c => esCasoEnProgreso(c));
+      base = casosFiltrados.filter(c => esCasoEnProgresoSolo(c));
+    } else if (filtroKpi === 'sin_op') {
+      base = casosFiltrados.filter(c => esCasoEnProgresoSinOportunidad(c));
     } else if (filtroEstado === 'todos' && filtroKpi === 'todos') {
       base = casosFiltrados.filter(c => c.esActivo);
     } else {
@@ -360,16 +358,12 @@ export default function TLDashboard({
   let segAbiertosTotal = segAbiertosTicketsUnicos;
 
   casosProcesados.forEach(c => {
-    const estado = String(c.estado || '').toLowerCase().trim();
-    const etapa = String(c.etapa || '').toLowerCase().trim();
-    const esSinOp = estado.includes('sin oportunidad') || etapa.includes('sin oportunidad') || !c.casoOp || String(c.casoOp).trim() === '';
-
-    // Casos en progreso: casos con la columna Estado del caso = En progreso
-    if (esCasoEnProgreso(c)) {
+    // Casos en progreso: estrictamente Estado del caso = "En progreso"
+    // A parte: Estado del caso = "En progreso (sin oportunidad)"
+    if (esCasoEnProgresoSolo(c)) {
       inProgressNormal++;
-      if (esSinOp) {
-        inProgressSinOp++;
-      }
+    } else if (esCasoEnProgresoSinOportunidad(c)) {
+      inProgressSinOp++;
     }
 
     if (c.esActivo) {
@@ -551,7 +545,7 @@ export default function TLDashboard({
               <button 
                 onClick={() => {
                   setFiltroAgente('todos');
-                  if (filtroKpi === 'hc_abiertos' || filtroKpi === 'en_progreso') {
+                  if (filtroKpi === 'hc_abiertos' || filtroKpi === 'en_progreso' || filtroKpi === 'sin_op') {
                     setFiltroKpi('todos');
                   }
                 }}

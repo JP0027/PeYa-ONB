@@ -638,12 +638,29 @@ export function procesarActualizacionCaso(casoAnterior: any, nuevosValores: any)
  * Casos donde el ticket de seguimiento HeroCare está Abierto o en seguimiento
  * (ej. "Abierto", "Abierto (sin oportunidad)", "Esperando por el cliente", "Transferido"),
 /**
- * Casos en progreso: casos con la columna Estado del caso = En progreso
+ * Casos con "Estado del caso de onboarding" estrictamente igual a "En progreso"
+ * (excluye "En progreso (sin oportunidad)")
  */
-export function esCasoEnProgreso(caso: any): boolean {
+export function esCasoEnProgresoSolo(caso: any): boolean {
   if (!caso) return false;
   const est = String(caso.estado || '').toLowerCase().trim();
-  return est === 'en progreso' || est.includes('en progreso');
+  return est === 'en progreso';
+}
+
+/**
+ * Casos con "Estado del caso de onboarding" igual a "En progreso (sin oportunidad)"
+ */
+export function esCasoEnProgresoSinOportunidad(caso: any): boolean {
+  if (!caso) return false;
+  const est = String(caso.estado || '').toLowerCase().trim();
+  return est === 'en progreso (sin oportunidad)' || (est.includes('en progreso') && est.includes('sin oportunidad'));
+}
+
+/**
+ * Casos en progreso (incluye tanto "En progreso" como "En progreso (sin oportunidad)")
+ */
+export function esCasoEnProgreso(caso: any): boolean {
+  return esCasoEnProgresoSolo(caso) || esCasoEnProgresoSinOportunidad(caso);
 }
 
 /**
